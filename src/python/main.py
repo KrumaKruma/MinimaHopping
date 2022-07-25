@@ -4,10 +4,178 @@ from ase.calculators.lj import LennardJones
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
 from ase.md.verlet import VelocityVerlet
 from ase import units
-
+import torque
 from ase.optimize import BFGS
 from ase.optimize import QuasiNewton
 #from nequip.ase import NequIPCalculator
+
+
+
+
+
+
+def get_moment(velocities):
+    # eliminiation of momentum
+    s = np.sum(velocities, axis=0)/velocities.shape[0]
+    print(s)
+    return None
+
+
+
+
+def get_torque(positions, velocities, masses):
+    total_mass = np.sum(masses)
+    masses_3d = np.vstack([masses] * 3).T
+    weighted_positions = positions * masses_3d
+    cm = np.sum(weighted_positions, axis=0)
+    cm /= total_mass
+
+    tv = 0
+    for at, v in zip(positions, velocities):
+        tv += np.cross(at,v)
+    print(tv)
+
+    return None
+
+
+
+def normalize(v):
+    norm = np.linalg.norm(v)
+    if norm == 0:
+       return v
+    return v / norm
+
+
+def moment_of_inertia(masses, positions):
+    inertia_tensor = np.zeros((3,3))
+    for at, mass in zip(positions, masses):
+        inertia_tensor[0,0] += mass * (at[1]**2 + at[2]**2)
+        inertia_tensor[1,1] += mass * (at[0]**2 + at[2]**2)
+        inertia_tensor[2,2] += mass * (at[0]**2 + at[1]**2)
+        inertia_tensor[0,1] -= mass * (at[0] * at[1])
+        inertia_tensor[0,2] -= mass * (at[0] * at[2])
+        inertia_tensor[1,2] -= mass * (at[1] * at[2])
+
+    inertia_tensor[1,0] = inertia_tensor[0,1]
+    inertia_tensor[2,0] = inertia_tensor[0,2]
+    inertia_tensor[2,1] = inertia_tensor[1,2]
+
+    eigenvalues, eigenvectors = np.linalg.eig(inertia_tensor)
+    return eigenvalues, eigenvectors
+
+
+
+def elim_moment(velocities):
+    # eliminiation of momentum
+    s = np.sum(velocities, axis=0)/velocities.shape[0]
+    velocities -= s
+    return velocities
+
+def elim_torque(positions, velocities, masses):
+    #elimination of torque
+    masses = np.ones((positions.shape[0]))
+    #calculate center of mass and subtracti it from positions
+    total_mass = np.sum(masses)
+    masses_3d = np.vstack([masses]*3).T
+    weighted_positions = positions * masses_3d
+    get_torque(weighted_positions, velocities, masses)
+    cm = np.sum(weighted_positions, axis=0)
+    cm /= total_mass
+    weighted_positions -= cm
+
+
+    evaleria, teneria = moment_of_inertia(masses, positions)
+
+    vrot = np.zeros((positions.shape[0], 3, 3))
+    for iat, at in enumerate(positions):
+        vrot[iat, :, 0] = np.cross(teneria[:,0], at)
+        vrot[iat, :, 1] = np.cross(teneria[:,1], at)
+        vrot[iat, :, 2] = np.cross(teneria[:,2], at)
+
+    velocities = velocities.flatten()
+    vrot = vrot.reshape((38*3,3),order="C")
+    print("DEBI:   ", vrot[9,1])
+    for i, vec in enumerate(vrot.T):
+        vrot[:,i] = normalize(vec)
+
+    #print(vrot.reshape((38*3,3)))
+
+    weighted_positions += cm
+
+    for i, eval in enumerate(evaleria):
+        if abs(eval) > 1e-10:
+            alpha = np.dot(vrot[:,i], velocities)
+            velocities -= alpha * vrot[:,i]
+
+    velocities = velocities.reshape((38,3))
+
+    #get_torque(weighted_positions, velocities, masses)
+    return velocities
+
+
+
+
+
+def soften(atoms, nsoft):
+    # Softening constants
+    eps_dd = 1e-2
+    alpha = 0.001
+    # Get initial energy
+    e_pot_in = atoms.get_potential_energy()
+    positions_in = atoms.get_positions()
+    masses = atoms.get_masses()
+
+    # Normalize initial guess
+    velocities = atoms.get_momenta()
+    norm_const = eps_dd/np.sqrt(np.sum(velocities**2))
+    velocities *= norm_const
+
+    # Softening cycle
+    for it in range(nsoft):
+        w_positions = positions_in + velocities
+        atoms.set_positions(w_positions)
+
+        e_pot = atoms.get_potential_energy()
+        forces = atoms.get_forces()
+
+        # fd2 is only a control variable
+        fd2 = 2. * (e_pot - e_pot_in)/eps_dd**2
+
+        sdf = np.sum(velocities * forces)
+        sdd = np.sum(velocities * velocities)
+
+        curve = -sdf/sdd
+        if it == 0:
+            curve0 = curve
+
+        tt = np.sqrt(np.sum(forces*forces))
+        forces += curve * velocities
+        res = np.sqrt(np.sum(forces*forces))
+
+        #print(it, tt, res, curve, fd2, e_pot - e_pot_in)
+
+        w_positions = w_positions + alpha * forces
+        velocities = w_positions-positions_in
+
+
+        velocities = elim_moment(velocities)
+
+        #get_torque(w_positions, velocities, masses)
+        velocities = elim_torque(w_positions, velocities, masses)
+        #velocities = torque.elim_torque_reza(w_positions.flatten(), velocities.flatten())
+        velocities = velocities.reshape(38,3)
+        get_moment(velocities)
+        get_torque(w_positions, velocities, masses)
+
+        sdd = eps_dd/np.sqrt(np.sum(velocities**2))
+        if res < (curve*eps_dd*0.5):
+            break
+        velocities *= sdd
+
+    # Restore initial positions in atoms object
+    #atoms.set_positions(positions_in)
+
+    return velocities
 
 
 
@@ -30,6 +198,7 @@ def md(atoms,dt):
         atoms.set_momenta(velocities + 0.5*dt * ((forces + new_forces)/masses), apply_constraint=False)
 
         epot = atoms.get_potential_energy()
+        #print("MD", str(epot))
         sign = int(np.sign(epot_old-epot))
         if sign_old != sign:
             sign_old = sign
@@ -70,6 +239,12 @@ def escape_trial(atoms, dt, T):
     beta_s = 1.01
     while escape < 1e-6:
         MaxwellBoltzmannDistribution(atoms, temperature_K=T)
+        #print(np.sqrt(np.sum(atoms.get_momenta()*atoms.get_momenta())))
+        velocities = soften(atoms, 20)
+        #print(np.sqrt(np.sum(velocities*velocities)))
+        atoms.set_momenta(velocities)
+        #print(np.sqrt(np.sum(atoms.get_momenta() * atoms.get_momenta())))
+
         md(atoms, dt)
         #optimizer(atoms, 0.005)
         dyn = QuasiNewton(atoms)
@@ -94,7 +269,7 @@ def main():
 
     # Initial settings and paths
     path = "/home/marco/NequipMH/data/38/"
-    filename = "acc-00010.xyz"
+    filename = "acc-00000.xyz"
 
     #path = "/home/marco/NequipMH/data/"
     #filename = "LJ38.xyz"
@@ -107,7 +282,7 @@ def main():
     n_acc = 0
     n_min = 0
     history = []
-    T = 500
+    T = 5000
     beta_decrease = 1./1.1
     beta_increase = 1.1
 
