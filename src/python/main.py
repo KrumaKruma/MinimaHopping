@@ -4,13 +4,19 @@ from ase.calculators.lj import LennardJones
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
 from ase.md.verlet import VelocityVerlet
 from ase import units
-import torque
+#import torque
 from ase.optimize import BFGS
 from ase.optimize import QuasiNewton
 #from nequip.ase import NequIPCalculator
 
 
-
+def lattice_derivative(atoms):
+    stress_tensor = atoms.get_stress(voigt=False)
+    cell = atoms.get_cell(complete=False)
+    inv_cell = np.linalg.inv(cell)
+    prefact = np.linalg.det(cell)
+    deralat = prefact * np.matmul(stress_tensor, inv_cell.T)
+    return deralat
 
 
 
@@ -33,7 +39,7 @@ def get_torque(positions, velocities, masses):
     tv = 0
     for at, v in zip(positions, velocities):
         tv += np.cross(at,v)
-    print(tv)
+    #print(tv)
 
     return None
 
@@ -94,7 +100,7 @@ def elim_torque(positions, velocities, masses):
 
     velocities = velocities.flatten()
     vrot = vrot.reshape((38*3,3),order="C")
-    print("DEBI:   ", vrot[9,1])
+    #print("DEBI:   ", vrot[9,1])
     for i, vec in enumerate(vrot.T):
         vrot[:,i] = normalize(vec)
 
@@ -119,7 +125,7 @@ def elim_torque(positions, velocities, masses):
 def soften(atoms, nsoft):
     # Softening constants
     eps_dd = 1e-2
-    alpha = 0.001
+    alpha = 1e-3
     # Get initial energy
     e_pot_in = atoms.get_potential_energy()
     positions_in = atoms.get_positions()
@@ -152,7 +158,7 @@ def soften(atoms, nsoft):
         forces += curve * velocities
         res = np.sqrt(np.sum(forces*forces))
 
-        #print(it, tt, res, curve, fd2, e_pot - e_pot_in)
+        print(it, tt, res, curve, fd2, e_pot - e_pot_in)
 
         w_positions = w_positions + alpha * forces
         velocities = w_positions-positions_in
@@ -164,14 +170,14 @@ def soften(atoms, nsoft):
         velocities = elim_torque(w_positions, velocities, masses)
         #velocities = torque.elim_torque_reza(w_positions.flatten(), velocities.flatten())
         velocities = velocities.reshape(38,3)
-        get_moment(velocities)
-        get_torque(w_positions, velocities, masses)
+        #get_moment(velocities)
+        #get_torque(w_positions, velocities, masses)
 
         sdd = eps_dd/np.sqrt(np.sum(velocities**2))
         if res < (curve*eps_dd*0.5):
             break
         velocities *= sdd
-
+    velocities /= norm_const
     # Restore initial positions in atoms object
     #atoms.set_positions(positions_in)
 
@@ -239,9 +245,11 @@ def escape_trial(atoms, dt, T):
     beta_s = 1.01
     while escape < 1e-6:
         MaxwellBoltzmannDistribution(atoms, temperature_K=T)
+
+        # Soften part for now commented...
         #print(np.sqrt(np.sum(atoms.get_momenta()*atoms.get_momenta())))
-        velocities = soften(atoms, 20)
-        #print(np.sqrt(np.sum(velocities*velocities)))
+        velocities = soften(atoms, 10)
+        #quit()
         atoms.set_momenta(velocities)
         #print(np.sqrt(np.sum(atoms.get_momenta() * atoms.get_momenta())))
 
@@ -268,9 +276,10 @@ def in_history(e_pot_cur,history):
 def main():
 
     # Initial settings and paths
-    path = "/home/marco/NequipMH/data/38/"
-    filename = "acc-00000.xyz"
-
+    #path = "/home/marco/NequipMH/data/38/"
+    #filename = "acc-00000.xyz"
+    path = "/home/marco/NequipMH/data/"
+    filename = "MIN_IN.xyz"
     #path = "/home/marco/NequipMH/data/"
     #filename = "LJ38.xyz"
 
@@ -282,13 +291,12 @@ def main():
     n_acc = 0
     n_min = 0
     history = []
-    T = 5000
+    T = 300
     beta_decrease = 1./1.1
     beta_increase = 1.1
 
     # Read local minimum input file
     atoms = read(path+filename)
-
 
     # Initialize calculator (Nequip)
     #atoms.calc = NequIPCalculator.from_deployed_model()
@@ -308,7 +316,6 @@ def main():
     calculator.parameters.rc = 12.0
 
     atoms.calc = calculator
-
     pos_cur = atoms.get_positions()
     e_pot_cur = atoms.get_potential_energy()
     history.append((e_pot_cur, 1))
