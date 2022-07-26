@@ -10,6 +10,25 @@ from ase.optimize import QuasiNewton
 #from nequip.ase import NequIPCalculator
 
 
+
+def cart2frac(atoms):
+    positions = atoms.get_positions()
+    cell = atoms.get_cell()
+    inv_cell = np.linalg.inv(cell)
+    reduced_positions = np.zeros(positions.shape)
+
+    for i,at in enumerate(positions):
+        reduced_positions[i,:] = np.matmul(inv_cell, at)
+
+
+    return reduced_positions
+
+
+
+
+
+
+
 def lattice_derivative(atoms):
     stress_tensor = atoms.get_stress(voigt=False)
     cell = atoms.get_cell(complete=False)
@@ -39,7 +58,7 @@ def get_torque(positions, velocities, masses):
     tv = 0
     for at, v in zip(positions, velocities):
         tv += np.cross(at,v)
-    #print(tv)
+    print(tv)
 
     return None
 
@@ -158,7 +177,7 @@ def soften(atoms, nsoft):
         forces += curve * velocities
         res = np.sqrt(np.sum(forces*forces))
 
-        print(it, tt, res, curve, fd2, e_pot - e_pot_in)
+        #print(it, tt, res, curve, fd2, e_pot - e_pot_in)
 
         w_positions = w_positions + alpha * forces
         velocities = w_positions-positions_in
@@ -179,10 +198,9 @@ def soften(atoms, nsoft):
         velocities *= sdd
     velocities /= norm_const
     # Restore initial positions in atoms object
-    #atoms.set_positions(positions_in)
+    atoms.set_positions(positions_in)
 
     return velocities
-
 
 
 def md(atoms,dt):
@@ -316,6 +334,10 @@ def main():
     calculator.parameters.rc = 12.0
 
     atoms.calc = calculator
+
+    cart2frac(atoms)
+    quit()
+
     pos_cur = atoms.get_positions()
     e_pot_cur = atoms.get_potential_energy()
     history.append((e_pot_cur, 1))
