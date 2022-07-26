@@ -11,6 +11,22 @@ from ase.optimize import QuasiNewton
 
 
 
+
+
+
+
+
+
+
+def frac2cart(atoms, reduced_positions):
+    cell = atoms.get_cell()
+    positions = np.zeros(reduced_positions.shape)
+
+    for i,at in enumerate(reduced_positions):
+        positions[i,:] = np.matmul(cell,at)
+
+    return positions
+
 def cart2frac(atoms):
     positions = atoms.get_positions()
     cell = atoms.get_cell()
@@ -22,10 +38,6 @@ def cart2frac(atoms):
 
 
     return reduced_positions
-
-
-
-
 
 
 
@@ -334,9 +346,6 @@ def main():
     calculator.parameters.rc = 12.0
 
     atoms.calc = calculator
-
-    cart2frac(atoms)
-    quit()
 
     pos_cur = atoms.get_positions()
     e_pot_cur = atoms.get_potential_energy()
