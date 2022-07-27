@@ -2,6 +2,7 @@ import numpy as np
 from ase.io import read, write
 from ase.calculators.lj import LennardJones
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
+from ase import Atoms
 from ase.md.verlet import VelocityVerlet
 from ase import units
 #import torque
@@ -32,7 +33,6 @@ def cart2frac(atoms):
     cell = atoms.get_cell()
     inv_cell = np.linalg.inv(cell)
     reduced_positions = np.zeros(positions.shape)
-
     for i,at in enumerate(positions):
         reduced_positions[i,:] = np.matmul(inv_cell, at)
 
@@ -46,7 +46,7 @@ def lattice_derivative(atoms):
     cell = atoms.get_cell(complete=False)
     inv_cell = np.linalg.inv(cell)
     prefact = np.linalg.det(cell)
-    deralat = prefact * np.matmul(stress_tensor, inv_cell.T)
+    deralat = prefact * np.matmul(stress_tensor, inv_cell)
     return deralat
 
 
@@ -115,7 +115,7 @@ def elim_torque(positions, velocities, masses):
     total_mass = np.sum(masses)
     masses_3d = np.vstack([masses]*3).T
     weighted_positions = positions * masses_3d
-    get_torque(weighted_positions, velocities, masses)
+    #get_torque(weighted_positions, velocities, masses)
     cm = np.sum(weighted_positions, axis=0)
     cm /= total_mass
     weighted_positions -= cm
@@ -130,7 +130,7 @@ def elim_torque(positions, velocities, masses):
         vrot[iat, :, 2] = np.cross(teneria[:,2], at)
 
     velocities = velocities.flatten()
-    vrot = vrot.reshape((38*3,3),order="C")
+    vrot = vrot.reshape((positions.shape[0]*3,3),order="C")
     #print("DEBI:   ", vrot[9,1])
     for i, vec in enumerate(vrot.T):
         vrot[:,i] = normalize(vec)
@@ -144,7 +144,7 @@ def elim_torque(positions, velocities, masses):
             alpha = np.dot(vrot[:,i], velocities)
             velocities -= alpha * vrot[:,i]
 
-    velocities = velocities.reshape((38,3))
+    velocities = velocities.reshape((positions.shape[0],3))
 
     #get_torque(weighted_positions, velocities, masses)
     return velocities
@@ -154,6 +154,7 @@ def elim_torque(positions, velocities, masses):
 
 
 def soften(atoms, nsoft):
+    # TODO: Softening also for variable cell shape md
     # Softening constants
     eps_dd = 1e-2
     alpha = 1e-3
@@ -163,7 +164,7 @@ def soften(atoms, nsoft):
     masses = atoms.get_masses()
 
     # Normalize initial guess
-    velocities = atoms.get_momenta()
+    velocities = atoms.get_velocities()
     norm_const = eps_dd/np.sqrt(np.sum(velocities**2))
     velocities *= norm_const
 
@@ -200,7 +201,7 @@ def soften(atoms, nsoft):
         #get_torque(w_positions, velocities, masses)
         velocities = elim_torque(w_positions, velocities, masses)
         #velocities = torque.elim_torque_reza(w_positions.flatten(), velocities.flatten())
-        velocities = velocities.reshape(38,3)
+        velocities = velocities.reshape(w_positions.shape[0],3)
         #get_moment(velocities)
         #get_torque(w_positions, velocities, masses)
 
@@ -224,14 +225,14 @@ def md(atoms,dt):
     i = 0
     while n_change < 4:
         forces = atoms.get_forces()
-        velocities = atoms.get_momenta()
+        velocities = atoms.get_velocities()
         positions = atoms.get_positions()
 
         #Update postions
         atoms.set_positions(positions + dt*velocities + 0.5*dt*dt*(forces/(masses)))
 
         new_forces = atoms.get_forces()
-        atoms.set_momenta(velocities + 0.5*dt * ((forces + new_forces)/masses), apply_constraint=False)
+        atoms.set_velocities(velocities + 0.5 * dt * ((forces + new_forces)/masses))
 
         epot = atoms.get_potential_energy()
         #print("MD", str(epot))
@@ -245,6 +246,75 @@ def md(atoms,dt):
         #filename = "MD" + str(i).zfill(4) + ".xyz"
         #write(filename, atoms)
         i += 1
+
+
+def vcsmd(atoms,cell_atoms,dt):
+
+    #TODO: Energy conservation is not entierly right
+
+    # MD which visits at least three max
+    # Initializations
+    masses = atoms.get_masses()[:, np.newaxis] / atoms.get_masses()[:, np.newaxis]  # for the moment no masses
+    cell_masses = cell_atoms.get_masses()[:, np.newaxis]  # for the moment no masses
+    epot_old = atoms.get_potential_energy()
+    sign_old = -1
+    n_change = 0
+    i = 0
+
+
+    #while n_change < 4:
+    for j in range(300):
+        forces = atoms.get_forces()
+        velocities = atoms.get_velocities()
+        positions = atoms.get_positions()
+
+        # Update postions
+        atoms.set_positions(positions + dt*velocities + 0.5*dt*dt*(forces/(masses)))
+
+        # Update lattice so that fractional coordinates remain invariant
+        reduced_postitions = cart2frac(atoms)
+        cell_positions = cell_atoms.get_positions()
+        cell_velocities = cell_atoms.get_velocities()
+        cell_forces = -lattice_derivative(atoms)
+        cell_atoms.set_positions(cell_positions + dt*cell_velocities + 0.5*dt*dt*(cell_forces/cell_masses))
+        atoms.set_cell(cell_atoms.get_positions())
+        positions = frac2cart(atoms,reduced_postitions)
+        atoms.set_positions(positions)
+
+        # Update velocities
+        new_forces = atoms.get_forces()
+        atoms.set_velocities(velocities + 0.5 * dt * ((forces + new_forces) / masses))
+
+        # Update velocities of the cell atoms
+        new_cell_forces = -lattice_derivative(atoms)
+        cell_atoms.set_velocities(cell_velocities + 0.5 * dt * ((cell_forces + new_cell_forces) / cell_masses))
+
+        epot = atoms.get_potential_energy()
+        #print("MD", str(epot))
+        sign = int(np.sign(epot_old-epot))
+        if sign_old != sign:
+            sign_old = sign
+            n_change += 1
+        #print(n_change, epot_old-epot)
+
+        epot_old = epot
+        e_kin = 0.5*np.sum(masses*atoms.get_velocities() * atoms.get_velocities())
+        e_kin += 0.5 * np.sum(cell_masses * cell_atoms.get_velocities() * cell_atoms.get_velocities())
+        print(i,epot, e_kin, epot + e_kin)
+        filename = "MD" + str(i).zfill(4) + ".xyz"
+        write(filename, atoms)
+        i += 1
+
+    quit()
+
+
+
+
+
+
+
+
+
 
 def optimizer(atoms, criterion):
     norm = 1.
@@ -278,12 +348,17 @@ def escape_trial(atoms, dt, T):
 
         # Soften part for now commented...
         #print(np.sqrt(np.sum(atoms.get_momenta()*atoms.get_momenta())))
-        velocities = soften(atoms, 10)
-        #quit()
-        atoms.set_momenta(velocities)
+        #velocities = soften(atoms, 10)
+        #atoms.set_velocities(velocities)
         #print(np.sqrt(np.sum(atoms.get_momenta() * atoms.get_momenta())))
-
-        md(atoms, dt)
+        if True in atoms.pbc:
+            cell_atoms = Atoms('Ar3', positions=atoms.get_cell())
+            cell_atoms.set_masses([100,100,100])
+            MaxwellBoltzmannDistribution(cell_atoms, temperature_K=T)
+            vcsmd(atoms,cell_atoms,  dt)
+            #md(atoms,dt)
+        else:
+            md(atoms,dt)
         #optimizer(atoms, 0.005)
         dyn = QuasiNewton(atoms)
         dyn.run(fmax = 1e-6)
