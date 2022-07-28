@@ -9,13 +9,8 @@ from ase import units
 from ase.optimize import BFGS
 from ase.optimize import QuasiNewton
 #from nequip.ase import NequIPCalculator
-
-
-
-
-
-
-
+from ase.build import bulk
+from ase.calculators.espresso import Espresso
 
 
 
@@ -39,14 +34,12 @@ def cart2frac(atoms):
 
     return reduced_positions
 
-
-
 def lattice_derivative(atoms):
     stress_tensor = atoms.get_stress(voigt=False)
     cell = atoms.get_cell(complete=False)
     inv_cell = np.linalg.inv(cell)
     prefact = np.linalg.det(cell)
-    deralat = prefact * np.matmul(stress_tensor, inv_cell)
+    deralat = prefact * np.matmul(stress_tensor, inv_cell.T)
     return deralat
 
 
@@ -151,10 +144,7 @@ def elim_torque(positions, velocities, masses):
 
 
 
-
-
 def soften(atoms, nsoft):
-    # TODO: Softening also for variable cell shape md
     # Softening constants
     eps_dd = 1e-2
     alpha = 1e-3
@@ -181,7 +171,6 @@ def soften(atoms, nsoft):
 
         sdf = np.sum(velocities * forces)
         sdd = np.sum(velocities * velocities)
-
         curve = -sdf/sdd
         if it == 0:
             curve0 = curve
@@ -190,8 +179,9 @@ def soften(atoms, nsoft):
         forces += curve * velocities
         res = np.sqrt(np.sum(forces*forces))
 
-        #print(it, tt, res, curve, fd2, e_pot - e_pot_in)
-
+        print(it, tt, res, curve, fd2, e_pot - e_pot_in)
+        #return velocities
+        #quit()
         w_positions = w_positions + alpha * forces
         velocities = w_positions-positions_in
 
@@ -247,10 +237,9 @@ def md(atoms,dt):
         #write(filename, atoms)
         i += 1
 
+    return None
 
 def vcsmd(atoms,cell_atoms,dt):
-
-    #TODO: Energy conservation is not entierly right
 
     # MD which visits at least three max
     # Initializations
@@ -261,10 +250,10 @@ def vcsmd(atoms,cell_atoms,dt):
     n_change = 0
     i = 0
 
-
+    forces = atoms.get_forces()
+    cell_forces = -lattice_derivative(atoms)
     #while n_change < 4:
     for j in range(300):
-        forces = atoms.get_forces()
         velocities = atoms.get_velocities()
         positions = atoms.get_positions()
 
@@ -275,7 +264,6 @@ def vcsmd(atoms,cell_atoms,dt):
         reduced_postitions = cart2frac(atoms)
         cell_positions = cell_atoms.get_positions()
         cell_velocities = cell_atoms.get_velocities()
-        cell_forces = -lattice_derivative(atoms)
         cell_atoms.set_positions(cell_positions + dt*cell_velocities + 0.5*dt*dt*(cell_forces/cell_masses))
         atoms.set_cell(cell_atoms.get_positions())
         positions = frac2cart(atoms,reduced_postitions)
@@ -289,6 +277,9 @@ def vcsmd(atoms,cell_atoms,dt):
         new_cell_forces = -lattice_derivative(atoms)
         cell_atoms.set_velocities(cell_velocities + 0.5 * dt * ((cell_forces + new_cell_forces) / cell_masses))
 
+        forces = new_forces
+        cell_forces = new_cell_forces
+
         epot = atoms.get_potential_energy()
         #print("MD", str(epot))
         sign = int(np.sign(epot_old-epot))
@@ -300,13 +291,12 @@ def vcsmd(atoms,cell_atoms,dt):
         epot_old = epot
         e_kin = 0.5*np.sum(masses*atoms.get_velocities() * atoms.get_velocities())
         e_kin += 0.5 * np.sum(cell_masses * cell_atoms.get_velocities() * cell_atoms.get_velocities())
-        print(i,epot, e_kin, epot + e_kin)
-        filename = "MD" + str(i).zfill(4) + ".xyz"
+        print("STEP:   ", i,epot, e_kin, epot + e_kin)
+        filename = "MD" + str(i).zfill(4) + ".ascii"
         write(filename, atoms)
         i += 1
 
-    quit()
-
+    return None
 
 
 
@@ -353,11 +343,15 @@ def escape_trial(atoms, dt, T):
         #print(np.sqrt(np.sum(atoms.get_momenta() * atoms.get_momenta())))
         if True in atoms.pbc:
             cell_atoms = Atoms('Ar3', positions=atoms.get_cell())
-            cell_atoms.set_masses([100,100,100])
-            MaxwellBoltzmannDistribution(cell_atoms, temperature_K=T)
+            cell_atoms.set_masses([10,10,10])
+            MaxwellBoltzmannDistribution(cell_atoms, temperature_K=20)
+            #velocities = soften(atoms,10)
+            #velocities = vcs_soften(atoms, cell_atoms, 10)
             vcsmd(atoms,cell_atoms,  dt)
             #md(atoms,dt)
         else:
+            velocities = soften(atoms, 10)
+            atoms.set_velocities(velocities)
             md(atoms,dt)
         #optimizer(atoms, 0.005)
         dyn = QuasiNewton(atoms)
@@ -418,12 +412,28 @@ def main():
     calculator = LennardJones()
     calculator.parameters.epsilon = 1.0
     calculator.parameters.sigma = 1.0
-    calculator.parameters.rc = 12.0
+    calculator.parameters.rc = 6.0
+
+    # atoms = bulk('NaCl', crystalstructure='rocksalt', a=6.0)
+    # pseudo_dir = '/home/marco/NequipMH/src/python/'
+    # pseudopotentials = {'Na': 'Na.UPF',
+    #                     'Cl': 'Cl.UPF'}
+    #
+    # input_data = {
+    #     'system': {
+    #         'ecutwfc': 100,
+    #         'ecutrho': 500},
+    #     'disk_io': 'low'}  # automatically put into 'control'
+    #
+    # calc = Espresso(pseudo_dir=pseudo_dir, pseudopotentials=pseudopotentials,
+    #                 tstress=True, tprnfor=True, kpts=(1, 1, 1), input_data=input_data)
 
     atoms.calc = calculator
 
+
     pos_cur = atoms.get_positions()
     e_pot_cur = atoms.get_potential_energy()
+
     history.append((e_pot_cur, 1))
     for i in range(10000):
         atoms = escape_trial(atoms, dt, T)
