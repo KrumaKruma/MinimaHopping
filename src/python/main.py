@@ -142,7 +142,142 @@ def elim_torque(positions, velocities, masses):
     #get_torque(weighted_positions, velocities, masses)
     return velocities
 
+def vcs_soften1(atoms, cell_atoms,nsoft):
+    # Softening constants
+    eps_dd = 1e-2
+    alpha = 1e-4
+    # Get initial energy
+    e_pot_in = atoms.get_potential_energy()
+    positions_in = atoms.get_positions()
+    masses = atoms.get_masses()
 
+    # Normalize initial guess
+    velocities = atoms.get_velocities()
+    norm_const = eps_dd/np.sqrt(np.sum(velocities**2))
+    velocities *= norm_const
+
+    # Softening cycle
+    for it in range(1000):
+        w_positions = positions_in + velocities
+        atoms.set_positions(w_positions)
+
+        e_pot = atoms.get_potential_energy()
+        forces = atoms.get_forces()
+
+        # fd2 is only a control variable
+        fd2 = 2. * (e_pot - e_pot_in)/eps_dd**2
+
+        sdf = np.sum(velocities * forces)
+        sdd = np.sum(velocities * velocities)
+        curve = -sdf/sdd
+        if it == 0:
+            curve0 = curve
+
+        tt = np.sqrt(np.sum(forces*forces))
+        forces += curve * velocities
+        res = np.sqrt(np.sum(forces*forces))
+
+        print(it, tt, res, curve, fd2, e_pot - e_pot_in)
+        #return velocities
+        #quit()
+        w_positions = w_positions + alpha * forces
+        velocities = w_positions-positions_in
+
+
+        velocities = elim_moment(velocities)
+
+        #get_torque(w_positions, velocities, masses)
+        velocities = elim_torque(w_positions, velocities, masses)
+        #velocities = torque.elim_torque_reza(w_positions.flatten(), velocities.flatten())
+        velocities = velocities.reshape(w_positions.shape[0],3)
+        #get_moment(velocities)
+        #get_torque(w_positions, velocities, masses)
+
+        sdd = eps_dd/np.sqrt(np.sum(velocities**2))
+        if res < (curve*eps_dd*0.5):
+            break
+        velocities *= sdd
+    velocities /= norm_const
+    # Restore initial positions in atoms object
+    atoms.set_positions(positions_in)
+
+    return velocities
+
+def vcs_soften(atoms, cell_atoms, nsoft):
+    # TODO: Softening also for variable cell shape md
+    # Softening constants
+    eps_dd = 1e-2
+    alpha_pos = 1e-3
+    alpha_lat = 1e-3
+
+    # Get initial energy
+    e_pot_in = atoms.get_potential_energy()
+    positions_in = atoms.get_positions()
+    cell_positions_in = cell_atoms.get_positions()
+
+
+    # Normalize initial guess
+    velocities = atoms.get_velocities()
+    cell_velocities = cell_atoms.get_velocities()
+    norm_const = eps_dd/(np.sqrt(np.sum(velocities**2) + np.sum(cell_velocities**2)))
+    velocities *= norm_const
+    cell_velocities *= norm_const
+
+
+    # Softening cycle
+    for it in range(1000):
+        w_positions = positions_in + velocities
+        w_cell_positions = cell_positions_in + cell_velocities
+
+        atoms.set_positions(w_positions)
+        reduced_positions = cart2frac(atoms)
+        atoms.set_cell(w_cell_positions)
+        positions = frac2cart(atoms, reduced_positions)
+        atoms.set_positions(positions) 
+
+        forces = atoms.get_forces()
+
+        e_pot = atoms.get_potential_energy()
+        deralat = -2.*lattice_derivative(atoms)
+
+        # fd2 is only a control variable
+        fd2 = 2. * (e_pot-e_pot_in)/(eps_dd**2)
+
+        sdf = np.sum(velocities * forces) + np.sum(cell_velocities * deralat)
+        sdd = np.sum(velocities * velocities) + np.sum(cell_velocities * cell_velocities)
+
+        curve1 = -sdf/sdd
+        if it == 0:
+            curve0 = curve1
+
+        tt = np.sqrt(np.sum(forces*forces) + np.sum(deralat*deralat))
+        forces += curve1 * velocities
+        deralat += curve1 * cell_velocities
+        res = np.sqrt(np.sum(forces*forces) + np.sum(deralat*deralat))
+
+
+        print(it, tt, res, curve1, fd2, e_pot - e_pot_in)
+
+        w_positions = w_positions + alpha_pos * forces
+        w_cell_positions = w_cell_positions + alpha_lat * deralat
+        velocities = w_positions-positions_in
+        cell_velocities = w_cell_positions - cell_positions_in
+
+        velocities = elim_moment(velocities)
+
+        sdd = eps_dd/np.sqrt(np.sum(velocities**2)+np.sum(cell_velocities**2))
+        if res < (curve1*eps_dd*0.5):
+            break
+        velocities *= sdd
+        cell_velocities *= sdd
+
+
+
+    velocities /= norm_const
+    # Restore initial positions in atoms object
+    atoms.set_positions(positions_in)
+
+    return velocities
 
 def soften(atoms, nsoft):
     # Softening constants
@@ -191,7 +326,7 @@ def soften(atoms, nsoft):
         #get_torque(w_positions, velocities, masses)
         velocities = elim_torque(w_positions, velocities, masses)
         #velocities = torque.elim_torque_reza(w_positions.flatten(), velocities.flatten())
-        velocities = velocities.reshape(w_positions.shape[0],3)
+        #velocities = velocities.reshape(w_positions.shape[0],3)
         #get_moment(velocities)
         #get_torque(w_positions, velocities, masses)
 
@@ -342,11 +477,13 @@ def escape_trial(atoms, dt, T):
         #atoms.set_velocities(velocities)
         #print(np.sqrt(np.sum(atoms.get_momenta() * atoms.get_momenta())))
         if True in atoms.pbc:
-            cell_atoms = Atoms('Ar3', positions=atoms.get_cell())
-            cell_atoms.set_masses([10,10,10])
-            MaxwellBoltzmannDistribution(cell_atoms, temperature_K=20)
-            #velocities = soften(atoms,10)
-            #velocities = vcs_soften(atoms, cell_atoms, 10)
+            cell_atoms = Atoms('C3', positions=atoms.get_cell())
+            mass = .75 * np.sum(atoms.get_masses()) / 10.
+            cell_atoms.set_masses([mass,mass,mass])
+            MaxwellBoltzmannDistribution(cell_atoms, temperature_K=10)
+            #velocities = soften(cell_atoms,10)
+            velocities = vcs_soften(atoms, cell_atoms, 10)
+            quit()
             vcsmd(atoms,cell_atoms,  dt)
             #md(atoms,dt)
         else:
@@ -414,21 +551,21 @@ def main():
     calculator.parameters.sigma = 1.0
     calculator.parameters.rc = 6.0
 
-    # atoms = bulk('NaCl', crystalstructure='rocksalt', a=6.0)
-    # pseudo_dir = '/home/marco/NequipMH/src/python/'
-    # pseudopotentials = {'Na': 'Na.UPF',
-    #                     'Cl': 'Cl.UPF'}
-    #
-    # input_data = {
-    #     'system': {
-    #         'ecutwfc': 100,
-    #         'ecutrho': 500},
-    #     'disk_io': 'low'}  # automatically put into 'control'
-    #
-    # calc = Espresso(pseudo_dir=pseudo_dir, pseudopotentials=pseudopotentials,
-    #                 tstress=True, tprnfor=True, kpts=(1, 1, 1), input_data=input_data)
+    atoms = bulk('NaCl', crystalstructure='rocksalt', a=6.0)
+    pseudo_dir = '/home/marco/NequipMH/src/python/'
+    pseudopotentials = {'Na': 'Na.UPF',
+                        'Cl': 'Cl.UPF'}
 
-    atoms.calc = calculator
+    input_data = {
+        'system': {
+            'ecutwfc': 100,
+            'ecutrho': 500},
+        'disk_io': 'low'}  # automatically put into 'control'
+
+    calc = Espresso(pseudo_dir=pseudo_dir, pseudopotentials=pseudopotentials,
+                    tstress=True, tprnfor=True, kpts=(1, 1, 1), input_data=input_data)
+
+    atoms.calc = calc
 
 
     pos_cur = atoms.get_positions()
