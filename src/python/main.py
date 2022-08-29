@@ -12,23 +12,35 @@ from ase.optimize import QuasiNewton
 from ase.build import bulk
 from ase.calculators.espresso import Espresso
 from ase.constraints import UnitCellFilter
+from ase import units
 import reshapecell
 import time
 import bazant
 
 
+
+
+class cell_atom:
+    def __init__(self, positions, mass=None, velocities=None):
+        self.positions = positions
+        self.masses = np.array([mass,mass,mass])
+        self.velocities = velocities
+
+    def set_velocities_boltzmann(self, temperature):
+        xi = np.random.standard_normal((len(self.masses), 3))
+        temp = units.kB * temperature
+        self.velocities = xi * np.sqrt(self.masses * temp)[:,np.newaxis]
+        self.velocities /= self.masses
+
+
+
+
 def energyandforces(atoms):
-    Ha_eV = 27.211399
-    Bohr_Ang = 0.529177
-    Ang_Bohr = 1./0.529177
-    positions = atoms.get_positions()#*Ang_Bohr
-    cell = atoms.get_cell(complete=False).T#*Ang_Bohr
+    positions = atoms.get_positions()
+    cell = atoms.get_cell(complete=False).T
     nat = positions.shape[0]
     e_pot, forces, deralat, stress_tensor = bazant.energyandforces_bazant(cell,positions.T,nat)
-    #e_pot *= Ha_eV
-    #forces *= Ha_eV/Bohr_Ang
-    #deralat *= Ha_eV/Bohr_Ang
-    #stress_tensor *= Ha_eV/Bohr_Ang**3
+
     return e_pot, forces.T, deralat, stress_tensor
 
 
@@ -173,9 +185,9 @@ def elim_torque(positions, velocities, masses):
 def vcs_soften(atoms, cell_atoms, nsoft):
     # Softening constants
     eps_dd = 1e-2
-    alpha_pos = 1e-2
-    alpha_lat = 1e-2
-    cell_masses = cell_atoms.get_masses()  # for the moment no masses
+    alpha_pos = 1e-3
+    alpha_lat = 1e-3
+    cell_masses = cell_atoms.masses  # for the moment no masses
     masses = atoms.get_masses()
     # Get initial energy
     #BAZANT TEST
@@ -184,12 +196,12 @@ def vcs_soften(atoms, cell_atoms, nsoft):
     e_pot_in , forces, deralat, stress_tensor = energyandforces(atoms)
     #___________________________________________________________________________________________________________
     positions_in = atoms.get_positions()
-    cell_positions_in = cell_atoms.get_positions()
+    cell_positions_in = cell_atoms.positions
 
 
     # Normalize initial guess
     velocities = atoms.get_velocities()
-    cell_velocities = cell_atoms.get_velocities()
+    cell_velocities = cell_atoms.velocities
     norm_const = eps_dd/(np.sqrt(np.sum(velocities**2) + np.sum(cell_velocities**2)))
     velocities *= norm_const
     cell_velocities *= norm_const
@@ -257,7 +269,7 @@ def vcs_soften(atoms, cell_atoms, nsoft):
     # Restore initial positions in atoms object
     atoms.set_positions(positions_in)
     atoms.set_cell(cell_positions_in)
-    cell_atoms.set_positions(cell_positions_in)
+    cell_atoms.positions = cell_positions_in
 
     return velocities, cell_velocities
 
@@ -389,7 +401,7 @@ def vcsmd(atoms,cell_atoms,dt):
     # MD which visits at least three max
     # Initializations
     masses = atoms.get_masses()[:, np.newaxis] / atoms.get_masses()[:, np.newaxis]  # for the moment no masses
-    cell_masses = cell_atoms.get_masses()[:, np.newaxis]  # for the moment no masses
+    cell_masses = cell_atoms.masses[:, np.newaxis]  # for the moment no masses
 
     #BAZANT TEST
     #___________________________________________________________________________________________________________
@@ -411,7 +423,7 @@ def vcsmd(atoms,cell_atoms,dt):
     for k in range(10000):
         #Time1 = time.time()
         e_kin = 0.5*np.sum(masses*atoms.get_velocities() * atoms.get_velocities())
-        e_kin += 0.5 * np.sum(cell_masses * cell_atoms.get_velocities() * cell_atoms.get_velocities())
+        e_kin += 0.5 * np.sum(cell_masses * cell_atoms.velocities * cell_atoms.velocities)
         print("MD   STEP:   ", i,epot_old, e_kin, epot_old + e_kin)
 
         velocities = atoms.get_velocities()
@@ -422,10 +434,10 @@ def vcsmd(atoms,cell_atoms,dt):
 
         # Update lattice so that fractional coordinates remain invariant
         reduced_postitions = cart2frac(atoms)
-        cell_positions = cell_atoms.get_positions()
-        cell_velocities = cell_atoms.get_velocities()
-        cell_atoms.set_positions(cell_positions + dt*cell_velocities + 0.5*dt*dt*(cell_forces/cell_masses))
-        atoms.set_cell(cell_atoms.get_positions(),scale_atoms=False, apply_constraint=False)
+        cell_positions = cell_atoms.positions
+        cell_velocities = cell_atoms.velocities
+        cell_atoms.positions = cell_positions + dt*cell_velocities + 0.5*dt*dt*(cell_forces/cell_masses)
+        atoms.set_cell(cell_atoms.positions,scale_atoms=False, apply_constraint=False)
         positions = frac2cart(atoms,reduced_postitions)
         atoms.set_positions(positions)
 
@@ -440,7 +452,7 @@ def vcsmd(atoms,cell_atoms,dt):
 
         # Update velocities of the cell atoms
         new_cell_forces = lattice_derivative(atoms)
-        cell_atoms.set_velocities(cell_velocities + 0.5 * dt * ((cell_forces + new_cell_forces) / cell_masses))
+        cell_atoms.velocities = cell_velocities + 0.5 * dt * ((cell_forces + new_cell_forces) / cell_masses)
 
         forces = new_forces
         cell_forces = new_cell_forces
@@ -514,24 +526,17 @@ def escape_trial(atoms, dt, T):
     escape = 0.0
     beta_s = 1.001
     while escape < 1e-3:
+
         MaxwellBoltzmannDistribution(atoms, temperature_K=T)
 
-        # Soften part for now commented...
-        #print(np.sqrt(np.sum(atoms.get_momenta()*atoms.get_momenta())))
-        #velocities = soften(atoms, 10)
-        #atoms.set_velocities(velocities)
-        #print(np.sqrt(np.sum(atoms.get_momenta() * atoms.get_momenta())))
         if True in atoms.pbc:
-            cell_atoms = Atoms('Ar3', positions=atoms.get_cell())
             mass = .75 * np.sum(atoms.get_masses()) / 10.
-            cell_atoms.set_masses([mass,mass,mass])
-            MaxwellBoltzmannDistribution(cell_atoms, temperature_K=300)
-            velocities, cell_velocities = vcs_soften(atoms, cell_atoms, 100)
-            #velocities = soften(atoms, 1000)
-            #atoms.set_velocities(velocities)
-            #cell_atoms.set_velocities(cell_velocities)
-            #vcsmd(atoms,cell_atoms,  dt)
-            #md(atoms,dt)
+            cell_atoms = cell_atom(mass = mass, positions = atoms.get_cell())
+            cell_atoms.set_velocities_boltzmann(temperature=T)
+            velocities, cell_velocities = vcs_soften(atoms, cell_atoms, 20)
+            atoms.set_velocities(velocities)
+            cell_atoms.velocities = cell_velocities
+            vcsmd(atoms,cell_atoms,  dt)
             quit()
             #write("BEFORE2.ascii", atoms)
             positions, cell_positions = reshapecell.reshapecell(atoms.get_cell().T/0.52917721067, atoms.get_positions().T/0.52917721067)
@@ -542,7 +547,7 @@ def escape_trial(atoms, dt, T):
             #quit()
             #md(atoms,dt)
         else:
-            velocities = soften(atoms, 10)
+            velocities = soften(atoms, 20)
             atoms.set_velocities(velocities)
             md(atoms,dt)
         #optimizer(atoms, 0.005)
