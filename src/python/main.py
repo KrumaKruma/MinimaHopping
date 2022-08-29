@@ -35,6 +35,59 @@ class cell_atom:
 
 
 
+
+
+def get_area(lattice):
+    area = 0.
+    area += np.linalg.norm(np.cross(lattice[:, 0], lattice[:, 1]))
+    area += np.linalg.norm(np.cross(lattice[:, 0], lattice[:, 2]))
+    area += np.linalg.norm(np.cross(lattice[:, 1], lattice[:, 2]))
+
+    return area
+
+
+
+
+
+
+
+
+
+
+
+
+def reshape_cell(atoms, imax):
+    lattice_in = atoms.get_cell()
+    positions_in = atoms.get_positions()
+
+    lattice = np.zeros((3,3))
+    lattice_min = np.zeros((3,3))
+    area_min = 1e100
+
+    volium_in = abs(np.linalg.det(lattice_in))
+
+    for i13 in range(-imax, imax, 1):
+        for i12 in range(-imax, imax, 1):
+            lattice[0,:] = lattice_in[0,:] + i12 * lattice_in[1,:] + i13 * lattice_in[2,:]
+            for i21 in range(-imax, imax, 1):
+                for i23 in range(-imax, imax, 1):
+                    lattice[1,:] = lattice_in[1,:] + i21 * lattice_in[0,:] + i23 * lattice_in[2,:]
+                    for i31 in range(-imax, imax, 1):
+                        for i32 in range(-imax, imax, 1):
+                            lattice[2,:] = lattice_in[2,:] + i31 * lattice_in[0,:] + i32 * lattice_in[1,:]
+                            volium = abs(np.linalg.det(lattice))
+                            if abs(volium_in-volium) < 1e-8:
+                                area = get_area(lattice)
+                                if area < area_min:
+                                    area_min = area
+                                    lattice_min[:,:] = lattice[:,:]
+
+    atoms.set_cell(lattice_min,scale_atoms=False, apply_constraint=False)
+
+
+
+
+
 def energyandforces(atoms):
     positions = atoms.get_positions()
     cell = atoms.get_cell(complete=False).T
@@ -245,7 +298,7 @@ def vcs_soften(atoms, cell_atoms, nsoft):
         res = np.sqrt(np.sum(forces*forces) + np.sum(deralat*deralat))
 
 
-        print("SOFTEN:   ", it, tt, res, curve/fd2, e_pot - e_pot_in)
+        #print("SOFTEN:   ", it, tt, res, curve/fd2, e_pot - e_pot_in)
 
         w_positions = w_positions + alpha_pos * forces
         w_cell_positions = w_cell_positions + alpha_lat * deralat
@@ -253,13 +306,11 @@ def vcs_soften(atoms, cell_atoms, nsoft):
         cell_velocities = w_cell_positions - cell_positions_in
 
         velocities = elim_moment(velocities)
-        #velocities = elim_torque(w_positions, velocities, masses)
-        #cell_velocities = elim_moment(cell_velocities)
         cell_velocities = elim_torque(w_cell_positions, cell_velocities, cell_masses)
 
         sdd = eps_dd/np.sqrt(np.sum(velocities**2)+np.sum(cell_velocities**2))
-        #if res < (curve*eps_dd*0.5):
-        #    break
+        if res < (curve*eps_dd*0.5):
+            break
         velocities *= sdd
         cell_velocities *= sdd
 
@@ -317,7 +368,7 @@ def soften(atoms, nsoft):
         forces += curve * velocities
         res = np.sqrt(np.sum(forces*forces))
 
-        print(it, tt, res, curve/ fd2,e_pot - e_pot_in)
+        #print(it, tt, res, curve/ fd2,e_pot - e_pot_in)
         #return velocities
         #quit()
         w_positions = w_positions + alpha * forces
@@ -401,7 +452,7 @@ def vcsmd(atoms,cell_atoms,dt):
     # MD which visits at least three max
     # Initializations
     masses = atoms.get_masses()[:, np.newaxis] / atoms.get_masses()[:, np.newaxis]  # for the moment no masses
-    cell_masses = cell_atoms.masses[:, np.newaxis]  # for the moment no masses
+    cell_masses = cell_atoms.masses[:, np.newaxis]
 
     #BAZANT TEST
     #___________________________________________________________________________________________________________
@@ -419,9 +470,7 @@ def vcsmd(atoms,cell_atoms,dt):
     e_pot_cur, forces, deralat, stress_tensor = energyandforces(atoms)
     #___________________________________________________________________________________________________________
     cell_forces = lattice_derivative(atoms)
-    #while n_change < 4:
-    for k in range(10000):
-        #Time1 = time.time()
+    while n_change < 4:
         e_kin = 0.5*np.sum(masses*atoms.get_velocities() * atoms.get_velocities())
         e_kin += 0.5 * np.sum(cell_masses * cell_atoms.velocities * cell_atoms.velocities)
         print("MD   STEP:   ", i,epot_old, e_kin, epot_old + e_kin)
@@ -537,15 +586,12 @@ def escape_trial(atoms, dt, T):
             atoms.set_velocities(velocities)
             cell_atoms.velocities = cell_velocities
             vcsmd(atoms,cell_atoms,  dt)
+            reshape_cell(atoms,3)
+            reshape_cell(atoms,3)
             quit()
-            #write("BEFORE2.ascii", atoms)
-            positions, cell_positions = reshapecell.reshapecell(atoms.get_cell().T/0.52917721067, atoms.get_positions().T/0.52917721067)
-            #print(cell_positions.T)
-            atoms.set_cell(cell_positions.T*0.52917721067)
-            atoms.set_positions(positions.T*0.52917721067)
-            #write("AFTER2.ascii", atoms)
-            #quit()
-            #md(atoms,dt)
+            #positions, cell_positions = reshapecell.reshapecell(atoms.get_cell().T/0.52917721067, atoms.get_positions().T/0.52917721067)
+            #atoms.set_cell(cell_positions.T*0.52917721067)
+            #atoms.set_positions(positions.T*0.52917721067)
         else:
             velocities = soften(atoms, 20)
             atoms.set_velocities(velocities)
