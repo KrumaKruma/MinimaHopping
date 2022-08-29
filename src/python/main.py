@@ -130,7 +130,7 @@ def elim_moment(velocities):
 
 def elim_torque(positions, velocities, masses):
     #elimination of torque
-    masses = np.ones((positions.shape[0]))
+    #masses = np.ones((positions.shape[0]))
     #calculate center of mass and subtracti it from positions
     total_mass = np.sum(masses)
     masses_3d = np.vstack([masses]*3).T
@@ -173,11 +173,16 @@ def elim_torque(positions, velocities, masses):
 def vcs_soften(atoms, cell_atoms, nsoft):
     # Softening constants
     eps_dd = 1e-2
-    alpha_pos = 1e-3
-    alpha_lat = 1e-3
-
+    alpha_pos = 1e-2
+    alpha_lat = 1e-2
+    cell_masses = cell_atoms.get_masses()  # for the moment no masses
+    masses = atoms.get_masses()
     # Get initial energy
-    e_pot_in = atoms.get_potential_energy()
+    #BAZANT TEST
+    #___________________________________________________________________________________________________________
+    # e_pot_in   = atoms.get_potential_energy()
+    e_pot_in , forces, deralat, stress_tensor = energyandforces(atoms)
+    #___________________________________________________________________________________________________________
     positions_in = atoms.get_positions()
     cell_positions_in = cell_atoms.get_positions()
 
@@ -201,49 +206,58 @@ def vcs_soften(atoms, cell_atoms, nsoft):
         positions = frac2cart(atoms, reduced_positions)
         atoms.set_positions(positions)
 
-        forces = atoms.get_forces()
+        # BAZANT TEST
+        # ___________________________________________________________________________________________________________
+        # forces = atoms.get_forces()
+        # e_pot = atoms.get_potential_energy()
+        e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
+        # ___________________________________________________________________________________________________________
 
-        e_pot = atoms.get_potential_energy()
-        deralat = 2.*lattice_derivative(atoms)
+
+
+        deralat = lattice_derivative(atoms)
 
         # fd2 is only a control variable
         fd2 = 2. * (e_pot-e_pot_in)/(eps_dd**2)
 
-        sdf = np.sum(velocities * forces)# + np.sum(cell_velocities * deralat)
-        sdd = np.sum(velocities * velocities)# + np.sum(cell_velocities * cell_velocities)
+        sdf = np.sum(velocities * forces) + np.sum(cell_velocities * deralat)
+        sdd = np.sum(velocities * velocities) + np.sum(cell_velocities * cell_velocities)
 
         curve = -sdf/sdd
         if it == 0:
             curve0 = curve
 
-        tt = np.sqrt(np.sum(forces*forces))# + np.sum(deralat*deralat))
+        tt = np.sqrt(np.sum(forces*forces) + np.sum(deralat*deralat))
         forces += curve * velocities
-        #deralat += curve * cell_velocities
-        res = np.sqrt(np.sum(forces*forces))# + np.sum(deralat*deralat))
+        deralat += curve * cell_velocities
+        res = np.sqrt(np.sum(forces*forces) + np.sum(deralat*deralat))
 
 
-        print("SOFTEN:   ", it, tt, res, curve, fd2, e_pot - e_pot_in)
+        print("SOFTEN:   ", it, tt, res, curve/fd2, e_pot - e_pot_in)
 
         w_positions = w_positions + alpha_pos * forces
-        #w_cell_positions = w_cell_positions + alpha_lat * deralat
+        w_cell_positions = w_cell_positions + alpha_lat * deralat
         velocities = w_positions-positions_in
-        #cell_velocities = w_cell_positions - cell_positions_in
+        cell_velocities = w_cell_positions - cell_positions_in
 
         velocities = elim_moment(velocities)
+        #velocities = elim_torque(w_positions, velocities, masses)
+        #cell_velocities = elim_moment(cell_velocities)
+        cell_velocities = elim_torque(w_cell_positions, cell_velocities, cell_masses)
 
-        sdd = eps_dd/np.sqrt(np.sum(velocities**2))#+np.sum(cell_velocities**2))
+        sdd = eps_dd/np.sqrt(np.sum(velocities**2)+np.sum(cell_velocities**2))
         #if res < (curve*eps_dd*0.5):
         #    break
         velocities *= sdd
-        #cell_velocities *= sdd
+        cell_velocities *= sdd
 
 
     velocities /= norm_const
-    #cell_velocities /= norm_const
+    cell_velocities /= norm_const
     # Restore initial positions in atoms object
     atoms.set_positions(positions_in)
-    #atoms.set_cell(cell_positions_in)
-    #cell_atoms.set_positions(cell_positions_in)
+    atoms.set_cell(cell_positions_in)
+    cell_atoms.set_positions(cell_positions_in)
 
     return velocities, cell_velocities
 
@@ -252,7 +266,11 @@ def soften(atoms, nsoft):
     eps_dd = 1e-2
     alpha = 1e-3
     # Get initial energy
-    e_pot_in = atoms.get_potential_energy()
+    # BAZANT TEST
+    # ___________________________________________________________________________________________________________
+    # e_pot_in = atoms.get_potential_energy()
+    e_pot_in, forces, deralat, stress_tensor = energyandforces(atoms)
+    # ___________________________________________________________________________________________________________
     positions_in = atoms.get_positions()
     masses = atoms.get_masses()
 
@@ -266,8 +284,13 @@ def soften(atoms, nsoft):
         w_positions = positions_in + velocities
         atoms.set_positions(w_positions)
 
-        e_pot = atoms.get_potential_energy()
-        forces = atoms.get_forces()
+        # BAZANT TEST
+        # ___________________________________________________________________________________________________________
+        #e_pot = atoms.get_potential_energy()
+        #forces = atoms.get_forces()
+        e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
+        # ___________________________________________________________________________________________________________
+
 
         # fd2 is only a control variable
         fd2 = 2. * (e_pot - e_pot_in)/eps_dd**2
@@ -282,7 +305,7 @@ def soften(atoms, nsoft):
         forces += curve * velocities
         res = np.sqrt(np.sum(forces*forces))
 
-        # print(it, tt, res, curve, fd2, e_pot - e_pot_in)
+        print(it, tt, res, curve/ fd2,e_pot - e_pot_in)
         #return velocities
         #quit()
         w_positions = w_positions + alpha * forces
@@ -502,11 +525,12 @@ def escape_trial(atoms, dt, T):
             cell_atoms = Atoms('Ar3', positions=atoms.get_cell())
             mass = .75 * np.sum(atoms.get_masses()) / 10.
             cell_atoms.set_masses([mass,mass,mass])
-            MaxwellBoltzmannDistribution(cell_atoms, temperature_K=100)
-            #velocities, cell_velocities = vcs_soften(atoms, cell_atoms, 200)
+            MaxwellBoltzmannDistribution(cell_atoms, temperature_K=300)
+            velocities, cell_velocities = vcs_soften(atoms, cell_atoms, 100)
+            #velocities = soften(atoms, 1000)
             #atoms.set_velocities(velocities)
             #cell_atoms.set_velocities(cell_velocities)
-            vcsmd(atoms,cell_atoms,  dt)
+            #vcsmd(atoms,cell_atoms,  dt)
             #md(atoms,dt)
             quit()
             #write("BEFORE2.ascii", atoms)
@@ -584,7 +608,7 @@ def main():
     #calc.parameters.rc = 12.0
 
     #atoms = bulk('NaCl', crystalstructure='rocksalt', a=6.0)
-    atoms = read("Si_in2.extxyz")
+    atoms = read("Si_in3.extxyz")
 
     #atoms.pbc = True
     #pseudo_dir = '/home/marco/NequipMH/src/python/'
