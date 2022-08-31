@@ -438,7 +438,7 @@ def md(atoms,dt):
 
     return None
 
-def vcsmd(atoms,cell_atoms,dt):
+def vcsmd(atoms,cell_atoms,dt, verbose = True):
 
     # MD which visits at least three max
     # Initializations
@@ -462,10 +462,6 @@ def vcsmd(atoms,cell_atoms,dt):
     #___________________________________________________________________________________________________________
     cell_forces = lattice_derivative(atoms)
     while n_change < 4:
-        e_kin = 0.5*np.sum(masses*atoms.get_velocities() * atoms.get_velocities())
-        e_kin += 0.5 * np.sum(cell_masses * cell_atoms.velocities * cell_atoms.velocities)
-        print("MD   STEP:   ", i,epot_old, e_kin, epot_old + e_kin)
-
         velocities = atoms.get_velocities()
         positions = atoms.get_positions()
 
@@ -504,25 +500,19 @@ def vcsmd(atoms,cell_atoms,dt):
         epot, new_forces, deralat, stress_tensor = energyandforces(atoms)
         # ___________________________________________________________________________________________________________
 
-        #print("MD", str(epot))
         sign = int(np.sign(epot_old-epot))
         if sign_old != sign:
             sign_old = sign
             n_change += 1
-        #print(n_change, epot_old-epot)
 
         epot_old = epot
-        #e_kin = 0.5*np.sum(masses*atoms.get_velocities() * atoms.get_velocities())
-        #e_kin += 0.5 * np.sum(cell_masses * cell_atoms.get_velocities() * cell_atoms.get_velocities())
-        #print("STEP:   ", i,epot, e_kin, epot + e_kin)
+
+        e_kin = 0.5*np.sum(masses*atoms.get_velocities() * atoms.get_velocities())
+        e_kin += 0.5 * np.sum(cell_masses * cell_atoms.velocities * cell_atoms.velocities)
+        print("MD   STEP:   ", i,epot_old, e_kin, epot_old + e_kin)
         filename = "MD" + str(i).zfill(4) + ".ascii"
         write(filename, atoms)
         i += 1
-        #Time4 = time.time()
-        #Tot_Time = Time4-Time1
-        #DFT_Time = Time3-Time2
-        #Rest_Time = Tot_Time - DFT_Time
-        #print("Total Time:   ", Tot_Time, "Time DFT:   ", DFT_Time, "REST Time:  ", Rest_Time)
 
     return None
 
@@ -607,6 +597,77 @@ def in_history(e_pot_cur,history):
 
 
 
+def vcs_optimizer(atoms, initial_step_size = 0.01, nhist_max = 10, lattice_weight = 2, alpha_min = 1e-3, eps_subsop = 1e-4, max_force_threshold = 0.002, verbose = False):
+    """
+    Variable cell shape optimizer from Gubler et. al 2022 arXiv2206.07339
+    Function optimizes atom positions and lattice vecotors
+
+    atoms: ASE atoms object
+        contains the unoptimized atoms object
+    initial_step_size: float
+        initial step size to start the geometry optimization
+    nhist_max: int
+        maximum structures which are stored in the history MORITZ?
+    lattice_weight: float
+        lattice weight MORITZ?
+    alpha_min: float
+        minimal step size during the optimization
+    eps_subsop: float
+        MORITZ?
+    max_force_threshold: float
+        convergence criterion at which maximal force component convergence is reached.
+    verbose: bool
+        If true the optimization will print the iteration step, the energy and the maximal force component of the
+        current iteration. Furthermore v_sim files are written in each iteration.
+    """
+
+
+    #Get nessecairy parameters from atoms object
+    nat = atoms.get_positions().shape[0]
+    init_lat = atoms.get_cell().T
+
+    #Initialize optimizer class
+    optim = periodic_sqnm.periodic_sqnm(nat, init_lat, initial_step_size,nhist_max,lattice_weight,alpha_min,eps_subsop)
+
+    #Initialize futher parameters
+    max_force_comp = 100
+    i = 0
+    while max_force_comp > max_force_threshold:
+        #BAZANT TEST
+        #___________________________________________________________________________________________________________
+        #energy = atoms.get_potential_energy() and also deralat
+        energy, forces, deralat, stress_tensor = energyandforces(atoms)
+        #___________________________________________________________________________________________________________
+
+
+        i += 1
+        max_force_comp = np.max(forces)
+        positions = atoms.get_positions()
+        lattice = atoms.get_cell().T
+
+        new_positions, new_lattice = optim.optimizer_step(positions.T, lattice, energy, forces.T, deralat)
+        atoms.set_positions(new_positions.T)
+        atoms.set_cell(new_lattice.T, scale_atoms=False, apply_constraint=False)
+
+        if verbose:
+            opt_msg = "OPT Step: {:d}   energy: {:1.5f}  max_force_comp:  {:1.5f}".format(i, energy, max_force_comp)
+            print(opt_msg)
+            filename = "OPT{0:05d}.ascii".format(i)
+            write(filename, atoms)
+
+        if i > 10000:
+            warning_msg = "Geometry did not converge in {:d} optimizations steps".format(i)
+            warnings.warn(warning_msg, FutureWarning)
+            break
+
+
+    return None
+
+
+
+
+
+
 def main():
 
     # Initial settings and paths
@@ -653,40 +714,7 @@ def main():
     #atoms = bulk('NaCl', crystalstructure='rocksalt', a=6.0)
     atoms = read("Si_in2.extxyz")
     #atoms.pbc = True
-    nat = atoms.get_positions().shape[0]
-    init_lat = atoms.get_cell().T
-    inital_step_size = 0.01
-    nhist_max=10
-    lattice_weight = 2
-    alpha_min = 0.001
-    eps_subsop = 1e-4
-
-    optim = periodic_sqnm.periodic_sqnm(nat, init_lat, inital_step_size,nhist_max,lattice_weight,alpha_min,eps_subsop)
-
-    max_force_comp = 100
-    max_force_threshold = 0.002
-    i = 0
-    while max_force_comp > max_force_threshold:
-        #BAZANT TEST
-        #___________________________________________________________________________________________________________
-        #energy = atoms.get_potential_energy() and also deralat
-        energy, forces, deralat, stress_tensor = energyandforces(atoms)
-        #___________________________________________________________________________________________________________
-
-        print(i, energy, np.max(forces))#/51.42208619083232)
-        i += 1
-        max_force_comp = np.max(forces)
-        positions = atoms.get_positions()
-        lattice = atoms.get_cell().T
-
-        new_positions, new_lattice = optim.optimizer_step(positions.T, lattice, energy, forces.T, deralat)
-        atoms.set_positions(new_positions.T)
-        atoms.set_cell(new_lattice.T, scale_atoms=False, apply_constraint=False)
-
-        if i > 10:
-            warning_msg = "Geometry did not converge in " + str(i) + " optimizations steps"
-            warnings.warn(warning_msg, FutureWarning)
-            break
+    vcs_optimizer(atoms, verbose=True)
 
 
     quit()
