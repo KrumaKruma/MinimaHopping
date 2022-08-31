@@ -16,7 +16,8 @@ from ase import units
 import reshapecell
 import time
 import bazant
-
+import periodic_sqnm
+import warnings
 
 
 
@@ -47,18 +48,8 @@ def get_area(lattice):
 
 
 
-
-
-
-
-
-
-
-
-
 def reshape_cell(atoms, imax):
     lattice_in = atoms.get_cell()
-    positions_in = atoms.get_positions()
 
     lattice = np.zeros((3,3))
     lattice_min = np.zeros((3,3))
@@ -659,9 +650,49 @@ def main():
     #calc.parameters.rc = 12.0
 
     #atoms = bulk('NaCl', crystalstructure='rocksalt', a=6.0)
-    atoms = read("Si_in3.extxyz")
-
+    atoms = read("Si_in2.extxyz")
     #atoms.pbc = True
+    nat = atoms.get_positions().shape[0]
+    init_lat = atoms.get_cell().T
+    inital_step_size = 0.01
+    nhist_max=10
+    lattice_weight = 2
+    alpha_min = 0.001
+    eps_subsop = 1e-4
+
+    optim = periodic_sqnm.periodic_sqnm(nat, init_lat, inital_step_size,nhist_max,lattice_weight,alpha_min,eps_subsop)
+
+    max_force_comp = 100
+    max_force_threshold = 0.002
+    i = 0
+    while max_force_comp > max_force_threshold:
+        #BAZANT TEST
+        #___________________________________________________________________________________________________________
+        #energy = atoms.get_potential_energy() and also deralat
+        energy, forces, deralat, stress_tensor = energyandforces(atoms)
+        #___________________________________________________________________________________________________________
+
+        print(i, energy, np.max(forces))#/51.42208619083232)
+        i += 1
+        max_force_comp = np.max(forces)
+        positions = atoms.get_positions()
+        lattice = atoms.get_cell().T
+
+        new_positions, new_lattice = optim.optimizer_step(positions.T, lattice, energy, forces.T, deralat)
+        atoms.set_positions(new_positions.T)
+        atoms.set_cell(new_lattice.T, scale_atoms=False, apply_constraint=False)
+
+        if i > 10:
+            warning_msg = "Geometry did not converge in " + str(i) + " optimizations steps"
+            warnings.warn(warning_msg, FutureWarning)
+            break
+
+
+    quit()
+    reshape_cell(atoms,3)
+    reshape_cell(atoms, 3)
+
+
     #pseudo_dir = '/home/marco/NequipMH/src/python/'
     #pseudopotentials = {'Si': 'Si.UPF'}
 
