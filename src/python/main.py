@@ -628,6 +628,7 @@ def main():
     T = 3000
     beta_decrease = 1./1.1
     beta_increase = 1.1
+    enhanced_feedback = True
 
     # Read local minimum input file
     #atoms = read(filename)
@@ -747,7 +748,10 @@ def main():
 
         n_visits = in_history(e_pot, history)
         if n_visits > 1:
-            T *= beta_increase * (1. + 4. * np.log(float(n_visits)))
+            if enhanced_feedback:
+                T *= beta_increase * (1. + 4. * np.log(float(n_visits)))
+            else:
+                T *= beta_increase
         else:
             T *= beta_decrease
 
