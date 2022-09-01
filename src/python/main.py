@@ -28,10 +28,20 @@ class cell_atom:
         self.velocities = velocities
 
     def set_velocities_boltzmann(self, temperature):
+        """
+        Set the velocity of the cell atoms for the MD part accorting to a temperature and the boltzmann distribution
+        Input:
+            temperature: float
+                Temperature of the cell atoms
+        Return:
+            velocities of the cell atoms
+        """
         xi = np.random.standard_normal((len(self.masses), 3))
         temp = units.kB * temperature
         self.velocities = xi * np.sqrt(self.masses * temp)[:,np.newaxis]
         self.velocities /= self.masses
+
+        return None
 
 
 
@@ -39,6 +49,17 @@ class cell_atom:
 
 
 def get_area(lattice):
+    """
+    Calculates the area of the lattice
+    Input:
+        lattice: np array
+            numpy array containing the lattice vectors
+    Return:
+        area: float
+            area of the lattice
+    :return:
+    """
+
     area = 0.
     area += np.linalg.norm(np.cross(lattice[:, 0], lattice[:, 1]))
     area += np.linalg.norm(np.cross(lattice[:, 0], lattice[:, 2]))
@@ -49,6 +70,16 @@ def get_area(lattice):
 
 
 def reshape_cell(atoms, imax):
+    """
+    Function that reshapes the cell so that the cell is as cubic as possible
+    Input:
+        atoms: ASE atoms object
+            atoms object containing the lattice parameters
+        imax: int
+            maximum of the lattice expansion to try
+    Return:
+        atoms object with the changed cell
+    """
     lattice_in = atoms.get_cell()
 
     lattice = np.zeros((3,3))
@@ -74,7 +105,7 @@ def reshape_cell(atoms, imax):
                                     lattice_min[:,:] = lattice[:,:]
 
     atoms.set_cell(lattice_min,scale_atoms=False, apply_constraint=False)
-
+    return None
 
 
 
@@ -93,6 +124,17 @@ def energyandforces(atoms):
 
 
 def frac2cart(atoms, reduced_positions):
+    """
+    Conversion of the fractional coordinates to cartesian coordinates
+    Input:
+        atoms: ASE atoms object
+            atoms object including the cell vectors
+        reduced_positions: np array
+            numpy array containing the reduced positions
+    Return:
+        position: np array
+            numpy array containing the cartesian coordinates
+    """
     cell = atoms.get_cell()
     positions = np.zeros(reduced_positions.shape)
 
@@ -102,6 +144,16 @@ def frac2cart(atoms, reduced_positions):
     return positions
 
 def cart2frac(atoms):
+    """
+    Conversiton of the cartesian coordinates to fractional coordinates
+    Input:
+        atoms: ASE atoms object
+            atoms object containing the positions and cell vectors
+    Return:
+        reduced_positions: np array
+            numpy array containing the reduced coordinates
+    """
+
     positions = atoms.get_positions()
     cell = atoms.get_cell()
     inv_cell = np.linalg.inv(cell)
@@ -113,6 +165,16 @@ def cart2frac(atoms):
     return reduced_positions
 
 def lattice_derivative(atoms):
+    """
+    Calculation of the lattice derivative from the stress tensor. This function cannot be used or has to be changed
+    if the stress tensor is not included in the calculator used
+    Input:
+        atoms: ASE atoms object
+            atoms object containing a cell vector and a calculator which has a stress tensor implemented
+    Return:
+        deralat: np array
+            numpy array containing the lattice derivatives
+    """
     #BAZANT TEST
     #______________________________________________________________________________________
     e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
@@ -153,6 +215,14 @@ def get_torque(positions, velocities, masses):
 
 
 def normalize(v):
+    """
+    Function that normalized a vector of arbitrary length
+    Input:
+        v: np array
+            one dimensional numpy array
+    Return:
+        Normalized vector as a one dimensional numpy array
+    """
     norm = np.linalg.norm(v)
     if norm == 0:
        return v
@@ -160,6 +230,20 @@ def normalize(v):
 
 
 def moment_of_inertia(masses, positions):
+    """
+    Calculation of the eigenvalues and eigenvector of the moment of inertia tensor
+    Input:
+        masses: np array
+            numpy array containing all the atom masses
+        positions: np array
+            numpy array containing the atom positions
+    Return:
+        eigenvalues: np array
+            vector containing the eigenvalues of the inertia tensor
+        eigenvectors: np array
+            matrix containing the eigenvectors of the inertia tensor
+    """
+
     inertia_tensor = np.zeros((3,3))
     for at, mass in zip(positions, masses):
         inertia_tensor[0,0] += mass * (at[1]**2 + at[2]**2)
@@ -179,19 +263,40 @@ def moment_of_inertia(masses, positions):
 
 
 def elim_moment(velocities):
+    """
+    Elimination of the momentum in the velocities
+    Input:
+        velocities: np array
+            numpy array containing the velocities
+    Return:
+        velocities: np array
+            numpy array containing the velocities without momentum
+    """
+
     # eliminiation of momentum
     s = np.sum(velocities, axis=0)/velocities.shape[0]
     velocities -= s
     return velocities
 
 def elim_torque(positions, velocities, masses):
+    """
+    Elimination of the torque in the velocites
+    Input:
+        positions: np array
+            numpy array containing the atom positions
+        velocities: np array
+            numpy array containing the atom velocities
+        masses: np array
+            numpy array containing the atom masses
+    Return:
+        velocities: np array
+            numpy array containing the velocities without torque
+    """
     #elimination of torque
-    #masses = np.ones((positions.shape[0]))
     #calculate center of mass and subtracti it from positions
     total_mass = np.sum(masses)
     masses_3d = np.vstack([masses]*3).T
     weighted_positions = positions * masses_3d
-    #get_torque(weighted_positions, velocities, masses)
     cm = np.sum(weighted_positions, axis=0)
     cm /= total_mass
     weighted_positions -= cm
@@ -207,11 +312,9 @@ def elim_torque(positions, velocities, masses):
 
     velocities = velocities.flatten()
     vrot = vrot.reshape((positions.shape[0]*3,3),order="C")
-    #print("DEBI:   ", vrot[9,1])
+
     for i, vec in enumerate(vrot.T):
         vrot[:,i] = normalize(vec)
-
-    #print(vrot.reshape((38*3,3)))
 
     weighted_positions += cm
 
@@ -222,11 +325,27 @@ def elim_torque(positions, velocities, masses):
 
     velocities = velocities.reshape((positions.shape[0],3))
 
+    #For debugging reasons this can be switched on to controle if torque is eliminated
     #get_torque(weighted_positions, velocities, masses)
     return velocities
 
 
 def vcs_soften(atoms, cell_atoms, nsoft):
+    """
+    Softening the velocites along the softest modes of the postitions and the lattice
+
+    Input:
+        atoms: ASE atoms object
+            contains the unoptimized atoms object
+        cell_atoms: class
+            contains unit cell atoms postitions, velocities and masses
+        nsoft: int
+            number of softening steps
+    Return:
+        atoms object with softened velocites
+    """
+
+
     # Softening constants
     eps_dd = 1e-2
     alpha_pos = 1e-3
@@ -316,6 +435,17 @@ def vcs_soften(atoms, cell_atoms, nsoft):
     return velocities, cell_velocities
 
 def soften(atoms, nsoft):
+    """
+    Softening the velocites along the softest modes
+    Input:
+        atoms: ASE atoms object
+            atoms object containing positions, velocities and a calculator
+        nsoft: int
+            number of softening iterations
+    Return:
+        ASE atoms object with softened velocities
+    """
+
     # Softening constants
     eps_dd = 1e-2
     alpha = 1e-3
@@ -359,21 +489,15 @@ def soften(atoms, nsoft):
         forces += curve * velocities
         res = np.sqrt(np.sum(forces*forces))
 
+        #Print statement for debugging reasons
         #print(it, tt, res, curve/ fd2,e_pot - e_pot_in)
-        #return velocities
-        #quit()
+
         w_positions = w_positions + alpha * forces
         velocities = w_positions-positions_in
 
 
         velocities = elim_moment(velocities)
-
-        #get_torque(w_positions, velocities, masses)
         velocities = elim_torque(w_positions, velocities, masses)
-        #velocities = torque.elim_torque_reza(w_positions.flatten(), velocities.flatten())
-        #velocities = velocities.reshape(w_positions.shape[0],3)
-        #get_moment(velocities)
-        #get_torque(w_positions, velocities, masses)
 
         sdd = eps_dd/np.sqrt(np.sum(velocities**2))
         if res < (curve*eps_dd*0.5):
@@ -386,7 +510,26 @@ def soften(atoms, nsoft):
     return velocities
 
 
-def md(atoms,dt):
+def md(atoms,dt, n_max = 6, verbose = True):
+    """
+    velocity Verlet MD which visits n_max maxima
+
+    Input:
+        atoms: ASE atoms object
+            contains the unoptimized atoms object
+        cell_atoms: class
+            contains unit cell atoms postitions, velocities and masses
+        dt: float
+            velocity Verlet timestep
+        n_max: int
+            number of maxima visited before MD stops
+        verbose: bool
+            if True the iterationstep, kinetic energy, potential energy and total enery is printed. Furthermore
+            in each iteration a ascii file of the current structure is wirtten
+
+    Return:
+        atoms object containing all the information after the MD
+    """
     # MD which visits at least three max
     masses = atoms.get_masses()[:, np.newaxis] / atoms.get_masses()[:, np.newaxis]  # for the moment no masses
 
@@ -400,8 +543,7 @@ def md(atoms,dt):
     sign_old = -1
     n_change = 0
     i = 0
-    #while n_change < 4:
-    for i in range(100000):
+    while n_change < n_max:
         velocities = atoms.get_velocities()
         positions = atoms.get_positions()
 
@@ -422,24 +564,50 @@ def md(atoms,dt):
         epot, forces, deralat, stress_tensor = energyandforces(atoms)
         # ___________________________________________________________________________________________________________
 
-        #print("MD", str(epot))
         sign = int(np.sign(epot_old-epot))
         if sign_old != sign:
             sign_old = sign
             n_change += 1
-        #print(n_change, epot_old-epot)
 
-        epot_old = epot
-        e_kin = 0.5*np.sum(masses*atoms.get_velocities() * atoms.get_velocities())
-        print("STEP:   ", i,epot, e_kin, epot + e_kin)
-        #filename = "MD" + str(i).zfill(4) + ".xyz"
-        #write(filename, atoms)
+
+        if verbose:
+            e_kin = 0.5*np.sum(masses*atoms.get_velocities() * atoms.get_velocities())
+            md_msg = "MD STEP:  {:d}   e_pot: {:1.5f}  e_kin:  {:1.5f}   e_tot:  {:1.5f}".format(i, epot, e_kin, epot + e_kin)
+            print(md_msg)
+            filename = "MD{0:05d}.ascii".format(i)
+            write(filename, atoms)
+
+        if i > 10000:
+            warning_msg = "Geometry did not converge in {:d} optimizations steps".format(i)
+            warnings.warn(warning_msg, FutureWarning)
+            break
+
         i += 1
 
     return None
 
-def vcsmd(atoms,cell_atoms,dt, verbose = True):
 
+def vcsmd(atoms,cell_atoms,dt, n_max = 6, verbose = True):
+    """
+    Variable cell shape velocity Verlet MD which visits n_max maxima
+
+    Input:
+        atoms: ASE atoms object
+            contains the unoptimized atoms object
+        cell_atoms: class
+            contains unit cell atoms postitions, velocities and masses
+        dt: float
+            velocity Verlet timestep
+        n_max: int
+            number of maxima visited before MD stops
+        verbose: bool
+            if True the iterationstep, kinetic energy, potential energy and total enery is printed. Furthermore
+            in each iteration a ascii file of the current structure is wirtten
+
+    Return:
+        atoms object containing all the information after the MD
+
+    """
     # MD which visits at least three max
     # Initializations
     masses = atoms.get_masses()[:, np.newaxis] / atoms.get_masses()[:, np.newaxis]  # for the moment no masses
@@ -461,7 +629,7 @@ def vcsmd(atoms,cell_atoms,dt, verbose = True):
     e_pot_cur, forces, deralat, stress_tensor = energyandforces(atoms)
     #___________________________________________________________________________________________________________
     cell_forces = lattice_derivative(atoms)
-    while n_change < 4:
+    while n_change < n_max:
         velocities = atoms.get_velocities()
         positions = atoms.get_positions()
 
@@ -507,11 +675,19 @@ def vcsmd(atoms,cell_atoms,dt, verbose = True):
 
         epot_old = epot
 
-        e_kin = 0.5*np.sum(masses*atoms.get_velocities() * atoms.get_velocities())
-        e_kin += 0.5 * np.sum(cell_masses * cell_atoms.velocities * cell_atoms.velocities)
-        print("MD   STEP:   ", i,epot_old, e_kin, epot_old + e_kin)
-        filename = "MD" + str(i).zfill(4) + ".ascii"
-        write(filename, atoms)
+        if verbose:
+            e_kin = 0.5*np.sum(masses*atoms.get_velocities() * atoms.get_velocities())
+            e_kin += 0.5 * np.sum(cell_masses * cell_atoms.velocities * cell_atoms.velocities)
+            md_msg = "MD STEP:  {:d}   e_pot: {:1.5f}  e_kin:  {:1.5f}   e_tot:  {:1.5f}".format(i, epot, e_kin, epot + e_kin)
+            print(md_msg)
+            filename = "MD{0:05d}.ascii".format(i)
+            write(filename, atoms)
+
+        if i > 10000:
+            warning_msg = "Geometry did not converge in {:d} optimizations steps".format(i)
+            warnings.warn(warning_msg, FutureWarning)
+            break
+
         i += 1
 
     return None
@@ -548,13 +724,26 @@ def optimizer(atoms, criterion):
 
 
 def escape_trial(atoms, dt, T):
+    """
+    Escape loop to find a new minimum
+    Input:
+        atoms: ASE atoms object
+            ase atoms object containing postitions and a calculator
+        dt: float
+            timestep for the MD
+        T: float
+            temperature in (K) to scale the velocities accordingly
+    Return:
+        ASE atoms object containing a new minimum
+    """
+
     #BAZANT TEST
     #___________________________________________________________________________________________________________
     #e_pot_curr = atoms.get_potential_energy()
     e_pot_curr, forces, deralat, stress_tensor = energyandforces(atoms)
     #___________________________________________________________________________________________________________
     escape = 0.0
-    beta_s = 1.001
+    beta_s = 1.1
     while escape < 1e-3:
 
         MaxwellBoltzmannDistribution(atoms, temperature_K=T)
@@ -566,24 +755,23 @@ def escape_trial(atoms, dt, T):
             velocities, cell_velocities = vcs_soften(atoms, cell_atoms, 20)
             atoms.set_velocities(velocities)
             cell_atoms.velocities = cell_velocities
-            vcsmd(atoms,cell_atoms,  dt)
+            vcsmd(atoms,cell_atoms,  dt, verbose=False)
             reshape_cell(atoms,3)
             reshape_cell(atoms,3)
-            quit()
-            #positions, cell_positions = reshapecell.reshapecell(atoms.get_cell().T/0.52917721067, atoms.get_positions().T/0.52917721067)
-            #atoms.set_cell(cell_positions.T*0.52917721067)
-            #atoms.set_positions(positions.T*0.52917721067)
+            vcs_optimizer(atoms, verbose=True)
         else:
             velocities = soften(atoms, 20)
             atoms.set_velocities(velocities)
             md(atoms,dt)
-        #optimizer(atoms, 0.005)
-        ucf = UnitCellFilter(atoms)
-        dyn = QuasiNewton(ucf)
-        dyn.run(fmax = 1e-2)
-        e_pot = atoms.get_potential_energy()
+
+        # BAZANT TEST
+        # ___________________________________________________________________________________________________________
+        # e_pot = atoms.get_potential_energy()
+        e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
+        # ___________________________________________________________________________________________________________
         escape = abs(e_pot-e_pot_curr)
         T *= beta_s
+        #print("TEMPARATUR:   ", T)
 
     return atoms
 
@@ -602,23 +790,28 @@ def vcs_optimizer(atoms, initial_step_size = 0.01, nhist_max = 10, lattice_weigh
     Variable cell shape optimizer from Gubler et. al 2022 arXiv2206.07339
     Function optimizes atom positions and lattice vecotors
 
-    atoms: ASE atoms object
-        contains the unoptimized atoms object
-    initial_step_size: float
-        initial step size to start the geometry optimization
-    nhist_max: int
-        maximum structures which are stored in the history MORITZ?
-    lattice_weight: float
-        lattice weight MORITZ?
-    alpha_min: float
-        minimal step size during the optimization
-    eps_subsop: float
-        MORITZ?
-    max_force_threshold: float
-        convergence criterion at which maximal force component convergence is reached.
-    verbose: bool
-        If true the optimization will print the iteration step, the energy and the maximal force component of the
-        current iteration. Furthermore v_sim files are written in each iteration.
+    Input:
+        atoms: ASE atoms object
+            contains the unoptimized atoms object
+        initial_step_size: float
+            initial step size to start the geometry optimization
+        nhist_max: int
+            maximum structures which are stored in the history MORITZ?
+        lattice_weight: float
+            lattice weight MORITZ?
+        alpha_min: float
+            minimal step size during the optimization
+        eps_subsop: float
+            MORITZ?
+        max_force_threshold: float
+            convergence criterion at which maximal force component convergence is reached.
+        verbose: bool
+            If true the optimization will print the iteration step, the energy and the maximal force component of the
+            current iteration. Furthermore v_sim files are written in each iteration.
+
+    Return:
+        optimized structure in atoms object
+
     """
 
 
@@ -638,7 +831,6 @@ def vcs_optimizer(atoms, initial_step_size = 0.01, nhist_max = 10, lattice_weigh
         #energy = atoms.get_potential_energy() and also deralat
         energy, forces, deralat, stress_tensor = energyandforces(atoms)
         #___________________________________________________________________________________________________________
-
 
         i += 1
         max_force_comp = np.max(forces)
@@ -680,16 +872,17 @@ def main():
 
     #model_path = " "
     dt = 0.01
-    e_diff = .01
-    alpha_a = 1./1.2
-    alpha_r = 1.2
+    e_diff = .1
+    alpha_a = 0.95
+    alpha_r = 1.05
     n_acc = 0
     n_min = 0
     history = []
-    T = 3000
-    beta_decrease = 1./1.1
-    beta_increase = 1.1
-    enhanced_feedback = True
+    acc_min_list = []
+    T = 1000
+    beta_decrease = 1./1.03
+    beta_increase = 1.03
+    enhanced_feedback = False
 
     # Read local minimum input file
     #atoms = read(filename)
@@ -712,15 +905,12 @@ def main():
     #calc.parameters.rc = 12.0
 
     #atoms = bulk('NaCl', crystalstructure='rocksalt', a=6.0)
+#    atoms = read("Si_in4.ascii")
     atoms = read("Si_in2.extxyz")
-    #atoms.pbc = True
+    atoms.pbc = True
     vcs_optimizer(atoms, verbose=True)
-
-
+    write("out.ascii", atoms)
     quit()
-    reshape_cell(atoms,3)
-    reshape_cell(atoms, 3)
-
 
     #pseudo_dir = '/home/marco/NequipMH/src/python/'
     #pseudopotentials = {'Si': 'Si.UPF'}
@@ -758,26 +948,38 @@ def main():
         filename = "MIN" + str(n_min).zfill(5) + ".ascii"
         write(filename, atoms)
 
-        e_pot = atoms.get_potential_energy()
+        # BAZANT TEST
+        # ___________________________________________________________________________________________________________
+        # e_pot = atoms.get_potential_energy()
+        e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
+        # ___________________________________________________________________________________________________________
+
         n_min += 1
-        print("LOG:",n_min,  " Epot:  ",e_pot," Ediff:   ", e_diff," T:  ", T)
+        log_msg = "LOG:  {:d}  Epot:  {:1.5f}   E_diff:  {:1.5f}    Temp:   {:1.5f} ".format(n_min, e_pot, e_diff, T)
+        print(log_msg)
+
         if abs(e_pot_cur-e_pot) < e_diff:
             e_pot_cur = e_pot
             e_diff *= alpha_a
             n_acc += 1
-            filename = "ACC" + str(n_acc).zfill(5) + ".ascii"
-            write(filename, atoms)
+            acc_min_list.append([atoms.copy(), e_pot_cur])
+            acc_min_list = sorted(acc_min_list, key=lambda x: x[1])
+            for k, acc_min in enumerate(acc_min_list):
+                atom = acc_min[0]
+                #print("DEBUGGY    ", acc_min[1])
+                filename = "ACC" + str(k).zfill(5) + ".ascii"
+                write(filename, atom)
             pos_cur = atoms.get_positions()
         else:
             e_diff *= alpha_r
             atoms.set_positions(pos_cur)
-            print(atoms.get_potential_energy()-e_pot_cur)
+            #print(atoms.get_pote ntial_energy()-e_pot_cur)
 
 
         n_visits = in_history(e_pot, history)
         if n_visits > 1:
             if enhanced_feedback:
-                T *= beta_increase * (1. + 4. * np.log(float(n_visits)))
+                T = T*beta_increase * (1. + 4. * np.log(float(n_visits)))
             else:
                 T *= beta_increase
         else:
@@ -790,23 +992,6 @@ def main():
             for e, n in history:
                 f.write(str(e) + "   " + str(n)+"\n")
             f.close()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
