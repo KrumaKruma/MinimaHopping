@@ -18,7 +18,7 @@ import time
 import bazant
 import periodic_sqnm
 import warnings
-
+import numba
 
 
 class cell_atom:
@@ -69,6 +69,29 @@ def get_area(lattice):
 
 
 
+# @numba.njit
+# def reshape_cell_loop(imax, lattice_in, volium_in):
+#     lattice = np.zeros((3,3))
+#     lattice_min = np.zeros((3,3))
+#     area_min = 1e100
+#     for i13 in range(-imax, imax, 1):
+#         for i12 in range(-imax, imax, 1):
+#             lattice[0,:] = lattice_in[0,:] + i12 * lattice_in[1,:] + i13 * lattice_in[2,:]
+#             for i21 in range(-imax, imax, 1):
+#                 for i23 in range(-imax, imax, 1):
+#                     lattice[1,:] = lattice_in[1,:] + i21 * lattice_in[0,:] + i23 * lattice_in[2,:]
+#                     for i31 in range(-imax, imax, 1):
+#                         for i32 in range(-imax, imax, 1):
+#                             lattice[2,:] = lattice_in[2,:] + i31 * lattice_in[0,:] + i32 * lattice_in[1,:]
+#                             volium = abs(np.linalg.det(lattice))
+#                             if abs(volium_in-volium) < 1e-8:
+#                                 area = get_area(lattice)
+#                                 if area < area_min:
+#                                     area_min = area
+#                                     lattice_min[:,:] = lattice[:,:]
+#     return lattice_min
+
+
 def reshape_cell(atoms, imax):
     """
     Function that reshapes the cell so that the cell is as cubic as possible
@@ -81,12 +104,12 @@ def reshape_cell(atoms, imax):
         atoms object with the changed cell
     """
     lattice_in = atoms.get_cell()
+    volium_in = abs(np.linalg.det(lattice_in))
 
+    # NUMBA:  Commented for the purpuse of using numba
     lattice = np.zeros((3,3))
     lattice_min = np.zeros((3,3))
     area_min = 1e100
-
-    volium_in = abs(np.linalg.det(lattice_in))
 
     for i13 in range(-imax, imax, 1):
         for i12 in range(-imax, imax, 1):
@@ -103,7 +126,7 @@ def reshape_cell(atoms, imax):
                                 if area < area_min:
                                     area_min = area
                                     lattice_min[:,:] = lattice[:,:]
-
+    # lattice_min = reshape_cell_loop(imax, np_lattice_in, volium_in)
     atoms.set_cell(lattice_min,scale_atoms=False, apply_constraint=False)
     return None
 
@@ -587,7 +610,7 @@ def md(atoms,dt, n_max = 6, verbose = True):
     return None
 
 
-def vcsmd(atoms,cell_atoms,dt, n_max = 6, verbose = True):
+def vcsmd(atoms,cell_atoms,dt, n_max = 2, verbose = True):
     """
     Variable cell shape velocity Verlet MD which visits n_max maxima
 
@@ -744,7 +767,7 @@ def escape_trial(atoms, dt, T):
     #___________________________________________________________________________________________________________
     escape = 0.0
     beta_s = 1.1
-    while escape < 1e-3:
+    while escape < 1e-2:
 
         MaxwellBoltzmannDistribution(atoms, temperature_K=T)
 
@@ -757,7 +780,7 @@ def escape_trial(atoms, dt, T):
             cell_atoms.velocities = cell_velocities
             vcsmd(atoms,cell_atoms,  dt, verbose=False)
             reshape_cell(atoms,3)
-            reshape_cell(atoms,3)
+            #reshape_cell(atoms,3)
             vcs_optimizer(atoms, verbose=True)
         else:
             velocities = soften(atoms, 20)
@@ -771,13 +794,14 @@ def escape_trial(atoms, dt, T):
         # ___________________________________________________________________________________________________________
         escape = abs(e_pot-e_pot_curr)
         T *= beta_s
-        #print("TEMPARATUR:   ", T)
+        print("TEMPARATUR:   ", T)
 
     return atoms
 
 def in_history(e_pot_cur,history):
     i = 0
-    for e_pot, n_v in history:
+    for s in history:
+        e_pot = s[0]
         e_diff = abs(e_pot - e_pot_cur)
         if e_diff < 1e-2:
             i += 1
@@ -785,7 +809,7 @@ def in_history(e_pot_cur,history):
 
 
 
-def vcs_optimizer(atoms, initial_step_size = 0.01, nhist_max = 10, lattice_weight = 2, alpha_min = 1e-3, eps_subsop = 1e-4, max_force_threshold = 0.002, verbose = False):
+def vcs_optimizer(atoms, initial_step_size = 0.01, nhist_max = 10, lattice_weight = 2, alpha_min = 1e-3, eps_subsop = 1e-4, max_force_threshold = 0.00002, verbose = False):
     """
     Variable cell shape optimizer from Gubler et. al 2022 arXiv2206.07339
     Function optimizes atom positions and lattice vecotors
@@ -842,7 +866,7 @@ def vcs_optimizer(atoms, initial_step_size = 0.01, nhist_max = 10, lattice_weigh
         atoms.set_cell(new_lattice.T, scale_atoms=False, apply_constraint=False)
 
         if verbose:
-            opt_msg = "OPT Step: {:d}   energy: {:1.5f}  max_force_comp:  {:1.5f}".format(i, energy, max_force_comp)
+            opt_msg = "OPT Step: {:d}   energy: {:1.8f}  max_force_comp:  {:1.5e}".format(i, energy, max_force_comp)
             print(opt_msg)
             filename = "OPT{0:05d}.ascii".format(i)
             write(filename, atoms)
@@ -872,7 +896,7 @@ def main():
 
     #model_path = " "
     dt = 0.01
-    e_diff = .1
+    e_diff = 4.
     alpha_a = 0.95
     alpha_r = 1.05
     n_acc = 0
@@ -905,12 +929,12 @@ def main():
     #calc.parameters.rc = 12.0
 
     #atoms = bulk('NaCl', crystalstructure='rocksalt', a=6.0)
-#    atoms = read("Si_in4.ascii")
-    atoms = read("Si_in2.extxyz")
+    atoms = read("Si_in4.ascii")
+#    atoms = read("Si_in2.extxyz")
     atoms.pbc = True
+
+
     vcs_optimizer(atoms, verbose=True)
-    write("out.ascii", atoms)
-    quit()
 
     #pseudo_dir = '/home/marco/NequipMH/src/python/'
     #pseudopotentials = {'Si': 'Si.UPF'}
@@ -941,7 +965,7 @@ def main():
     e_pot_cur, forces, deralat, stress_tensor = energyandforces(atoms)
     #___________________________________________________________________________________________________________
 
-    history.append((e_pot_cur, 1))
+    history.append((e_pot_cur, 1, T, e_diff, "A"))
     for i in range(10000):
         atoms = escape_trial(atoms, dt, T)
 
@@ -970,9 +994,11 @@ def main():
                 filename = "ACC" + str(k).zfill(5) + ".ascii"
                 write(filename, atom)
             pos_cur = atoms.get_positions()
+            acc_rej = "A"
         else:
             e_diff *= alpha_r
             atoms.set_positions(pos_cur)
+            acc_rej = "R"
             #print(atoms.get_pote ntial_energy()-e_pot_cur)
 
 
@@ -985,12 +1011,13 @@ def main():
         else:
             T *= beta_decrease
 
-        history.append((e_pot, n_visits))
+        history.append((e_pot, n_visits, T, e_diff, acc_rej))
 
         if i%1 == 0:
             f = open("history.dat", "w")
-            for e, n in history:
-                f.write(str(e) + "   " + str(n)+"\n")
+            for s in history:
+                history_msg = "{:1.5f}  {:d}  {:1.5f}  {:1.5f}  {:s} \n".format(s[0], s[1], s[2], s[3], s[4])
+                f.write(history_msg)
             f.close()
 
 
