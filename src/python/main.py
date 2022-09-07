@@ -17,6 +17,7 @@ import reshapecell
 import time
 import bazant
 import periodic_sqnm
+import free_or_fixed_cell_sqnm
 import warnings
 import numba
 
@@ -132,7 +133,6 @@ def reshape_cell(atoms, imax):
 
 
 
-
 def energyandforces(atoms):
     positions = atoms.get_positions()
     cell = atoms.get_cell(complete=False).T
@@ -208,7 +208,7 @@ def lattice_derivative(atoms):
     inv_cell = np.linalg.inv(cell)
     prefact = np.linalg.det(cell)
     deralat = - prefact * np.matmul(stress_tensor, inv_cell)
-    return deralat.T
+    return deralat
 
 
 
@@ -533,7 +533,7 @@ def soften(atoms, nsoft):
     return velocities
 
 
-def md(atoms,dt, n_max = 6, verbose = True):
+def md(atoms,dt, n_max = 4, verbose = True):
     """
     velocity Verlet MD which visits n_max maxima
 
@@ -558,9 +558,9 @@ def md(atoms,dt, n_max = 6, verbose = True):
 
     #BAZANT TEST
     #___________________________________________________________________________________________________________
-    # epot_old  = atoms.get_potential_energy()
-    # forces = atoms.get_forces()
-    epot_old, forces, deralat, stress_tensor = energyandforces(atoms)
+    epot_old  = atoms.get_potential_energy()
+    forces = atoms.get_forces()
+    #epot_old, forces, deralat, stress_tensor = energyandforces(atoms)
     #___________________________________________________________________________________________________________
 
     sign_old = -1
@@ -569,22 +569,22 @@ def md(atoms,dt, n_max = 6, verbose = True):
     while n_change < n_max:
         velocities = atoms.get_velocities()
         positions = atoms.get_positions()
-
+        epot_old = atoms.get_potential_energy()
         #Update postions
         atoms.set_positions(positions + dt*velocities + 0.5*dt*dt*(forces/(masses)))
 
         # BAZANT TEST
         # ___________________________________________________________________________________________________________
-        # epot_old  = atoms.get_potential_energy()
-        # new_forces = atoms.get_forces()
-        epot_old, new_forces, deralat, stress_tensor = energyandforces(atoms)
+        #epot_old  = atoms.get_potential_energy()
+        new_forces = atoms.get_forces()
+        #epot_old, new_forces, deralat, stress_tensor = energyandforces(atoms)
         # ___________________________________________________________________________________________________________
         atoms.set_velocities(velocities + 0.5 * dt * ((forces + new_forces)/masses))
 
         # BAZANT TEST
         # ___________________________________________________________________________________________________________
-        # epot  = atoms.get_potential_energy()
-        epot, forces, deralat, stress_tensor = energyandforces(atoms)
+        epot  = atoms.get_potential_energy()
+        #epot, forces, deralat, stress_tensor = energyandforces(atoms)
         # ___________________________________________________________________________________________________________
 
         sign = int(np.sign(epot_old-epot))
@@ -597,7 +597,7 @@ def md(atoms,dt, n_max = 6, verbose = True):
             e_kin = 0.5*np.sum(masses*atoms.get_velocities() * atoms.get_velocities())
             md_msg = "MD STEP:  {:d}   e_pot: {:1.5f}  e_kin:  {:1.5f}   e_tot:  {:1.5f}".format(i, epot, e_kin, epot + e_kin)
             print(md_msg)
-            filename = "MD{0:05d}.ascii".format(i)
+            filename = "MD{0:05d}.xyz".format(i)
             write(filename, atoms)
 
         if i > 10000:
@@ -723,27 +723,6 @@ def vcsmd(atoms,cell_atoms,dt, n_max = 2, verbose = True):
 
 
 
-def optimizer(atoms, criterion):
-    norm = 1.
-    alpha = 0.001
-    forces = atoms.get_forces()
-    i = 0
-    while norm > criterion:
-        prev_forces = forces
-        positions = atoms.get_positions()
-        atoms.set_positions(positions + alpha*forces)
-        forces = atoms.get_forces()
-        cosangle = np.sum(forces*prev_forces)/(np.linalg.norm(forces)*np.linalg.norm(prev_forces))
-        if cosangle < 0.5:
-            alpha /= 2.
-        else:
-            alpha *= 1.05
-
-        norm = np.linalg.norm(forces)
-        #print(atoms.get_potential_energy(), norm)
-        #filename = "OPTIM" + str(i).zfill(4) + ".xyz"
-        #write(filename,atoms)
-        i += 1
 
 
 def escape_trial(atoms, dt, T):
@@ -762,12 +741,12 @@ def escape_trial(atoms, dt, T):
 
     #BAZANT TEST
     #___________________________________________________________________________________________________________
-    #e_pot_curr = atoms.get_potential_energy()
-    e_pot_curr, forces, deralat, stress_tensor = energyandforces(atoms)
+    e_pot_curr = atoms.get_potential_energy()
+    #e_pot_curr, forces, deralat, stress_tensor = energyandforces(atoms)
     #___________________________________________________________________________________________________________
     escape = 0.0
     beta_s = 1.1
-    while escape < 1e-2:
+    while escape < 1e-3:
 
         MaxwellBoltzmannDistribution(atoms, temperature_K=T)
 
@@ -785,16 +764,18 @@ def escape_trial(atoms, dt, T):
         else:
             velocities = soften(atoms, 20)
             atoms.set_velocities(velocities)
-            md(atoms,dt)
+            md(atoms,dt,verbose=False)
+            optimizer(atoms, verbose=False)
+
 
         # BAZANT TEST
         # ___________________________________________________________________________________________________________
-        # e_pot = atoms.get_potential_energy()
-        e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
+        e_pot = atoms.get_potential_energy()
+        #e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
         # ___________________________________________________________________________________________________________
         escape = abs(e_pot-e_pot_curr)
         T *= beta_s
-        print("TEMPARATUR:   ", T)
+        print("TEMPARATUR:   ", T, escape)
 
     return atoms
 
@@ -803,9 +784,73 @@ def in_history(e_pot_cur,history):
     for s in history:
         e_pot = s[0]
         e_diff = abs(e_pot - e_pot_cur)
-        if e_diff < 1e-2:
+        if e_diff < 1e-3:
             i += 1
     return i+1
+
+
+def optimizer(atoms, initial_step_size=0.0001, nhist_max=10, alpha_min=1e-5, eps_subsp=1e-4, max_force_threshold=0.00002,verbose=False):
+    """
+    Variable cell shape optimizer from Gubler et. al 2022 arXiv2206.07339
+    Function optimizes atom positions and lattice vecotors
+
+    Input:
+        atoms: ASE atoms object
+            contains the unoptimized atoms object
+        initial_step_size: float
+            initial step size to start the geometry optimization
+        nhist_max: int
+            maximum structures which are stored in the history MORITZ?
+        alpha_min: float
+            minimal step size during the optimization
+        eps_subsop: float
+            MORITZ?
+        max_force_threshold: float
+            convergence criterion at which maximal force component convergence is reached.
+        verbose: bool
+            If true the optimization will print the iteration step, the energy and the maximal force component of the
+            current iteration. Furthermore v_sim files are written in each iteration.
+
+    Return:
+        optimized structure in atoms object
+
+    """
+
+
+    nat = atoms.get_positions().shape[0]
+    optim = free_or_fixed_cell_sqnm.free_sqnm(nat=nat, initial_step_size=initial_step_size, nhist_max=nhist_max,alpha_min=alpha_min, eps_subsp=eps_subsp)
+
+    max_force_comp = 100
+    i = 0
+    while max_force_comp > max_force_threshold:
+        #BAZANT TEST
+        #___________________________________________________________________________________________________________
+        energy = atoms.get_potential_energy()
+        forces = atoms.get_forces()
+        #energy, forces, deralat, stress_tensor = energyandforces(atoms)
+        #___________________________________________________________________________________________________________
+
+        i += 1
+        max_force_comp = np.max(forces)
+        positions = atoms.get_positions()
+
+        new_positions = optim.optimizer_step(positions.T, energy, forces.T)
+        atoms.set_positions(new_positions.T)
+
+        if verbose:
+            opt_msg = "OPT Step: {:d}   energy: {:1.8f}  max_force_comp:  {:1.5e}".format(i, energy, max_force_comp)
+            print(opt_msg)
+            filename = "OPT{0:05d}.ascii".format(i)
+            write(filename, atoms)
+
+        if i > 10000:
+            warning_msg = "Geometry did not converge in {:d} optimizations steps".format(i)
+            warnings.warn(warning_msg, FutureWarning)
+            break
+
+
+    return None
+
 
 
 
@@ -891,25 +936,25 @@ def main():
     #filename = "acc-00000.xyz"
     #path = "/home/marco/NequipMH/data/"
     #filename = "LJC.extxyz"
-    #path = "/home/marco/NequipMH/data/"
-    #filename = "LJ38.xyz"
+    path = "/home/marco/NequipMH/data/38/"
+    filename = "input.xyz"
 
     #model_path = " "
     dt = 0.01
-    e_diff = 4.
+    e_diff = .01
     alpha_a = 0.95
     alpha_r = 1.05
     n_acc = 0
     n_min = 0
     history = []
     acc_min_list = []
-    T = 1000
+    T = 500
     beta_decrease = 1./1.03
     beta_increase = 1.03
     enhanced_feedback = False
 
     # Read local minimum input file
-    #atoms = read(filename)
+    atoms = read(path + filename)
 
     # Initialize calculator (Nequip)
     #atoms.calc = NequIPCalculator.from_deployed_model()
@@ -923,18 +968,19 @@ def main():
     #)
 
     # TESTING: For now it will be a LJ potential
-    #calc = LennardJones()
-    #calc.parameters.epsilon = 1.0
-    #calc.parameters.sigma = 1.0
-    #calc.parameters.rc = 12.0
-
+    calc = LennardJones()
+    calc.parameters.epsilon = 1.0
+    calc.parameters.sigma = 1.0
+    calc.parameters.rc = 12.0
+    atoms.calc = calc
     #atoms = bulk('NaCl', crystalstructure='rocksalt', a=6.0)
-    atoms = read("Si_in4.ascii")
+    #atoms = read("input.ascii")
 #    atoms = read("Si_in2.extxyz")
-    atoms.pbc = True
+    #atoms.pbc = True
+    optimizer(atoms, verbose=True)
 
 
-    vcs_optimizer(atoms, verbose=True)
+    #vcs_optimizer(atoms, verbose=True)
 
     #pseudo_dir = '/home/marco/NequipMH/src/python/'
     #pseudopotentials = {'Si': 'Si.UPF'}
@@ -952,7 +998,6 @@ def main():
     #calc = Espresso(pseudo_dir=pseudo_dir, pseudopotentials=pseudopotentials,
     #                tstress=True, tprnfor=True, kpts=(3, 3, 3), input_data=input_data)
 
-    #atoms.calc = calc
     #ucf = UnitCellFilter(atoms)
     #dyn = QuasiNewton(ucf)
     #dyn.run(fmax=1e-2)
@@ -961,8 +1006,8 @@ def main():
 
     #BAZANT TEST
     #___________________________________________________________________________________________________________
-    #e_pot_cur = atoms.get_potential_energy()
-    e_pot_cur, forces, deralat, stress_tensor = energyandforces(atoms)
+    e_pot_cur = atoms.get_potential_energy()
+    #e_pot_cur, forces, deralat, stress_tensor = energyandforces(atoms)
     #___________________________________________________________________________________________________________
 
     history.append((e_pot_cur, 1, T, e_diff, "A"))
@@ -974,8 +1019,8 @@ def main():
 
         # BAZANT TEST
         # ___________________________________________________________________________________________________________
-        # e_pot = atoms.get_potential_energy()
-        e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
+        e_pot = atoms.get_potential_energy()
+        #e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
         # ___________________________________________________________________________________________________________
 
         n_min += 1
@@ -997,7 +1042,6 @@ def main():
             acc_rej = "A"
         else:
             e_diff *= alpha_r
-            atoms.set_positions(pos_cur)
             acc_rej = "R"
             #print(atoms.get_pote ntial_energy()-e_pot_cur)
 
@@ -1010,7 +1054,7 @@ def main():
                 T *= beta_increase
         else:
             T *= beta_decrease
-
+        e_pot = atoms.get_potential_energy()
         history.append((e_pot, n_visits, T, e_diff, acc_rej))
 
         if i%1 == 0:
@@ -1020,7 +1064,7 @@ def main():
                 f.write(history_msg)
             f.close()
 
-
+        atoms.set_positions(pos_cur)
 
 
 if __name__ == '__main__':

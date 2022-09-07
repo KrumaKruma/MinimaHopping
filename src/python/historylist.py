@@ -1,11 +1,9 @@
-from ast import If
 import numpy as np
 
 class HistoryList:
     def __init__(self, ndim, nhist_max):
         self.ndim = ndim
         self.nhist_max = nhist_max
-        self.oldElem = np.zeros(ndim)
         self.histList = np.zeros((ndim, nhist_max))
         self.diffList = np.zeros((ndim, nhist_max))
         self.normalizedDiffList = np.zeros((ndim, nhist_max))
@@ -23,7 +21,6 @@ class HistoryList:
             return self.icount - 1
         else:
             # print('list full')
-            self.oldElem = self.histList[:, 0]
             # make place in history list
             self.histList[:, :(self.nhist_max-1)] = self.histList[:, 1:(self.nhist_max)]
             # add last element

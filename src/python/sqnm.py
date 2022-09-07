@@ -1,10 +1,16 @@
+#!/usr/bin/env python3
+
 import numpy as np
 import historylist
+import time
 
 class SQNM:
     def __init__(self, ndim, nhist_max, alpha, eps_supsp, alpha_min):
         self.ndim = ndim
         self.nhist_max = nhist_max
+        if ndim < nhist_max:
+            print('ndim > nhist_max. Seting nhist_max to ndim')
+            self.nhist_max = self.ndim
         self.eps_subsp = eps_supsp
         self.alpha_min = alpha_min
         self.xlist = historylist.HistoryList(self.ndim, self.nhist_max)
@@ -21,7 +27,6 @@ class SQNM:
         self.h_evec = np.zeros((ndim, nhist_max))
         self.h_eval = np.zeros(nhist_max)
         self.res = np.zeros(nhist_max)
-        self.res_temp = np.zeros(ndim)
         self.gainratio = 0.0
         self.nhist = 0
 
@@ -47,24 +52,16 @@ class SQNM:
                 = np.linalg.eigh(self.s_evec[:self.nhist, :self.nhist])
 
             # remove noisy directions from subspace
-            dim_subsp = 0
-            for i in range(self.nhist):
-                if self.s_eval[i] / self.s_eval[self.nhist - 1] > self.eps_subsp:
-                    dim_subsp += 1
+            dim_subsp = sum(self.s_eval[:self.nhist] / self.s_eval[self.nhist - 1] > self.eps_subsp)
 
             self.s_eval[:dim_subsp] = self.s_eval[(self.nhist - dim_subsp):self.nhist]
             self.s_evec[:, :dim_subsp] = self.s_evec[:, (self.nhist - dim_subsp):self.nhist]
 
             # compute eq. 11
-            self.dr_subsp[:, :] = 0.0
-            self.df_subsp[:, :] = 0.0
-            for i in range(dim_subsp):
-                for ihist in range(self.nhist):
-                    self.dr_subsp[:, i] += self.s_evec[ihist, i] * self.xlist.normalizedDiffList[:, ihist]
-                    self.df_subsp[:, i] += self.s_evec[ihist, i] * self.flist.diffList[:, ihist] \
-                        / np.linalg.norm(self.xlist.diffList[:, ihist])
-                self.dr_subsp[:, i] = self.dr_subsp[:, i] / np.sqrt(self.s_eval[i])
-                self.df_subsp[:, i] = self.df_subsp[:, i] / np.sqrt(self.s_eval[i])
+            self.dr_subsp[:, :dim_subsp] = np.einsum('hi,kh->ki', self.s_evec[:self.nhist,:dim_subsp], self.xlist.normalizedDiffList[:, :self.nhist])\
+                / np.sqrt(self.s_eval[:dim_subsp])
+            self.df_subsp[:, :dim_subsp] = np.einsum('hi,kh,h->ki', self.s_evec[:self.nhist,:dim_subsp], self.flist.diffList[:, :self.nhist], np.divide(1.0, np.linalg.norm(self.xlist.diffList[:, :self.nhist], axis=0)) )\
+                / np.sqrt(self.s_eval[:dim_subsp])
                     
             # compute eq 13
             self.h_evec_subsp[:dim_subsp, :dim_subsp] = .5 * (self.df_subsp[:, :dim_subsp].T @ self.dr_subsp[:, :dim_subsp] \
@@ -73,40 +70,37 @@ class SQNM:
                 = np.linalg.eigh(self.h_evec_subsp[:dim_subsp, :dim_subsp])
             
             # compute eq. 15
-            self.h_evec[:, :] = 0.0
-            for i in range(dim_subsp):
-                for k in range(dim_subsp):
-                    self.h_evec[:, i] += self.h_evec_subsp[k, i] * self.dr_subsp[:, k]
+            self.h_evec[:, :dim_subsp] = np.einsum('ki,hk->hi', self.h_evec_subsp[:dim_subsp, :dim_subsp], self.dr_subsp[:, :dim_subsp])
 
             # compute eq. 20
-            for j in range(dim_subsp):
-                self.res_temp = - self.h_eval[j] * self.h_evec[:, j]
-                for k in range(dim_subsp):
-                    self.res_temp += self.h_evec_subsp[k, j] * self.df_subsp[:, k]
-                self.res[j] = np.linalg.norm(self.res_temp)
+            self.res[:dim_subsp] = np.linalg.norm(
+                - self.h_eval[:dim_subsp] * self.h_evec[:, :dim_subsp] 
+                + self.df_subsp[:, :dim_subsp] @ self.h_evec_subsp[:dim_subsp, :dim_subsp]
+                , axis = 0)
 
             # modify eigenvalues according to eq. 18
             self.h_eval[:dim_subsp] = np.sqrt(self.h_eval[:dim_subsp]**2 + self.res[:dim_subsp]**2)
 
             # decompose gradient according to eq. 16
-            self.dir_of_descent = df_dx
-            for i in range(dim_subsp):
-                self.dir_of_descent = self.dir_of_descent - np.dot(self.h_evec[:, i], df_dx) * self.h_evec[:, i]
-            self.dir_of_descent = self.dir_of_descent * self.alpha
+            self.dir_of_descent = (df_dx - np.einsum('i, ki -> k', self.h_evec[:, :dim_subsp].T @ df_dx, self.h_evec[:, :dim_subsp])) * self.alpha
 
             # apply preconditioning to subspace gradient (eq. 21)
-            for idim in range(dim_subsp):
-                self.dir_of_descent = self.dir_of_descent + np.dot( df_dx, self.h_evec[:, idim] ) * self.h_evec[:, idim] / self.h_eval[idim]
-            #print('dd2', self.dir_of_descent)
+            self.dir_of_descent = self.dir_of_descent + \
+                np.einsum('i, ki, i -> k', self.h_evec[:,:dim_subsp].T @ df_dx\
+                , self.h_evec[:, :dim_subsp], np.divide(1.0, self.h_eval[:dim_subsp]) )
 
             self.dir_of_descent = - self.dir_of_descent
         self.prev_f_of_x = f_of_x
         self.prev_df_dx = df_dx
         return self.dir_of_descent
 
+    def lower_limit(self):
+        if self.nhist < 1:
+            print("At least one optimization step needs to be done before lower_limit can be called.")
+            return 0
+        return .5 * np.dot(self.prev_df_dx, self.prev_df_dx) / self.h_eval[0]
 
-"""
-def test_fun(x):
+def _test_fun(x):
     n = len(x)
     a = np.zeros((n, n))
     for i in range(n):
@@ -116,28 +110,30 @@ def test_fun(x):
     return f, df
 
 
+def _tests():
+    n = 400
+    nhistx = 10
+    alpha = .005
+    x = np.zeros(n)
+    x[:] = 1.0
+    x[1] = 1.4
 
-n = 400
-nhistx = 20
-alpha = .1
-x = np.zeros(n)
-x[:] = 1.0
-x[1] = 1.4
-
-opt = SQNM(n, nhistx, alpha, 1e-4, 1e-2)
+    opt = SQNM(n, nhistx, alpha, 1e-4, 1e-2)
 
 
-for i in range(40):
-    f, df = test_fun(x)
-    print(i)
-    print('norm of x', np.linalg.norm(x))
-    print(f)
-    print('norm of forces', np.linalg.norm(df))
-    print('')
-    t1 = time.time()
-    dd = opt.sqnm_step(x, f, df)
-    t2 = time.time()
-    print('time', t2 -t1)
-    # print('dd', dd)
-    x += dd
-"""
+    for i in range(100):
+        f, df = _test_fun(x)
+        #print(i)
+        #print('norm of x', np.linalg.norm(x))
+        #print('f(x)', f)
+        #print('norm of forces', np.linalg.norm(df))
+        #print('')
+        t1 = time.time()
+        dd = opt.sqnm_step(x, f, df)
+        t2 = time.time()
+        print(f, opt.lower_limit()) 
+        x += dd
+
+
+if __name__ == "__main__":
+    _tests()
