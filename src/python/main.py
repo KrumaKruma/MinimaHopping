@@ -45,25 +45,6 @@ class cell_atom:
         return None
 
 
-def get_area(lattice):
-    """
-    Calculates the area of the lattice
-    Input:
-        lattice: np array
-            numpy array containing the lattice vectors
-    Return:
-        area: float
-            area of the lattice
-    :return:
-    """
-
-    area = 0.
-    area += np.linalg.norm(np.cross(lattice[:, 0], lattice[:, 1]))
-    area += np.linalg.norm(np.cross(lattice[:, 0], lattice[:, 2]))
-    area += np.linalg.norm(np.cross(lattice[:, 1], lattice[:, 2]))
-
-    return area
-
 
 def get_area2(lattice):
     """
@@ -85,66 +66,6 @@ def get_area2(lattice):
     return area
 
 
-# @numba.njit
-# def reshape_cell_loop(imax, lattice_in, volium_in):
-#     lattice = np.zeros((3,3))
-#     lattice_min = np.zeros((3,3))
-#     area_min = 1e100
-#     for i13 in range(-imax, imax, 1):
-#         for i12 in range(-imax, imax, 1):
-#             lattice[0,:] = lattice_in[0,:] + i12 * lattice_in[1,:] + i13 * lattice_in[2,:]
-#             for i21 in range(-imax, imax, 1):
-#                 for i23 in range(-imax, imax, 1):
-#                     lattice[1,:] = lattice_in[1,:] + i21 * lattice_in[0,:] + i23 * lattice_in[2,:]
-#                     for i31 in range(-imax, imax, 1):
-#                         for i32 in range(-imax, imax, 1):
-#                             lattice[2,:] = lattice_in[2,:] + i31 * lattice_in[0,:] + i32 * lattice_in[1,:]
-#                             volium = abs(np.linalg.det(lattice))
-#                             if abs(volium_in-volium) < 1e-8:
-#                                 area = get_area(lattice)
-#                                 if area < area_min:
-#                                     area_min = area
-#                                     lattice_min[:,:] = lattice[:,:]
-#     return lattice_min
-
-
-def reshape_cell(atoms, imax):
-    """
-    Function that reshapes the cell so that the cell is as cubic as possible
-    Input:
-        atoms: ASE atoms object
-            atoms object containing the lattice parameters
-        imax: int
-            maximum of the lattice expansion to try
-    Return:
-        atoms object with the changed cell
-    """
-    lattice_in = atoms.get_cell()
-    volium_in = abs(np.linalg.det(lattice_in))
-
-    # NUMBA:  Commented for the purpuse of using numba
-    lattice = np.zeros((3, 3))
-    lattice_min = np.zeros((3, 3))
-    area_min = 1e100
-
-    for i13 in range(-imax, imax, 1):
-        for i12 in range(-imax, imax, 1):
-            lattice[0, :] = lattice_in[0, :] + i12 * lattice_in[1, :] + i13 * lattice_in[2, :]
-            for i21 in range(-imax, imax, 1):
-                for i23 in range(-imax, imax, 1):
-                    lattice[1, :] = lattice_in[1, :] + i21 * lattice_in[0, :] + i23 * lattice_in[2, :]
-                    for i31 in range(-imax, imax, 1):
-                        for i32 in range(-imax, imax, 1):
-                            lattice[2, :] = lattice_in[2, :] + i31 * lattice_in[0, :] + i32 * lattice_in[1, :]
-                            volium = abs(np.linalg.det(lattice))
-                            if abs(volium_in - volium) < 1e-8:
-                                area = get_area(lattice)
-                                if area < area_min:
-                                    area_min = area
-                                    lattice_min[:, :] = lattice[:, :]
-    # lattice_min = reshape_cell_loop(imax, np_lattice_in, volium_in)
-    atoms.set_cell(lattice_min, scale_atoms=False, apply_constraint=False)
-    return None
 
 
 def alat2ascii(nat, pos, alat_in):
@@ -164,19 +85,16 @@ def alat2ascii(nat, pos, alat_in):
     inv_alat_out = np.linalg.inv(alat_in)
     t = np.matmul(alat_out, inv_alat_out)
     pos_out = np.matmul(t, pos)
-    # for i in range(nat):
-    #    pos_out[:,i] = np.matmul(t,pos[:,i])
-    # pos_out = pos
     return pos_out, alat_out
 
 
 def reshape_cell_ascii(lattice_in, imax):
-    area_min = get_area(lattice_in)
+    area_min = get_area2(lattice_in)
     lattice = np.zeros((3, 3))
     lattice_min = np.zeros((3, 3))
     lattice[:, 0] = lattice_in[:, 0].copy()
     success = False
-    # lattice_min[:,:] = lattice[:,:]
+    lattice_min[:,:] = lattice[:,:]
     for iba in range(-imax, imax, 1):
         lattice[:, 1] = lattice_in[:, 1] + iba * lattice_in[:, 0]
         for ica in range(-imax, imax, 1):
@@ -211,7 +129,8 @@ def reshape_cell2(atoms, imax):
 
     positions, lattice = alat2ascii(nat, positions_in, lattice_in)
     lattice_temp, success = reshape_cell_ascii(lattice, imax)
-    lattice[:, :] = lattice_temp[:, :]
+    if success:
+        lattice[:, :] = lattice_temp[:, :]
 
     permutation_matrix = np.zeros((3, 3))
     permutation_matrix[0, 1] = 1.
@@ -219,7 +138,6 @@ def reshape_cell2(atoms, imax):
     permutation_matrix[2, 0] = 1.
     inverse_permutation_matrix = np.linalg.inv(permutation_matrix)
     lattice_temp = np.matmul(lattice, permutation_matrix)
-    #positions, lattice_temp = alat2ascii(nat, positions, lattice_temp)
     lattice_temp, success = reshape_cell_ascii(lattice_temp, imax)
     lattice_temp = np.matmul(lattice_temp, inverse_permutation_matrix)
 
@@ -239,9 +157,7 @@ def reshape_cell2(atoms, imax):
     permutation_matrix[2, 1] = 1.
     inverse_permutation_matrix = np.linalg.inv(permutation_matrix)
     lattice_temp = np.matmul(lattice, permutation_matrix)
-    #positions, lattice_temp = alat2ascii(nat, positions, lattice_temp)
     lattice_temp, success = reshape_cell_ascii(lattice_temp, imax)
-    # print("OUT   ", lattice)
     lattice_temp = np.matmul(lattice_temp, inverse_permutation_matrix)
 
     if not success:
@@ -256,7 +172,7 @@ def reshape_cell2(atoms, imax):
     atoms.set_positions(positions.T)
     atoms.set_cell(lattice.T, scale_atoms=False, apply_constraint=False)
 
-    return
+    return None
 
 
 def energyandforces(atoms):
@@ -826,7 +742,7 @@ def vcsmd(atoms, cell_atoms, dt, n_max=2, verbose=True):
 
     return None
 
-atoms = read("input.ascii")
+
 def escape_trial(atoms, dt, T):
     """
     Escape loop to find a new minimum
@@ -843,8 +759,8 @@ def escape_trial(atoms, dt, T):
 
     # BAZANT TEST
     # ___________________________________________________________________________________________________________
-    e_pot_curr = atoms.get_potential_energy()
-    # e_pot_curr, forces, deralat, stress_tensor = energyandforces(atoms)
+    # e_pot_curr = atoms.get_potential_energy()
+    e_pot_curr, forces, deralat, stress_tensor = energyandforces(atoms)
     # ___________________________________________________________________________________________________________
     escape = 0.0
     beta_s = 1.1
@@ -860,8 +776,9 @@ def escape_trial(atoms, dt, T):
             atoms.set_velocities(velocities)
             cell_atoms.velocities = cell_velocities
             vcsmd(atoms, cell_atoms, dt, verbose=False)
-            reshape_cell(atoms, 3)
+            reshape_cell2(atoms, 6)
             # reshape_cell(atoms,3)
+            print(atoms.pbc)
             vcs_optimizer(atoms, verbose=True)
         else:
             velocities = soften(atoms, 20)
@@ -871,8 +788,8 @@ def escape_trial(atoms, dt, T):
 
         # BAZANT TEST
         # ___________________________________________________________________________________________________________
-        e_pot = atoms.get_potential_energy()
-        # e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
+        # e_pot = atoms.get_potential_energy()
+        e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
         # ___________________________________________________________________________________________________________
         escape = abs(e_pot - e_pot_curr)
         T *= beta_s
@@ -955,7 +872,7 @@ def optimizer(atoms, initial_step_size=0.0001, nhist_max=10, alpha_min=1e-5, eps
 
 
 def vcs_optimizer(atoms, initial_step_size=0.01, nhist_max=10, lattice_weight=2, alpha_min=1e-3, eps_subsop=1e-4,
-                  max_force_threshold=0.00002, verbose=False):
+                  max_force_threshold=0.0002, verbose=False):
     """
     Variable cell shape optimizer from Gubler et. al 2022 arXiv2206.07339
     Function optimizes atom positions and lattice vecotors
@@ -983,11 +900,11 @@ def vcs_optimizer(atoms, initial_step_size=0.01, nhist_max=10, lattice_weight=2,
         optimized structure in atoms object
 
     """
+    print(atoms.get_cell())
 
     # Get nessecairy parameters from atoms object
     nat = atoms.get_positions().shape[0]
     init_lat = atoms.get_cell().T
-
     # Initialize optimizer class
     optim = periodic_sqnm.periodic_sqnm(nat, init_lat, initial_step_size, nhist_max, lattice_weight, alpha_min,
                                         eps_subsop)
@@ -1004,6 +921,8 @@ def vcs_optimizer(atoms, initial_step_size=0.01, nhist_max=10, lattice_weight=2,
 
         i += 1
         max_force_comp = np.max(forces)
+        max_latderiv_comp = np.max(deralat)
+        max_force_comp = np.maximum(max_force_comp, max_latderiv_comp)
         positions = atoms.get_positions()
         lattice = atoms.get_cell().T
 
@@ -1022,7 +941,7 @@ def vcs_optimizer(atoms, initial_step_size=0.01, nhist_max=10, lattice_weight=2,
             warnings.warn(warning_msg, FutureWarning)
             break
 
-    return None
+    return
 
 
 def main():
@@ -1031,8 +950,8 @@ def main():
     # filename = "acc-00000.xyz"
     # path = "/home/marco/NequipMH/data/"
     # filename = "LJC.extxyz"
-    path = "/home/marco/NequipMH/data/38/"
-    filename = "input.xyz"
+    #path = "/home/marco/NequipMH/data/38/"
+    #filename = "input.xyz"
 
     # model_path = " "
     dt = 0.01
@@ -1049,7 +968,7 @@ def main():
     enhanced_feedback = False
 
     # Read local minimum input file
-    atoms = read(path + filename)
+    #atoms = read(path + filename)
 
     # Initialize calculator (Nequip)
     # atoms.calc = NequIPCalculator.from_deployed_model()
@@ -1070,35 +989,11 @@ def main():
     # atoms.calc = calc
     # atoms = bulk('NaCl', crystalstructure='rocksalt', a=6.0)
     # atoms = read("input.ascii")
-    atoms = read("input.ascii")
-    write("input.cif", atoms)
-    atoms.pbc = True
-    # optimizer(atoms, verbose=True)
-    # BAZANT TEST
-    # ___________________________________________________________________________________________________________
-    e_pot1, forces, deralat, stress_tensor = energyandforces(atoms)
-    # ___________________________________________________________________________________________________________
-    print(atoms.get_positions())
-    print(atoms.get_cell())
-    time1 = time.time()
-    reshape_cell2(atoms, imax=6)
-    #reshape_cell(atoms, imax=6)
-    time2 = time.time()
-    print("TIME:  ", time2-time1)
-    #reshape_cell(atoms, imax=3)
-    print(atoms.get_positions())
-    print(atoms.get_cell())
-    # BAZANT TEST
-    # ___________________________________________________________________________________________________________
-    e_pot2, forces, deralat, stress_tensor = energyandforces(atoms)
-    # ___________________________________________________________________________________________________________
+    atoms = read("Si_in2.extxyz")
+    #write("input.cif", atoms)
+    #atoms.pbc = True
 
-    write("reshaped.cif", atoms)
-    write("reshaped.ascii", atoms)
-    print(e_pot1, e_pot2)
-    quit()
-
-    # vcs_optimizer(atoms, verbose=True)
+    vcs_optimizer(atoms, verbose=True)
 
     # pseudo_dir = '/home/marco/NequipMH/src/python/'
     # pseudopotentials = {'Si': 'Si.UPF'}
@@ -1124,8 +1019,8 @@ def main():
 
     # BAZANT TEST
     # ___________________________________________________________________________________________________________
-    e_pot_cur = atoms.get_potential_energy()
-    # e_pot_cur, forces, deralat, stress_tensor = energyandforces(atoms)
+    #e_pot_cur = atoms.get_potential_energy()
+    e_pot_cur, forces, deralat, stress_tensor = energyandforces(atoms)
     # ___________________________________________________________________________________________________________
 
     history.append((e_pot_cur, 1, T, e_diff, "A"))
@@ -1137,8 +1032,8 @@ def main():
 
         # BAZANT TEST
         # ___________________________________________________________________________________________________________
-        e_pot = atoms.get_potential_energy()
-        # e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
+        #e_pot = atoms.get_potential_energy()
+        e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
         # ___________________________________________________________________________________________________________
 
         n_min += 1
@@ -1171,7 +1066,13 @@ def main():
                 T *= beta_increase
         else:
             T *= beta_decrease
-        e_pot = atoms.get_potential_energy()
+
+        # BAZANT TEST
+        # ___________________________________________________________________________________________________________
+        #e_pot = atoms.get_potential_energy()
+        e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
+        # ___________________________________________________________________________________________________________
+
         history.append((e_pot, n_visits, T, e_diff, acc_rej))
 
         if i % 1 == 0:
