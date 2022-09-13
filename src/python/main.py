@@ -3,23 +3,17 @@ from ase.io import read, write
 from ase.calculators.lj import LennardJones
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
 from ase import Atoms
-from ase.md.verlet import VelocityVerlet
 from ase import units
-# import torque
-from ase.optimize import BFGS
-from ase.optimize import QuasiNewton
 # from nequip.ase import NequIPCalculator
-from ase.build import bulk
 from ase.calculators.espresso import Espresso
-from ase.constraints import UnitCellFilter
 from ase import units
-import reshapecell
 import time
+import scipy
 import bazant
 import periodic_sqnm
 import free_or_fixed_cell_sqnm
 import warnings
-import numba
+from dscribe.descriptors import SOAP
 
 
 class cell_atom:
@@ -43,6 +37,107 @@ class cell_atom:
         self.velocities /= self.masses
 
         return None
+
+
+
+def costmatrix(desc1, desc2):
+    """
+    Cost matrix of the local fingerprints for the hungarian algorithm
+    desc1: np array
+        numpy array containing local fingerprints of structure 1
+    desc2: np array
+        numpy array containing local fingerprints of structure 2
+    Return:
+        cost matrix of with the distances of the local fingerprints
+    """
+    assert desc1.shape[0] == desc2.shape[0], "descriptor has not the same length"
+
+    costmat = np.zeros((desc1.shape[0], desc2.shape[0]))
+
+    for i, vec1 in enumerate(desc1):
+        for j, vec2 in enumerate(desc2):
+            costmat[i,j] = np.linalg.norm(vec1-vec2)
+
+    return costmat
+
+
+def get_SOAP(atoms, rcut = 5, nmax = 8, lmax = 6, crossover=True, sigma=1.):
+    """
+    atoms: ASE atoms object
+        ASE atoms object containing the atomic structure
+    rcut: float
+        cut off radius of the SOAP fingerprint
+    nmax: int
+        number of radial basis functions
+    lmax: int
+        maximum degree of spherical harmonics
+    crossover: bool
+        Determines if crossover of atomic types should be included in the power spectrum. If enabled, the power
+        spectrum is calculated over all unique species combinations Z and Z'. If disabled, the power spectrum does not
+        contain cross-species information and is only run over each unique species Z. Turned on by default to
+        correspond to the original definition.
+    sigma: float
+        standard deviation of the gaussian basis function
+    Return: np array
+        numpy array containing local environment SOAP descriptor
+
+    Ref:
+        "Willatt, M., Musil, F., & Ceriotti, M. (2018).
+        Feature optimization for atomistic machine learning
+        yields a data-driven construction of the periodic
+        table of the elements.  Phys. Chem. Chem. Phys., 20,
+        29661-29668.
+
+        "Caro, M. (2019). Optimizing many-body atomic
+        descriptors for enhanced computational performance of
+        machine learning based interatomic potentials.  Phys.
+        Rev. B, 100, 024112."
+
+    """
+
+
+    element_list = list(set(atoms.get_chemical_symbols()))
+
+    pbc = atoms.pbc
+    pbc_list = list(set(pbc))
+    assert len(pbc_list) == 1, "Mixed periodic boundary conditions"
+    pbc = pbc_list[0]
+
+    soap_desc = SOAP(species=element_list, rcut=rcut, nmax=nmax, lmax=lmax, crossover=crossover, periodic=pbc, sigma=sigma)
+    desc = soap_desc.create(atoms)
+
+    return desc
+
+
+def fp_distance(desc1, desc2):
+    """
+    Calcualtes the fingerprint distance of 2 structures with local environment descriptors using the hungarian algorithm
+    desc1: np array
+        numpy array containing local environments of structure 1
+    desc2: np array
+        numpy array containing local environments of structure 2
+    Return:
+        Global fingerprint distance between structure 1 and structure 2
+    """
+
+
+    costmat = costmatrix(desc1,desc2)
+    ans_pos = scipy.optimize.linear_sum_assignment(costmat)
+
+
+    fp_dist = 0.
+    for index1, index2 in zip(ans_pos[0], ans_pos[1]):
+        fp_dist += np.dot((desc1[index1,:]-desc2[index2,:]), (desc1[index1,:]-desc2[index2,:]))
+
+    fp_dist = np.sqrt(fp_dist)
+
+    return fp_dist
+
+
+
+
+
+
 
 
 
@@ -778,8 +873,7 @@ def escape_trial(atoms, dt, T):
             vcsmd(atoms, cell_atoms, dt, verbose=False)
             reshape_cell2(atoms, 6)
             # reshape_cell(atoms,3)
-            print(atoms.pbc)
-            vcs_optimizer(atoms, verbose=True)
+            vcs_optimizer(atoms, verbose=False)
         else:
             velocities = soften(atoms, 20)
             atoms.set_velocities(velocities)
@@ -793,17 +887,28 @@ def escape_trial(atoms, dt, T):
         # ___________________________________________________________________________________________________________
         escape = abs(e_pot - e_pot_curr)
         T *= beta_s
-        print("TEMPARATUR:   ", T, escape)
+        print("TEMPARATUR:   ", T, escape, e_pot_curr)
 
-    return atoms
+    return
 
 
-def in_history(e_pot_cur, history):
+def in_history(e_pot_cur, history, ):
     i = 0
     for s in history:
         e_pot = s[0]
         e_diff = abs(e_pot - e_pot_cur)
         if e_diff < 1e-3:
+            i += 1
+    return i + 1
+
+def in_history_fp(fp1, history, epot ):
+    i = 0
+    for s in history:
+        fp2 = s[5]
+        fp_dist = fp_distance(fp1, fp2)
+        ediff = abs(epot-s[0])
+        #print(fp_dist, ediff)
+        if fp_dist < 100.:
             i += 1
     return i + 1
 
@@ -900,7 +1005,6 @@ def vcs_optimizer(atoms, initial_step_size=0.01, nhist_max=10, lattice_weight=2,
         optimized structure in atoms object
 
     """
-    print(atoms.get_cell())
 
     # Get nessecairy parameters from atoms object
     nat = atoms.get_positions().shape[0]
@@ -955,7 +1059,7 @@ def main():
 
     # model_path = " "
     dt = 0.01
-    e_diff = .01
+    e_diff = 3.
     alpha_a = 0.95
     alpha_r = 1.05
     n_acc = 0
@@ -966,6 +1070,7 @@ def main():
     beta_decrease = 1. / 1.03
     beta_increase = 1.03
     enhanced_feedback = False
+    compare_energy = False
 
     # Read local minimum input file
     #atoms = read(path + filename)
@@ -1015,17 +1120,18 @@ def main():
     # dyn = QuasiNewton(ucf)
     # dyn.run(fmax=1e-2)
     # write("LJC.extxyz", atoms)
-    pos_cur = atoms.get_positions()
+    atoms_cur = atoms.copy()
 
     # BAZANT TEST
     # ___________________________________________________________________________________________________________
     #e_pot_cur = atoms.get_potential_energy()
     e_pot_cur, forces, deralat, stress_tensor = energyandforces(atoms)
     # ___________________________________________________________________________________________________________
+    fp = get_SOAP(atoms)
+    history.append((e_pot_cur, 1, T, e_diff, "A", fp))
 
-    history.append((e_pot_cur, 1, T, e_diff, "A"))
     for i in range(10000):
-        atoms = escape_trial(atoms, dt, T)
+        escape_trial(atoms, dt, T)
 
         filename = "MIN" + str(n_min).zfill(5) + ".ascii"
         write(filename, atoms)
@@ -1051,14 +1157,22 @@ def main():
                 # print("DEBUGGY    ", acc_min[1])
                 filename = "ACC" + str(k).zfill(5) + ".ascii"
                 write(filename, atom)
-            pos_cur = atoms.get_positions()
+            atoms_cur = atoms.copy()
             acc_rej = "A"
         else:
             e_diff *= alpha_r
             acc_rej = "R"
             # print(atoms.get_pote ntial_energy()-e_pot_cur)
 
-        n_visits = in_history(e_pot, history)
+
+
+        fp = get_SOAP(atoms)
+        if compare_energy:
+            n_visits = in_history(e_pot, history)
+        else:
+            n_visits = in_history_fp(fp, history, e_pot)
+
+
         if n_visits > 1:
             if enhanced_feedback:
                 T = T * beta_increase * (1. + 4. * np.log(float(n_visits)))
@@ -1072,8 +1186,7 @@ def main():
         #e_pot = atoms.get_potential_energy()
         e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
         # ___________________________________________________________________________________________________________
-
-        history.append((e_pot, n_visits, T, e_diff, acc_rej))
+        history.append((e_pot, n_visits, T, e_diff, acc_rej, fp))
 
         if i % 1 == 0:
             f = open("history.dat", "w")
@@ -1082,8 +1195,13 @@ def main():
                 f.write(history_msg)
             f.close()
 
-        atoms.set_positions(pos_cur)
-
+        atoms = atoms_cur.copy()
+        # BAZANT TEST
+        # ___________________________________________________________________________________________________________
+        #e_pot = atoms.get_potential_energy()
+        e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
+        # ___________________________________________________________________________________________________________
+        print(e_pot)
 
 if __name__ == '__main__':
     main()
