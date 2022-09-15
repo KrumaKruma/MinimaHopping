@@ -4,7 +4,7 @@ from ase.calculators.lj import LennardJones
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
 from ase import Atoms
 from ase import units
-# from nequip.ase import NequIPCalculator
+from nequip.ase import NequIPCalculator
 from ase.calculators.espresso import Espresso
 from ase import units
 import time
@@ -163,7 +163,21 @@ def get_area2(lattice):
 
 
 
-def alat2ascii(nat, pos, alat_in):
+def alat2ascii(pos, alat_in):
+    """
+    function that rotates the cell so that the lattice is in the ascii format
+    input:
+        pos: np array
+            numpy array which contains the atom positions
+        alat_in: np array
+            numpy array containing the lattice parameters
+    Retrun:
+        pos_out: np array
+            numpy array containing the positions after the rotation
+        alat_out: np array
+            numpy array containing the lattice vecotr after the rotation
+    """
+
     alat_out = np.zeros((3, 3))
 
     r1 = np.linalg.norm(alat_in[:, 0])
@@ -184,6 +198,19 @@ def alat2ascii(nat, pos, alat_in):
 
 
 def reshape_cell_ascii(lattice_in, imax):
+    """
+    Reshapes the cell which is in ascii format
+    Input:
+        lattice_in: numpy array
+            numpy array containing the lattice vectors
+        imax: int
+            maximum iterations for trying new cell combinations
+    Return:
+        lattice_min: np array
+            numpy array containing the best lattice found
+        success: bool
+            True if a new cell is found, False otherwise
+    """
     area_min = get_area2(lattice_in)
     lattice = np.zeros((3, 3))
     lattice_min = np.zeros((3, 3))
@@ -222,7 +249,7 @@ def reshape_cell2(atoms, imax):
     positions_in = atoms.get_positions().T
     nat = atoms.get_global_number_of_atoms()
 
-    positions, lattice = alat2ascii(nat, positions_in, lattice_in)
+    positions, lattice = alat2ascii(positions_in, lattice_in)
     lattice_temp, success = reshape_cell_ascii(lattice, imax)
     if success:
         lattice[:, :] = lattice_temp[:, :]
@@ -334,8 +361,8 @@ def lattice_derivative(atoms):
     """
     # BAZANT TEST
     # ______________________________________________________________________________________
-    e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
-    # stress_tensor = atoms.get_stress(voigt=False,apply_constraint=False)
+    #e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
+    stress_tensor = atoms.get_stress(voigt=False,apply_constraint=False)
     # ______________________________________________________________________________________
     cell = atoms.get_cell(complete=False)
 
@@ -506,8 +533,8 @@ def vcs_soften(atoms, cell_atoms, nsoft):
     # Get initial energy
     # BAZANT TEST
     # ___________________________________________________________________________________________________________
-    # e_pot_in   = atoms.get_potential_energy()
-    e_pot_in, forces, deralat, stress_tensor = energyandforces(atoms)
+    e_pot_in   = atoms.get_potential_energy()
+    #e_pot_in, forces, deralat, stress_tensor = energyandforces(atoms)
     # ___________________________________________________________________________________________________________
     positions_in = atoms.get_positions()
     cell_positions_in = cell_atoms.positions
@@ -532,9 +559,9 @@ def vcs_soften(atoms, cell_atoms, nsoft):
 
         # BAZANT TEST
         # ___________________________________________________________________________________________________________
-        # forces = atoms.get_forces()
-        # e_pot = atoms.get_potential_energy()
-        e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
+        forces = atoms.get_forces()
+        e_pot = atoms.get_potential_energy()
+        # e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
         # ___________________________________________________________________________________________________________
 
         deralat = lattice_derivative(atoms)
@@ -598,8 +625,8 @@ def soften(atoms, nsoft):
     # Get initial energy
     # BAZANT TEST
     # ___________________________________________________________________________________________________________
-    # e_pot_in = atoms.get_potential_energy()
-    e_pot_in, forces, deralat, stress_tensor = energyandforces(atoms)
+    e_pot_in = atoms.get_potential_energy()
+    #e_pot_in, forces, deralat, stress_tensor = energyandforces(atoms)
     # ___________________________________________________________________________________________________________
     positions_in = atoms.get_positions()
     masses = atoms.get_masses()
@@ -616,9 +643,9 @@ def soften(atoms, nsoft):
 
         # BAZANT TEST
         # ___________________________________________________________________________________________________________
-        # e_pot = atoms.get_potential_energy()
-        # forces = atoms.get_forces()
-        e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
+        e_pot = atoms.get_potential_energy()
+        forces = atoms.get_forces()
+        #e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
         # ___________________________________________________________________________________________________________
 
         # fd2 is only a control variable
@@ -759,8 +786,8 @@ def vcsmd(atoms, cell_atoms, dt, n_max=2, verbose=True):
 
     # BAZANT TEST
     # ___________________________________________________________________________________________________________
-    # epot_old  = atoms.get_potential_energy()
-    epot_old, forces, deralat, stress_tensor = energyandforces(atoms)
+    epot_old  = atoms.get_potential_energy()
+    #epot_old, forces, deralat, stress_tensor = energyandforces(atoms)
     # ___________________________________________________________________________________________________________
 
     sign_old = -1
@@ -769,8 +796,8 @@ def vcsmd(atoms, cell_atoms, dt, n_max=2, verbose=True):
 
     # BAZANT TEST
     # ___________________________________________________________________________________________________________
-    # forces = atoms.get_forces()
-    e_pot_cur, forces, deralat, stress_tensor = energyandforces(atoms)
+    forces = atoms.get_forces()
+    #e_pot_cur, forces, deralat, stress_tensor = energyandforces(atoms)
     # ___________________________________________________________________________________________________________
     cell_forces = lattice_derivative(atoms)
     while n_change < n_max:
@@ -792,8 +819,8 @@ def vcsmd(atoms, cell_atoms, dt, n_max=2, verbose=True):
         # Update velocities
         # BAZANT TEST
         # ___________________________________________________________________________________________________________
-        # new_forces = atoms.get_forces()
-        e_pot_cur, new_forces, deralat, stress_tensor = energyandforces(atoms)
+        new_forces = atoms.get_forces()
+        #e_pot_cur, new_forces, deralat, stress_tensor = energyandforces(atoms)
         # ___________________________________________________________________________________________________________
 
         atoms.set_velocities(velocities + 0.5 * dt * ((forces + new_forces) / masses))
@@ -808,8 +835,8 @@ def vcsmd(atoms, cell_atoms, dt, n_max=2, verbose=True):
         # Update velocities
         # BAZANT TEST
         # ___________________________________________________________________________________________________________
-        # epot = atoms.get_potential_energy()
-        epot, new_forces, deralat, stress_tensor = energyandforces(atoms)
+        epot = atoms.get_potential_energy()
+        #epot, new_forces, deralat, stress_tensor = energyandforces(atoms)
         # ___________________________________________________________________________________________________________
 
         sign = int(np.sign(epot_old - epot))
@@ -976,7 +1003,7 @@ def optimizer(atoms, initial_step_size=0.0001, nhist_max=10, alpha_min=1e-5, eps
     return None
 
 
-def vcs_optimizer(atoms, initial_step_size=0.01, nhist_max=10, lattice_weight=2, alpha_min=1e-3, eps_subsop=1e-4,
+def vcs_optimizer(atoms, initial_step_size=1., nhist_max=10, lattice_weight=2, alpha_min=1e-3, eps_subsop=1e-4,
                   max_force_threshold=0.0002, verbose=False):
     """
     Variable cell shape optimizer from Gubler et. al 2022 arXiv2206.07339
@@ -1019,8 +1046,10 @@ def vcs_optimizer(atoms, initial_step_size=0.01, nhist_max=10, lattice_weight=2,
     while max_force_comp > max_force_threshold:
         # BAZANT TEST
         # ___________________________________________________________________________________________________________
-        # energy = atoms.get_potential_energy() and also deralat
-        energy, forces, deralat, stress_tensor = energyandforces(atoms)
+        energy = atoms.get_potential_energy()# and also deralat
+        forces = atoms.get_forces()
+        deralat = lattice_derivative(atoms)
+        #energy, forces, deralat, stress_tensor = energyandforces(atoms)
         # ___________________________________________________________________________________________________________
 
         i += 1
@@ -1054,8 +1083,8 @@ def main():
     # filename = "acc-00000.xyz"
     # path = "/home/marco/NequipMH/data/"
     # filename = "LJC.extxyz"
-    #path = "/home/marco/NequipMH/data/38/"
-    #filename = "input.xyz"
+    path = "/home/marco/NequipMH/src/python/"
+    filename = "mapbi_start.extxyz"
 
     # model_path = " "
     dt = 0.01
@@ -1073,18 +1102,19 @@ def main():
     compare_energy = False
 
     # Read local minimum input file
-    #atoms = read(path + filename)
+    atoms = read(path + filename)
 
     # Initialize calculator (Nequip)
-    # atoms.calc = NequIPCalculator.from_deployed_model()
-
-    #    model_path=model_path,
-    #    species_to_type_name = {
-    #        "C" : "NequIPTypeNameForCarbon",
-    #        "O" : "NequIPTypeNameForOxygen",
-    #        "H" : "NequIPTypeNameForHydrogen",
-    #    }
-    # )
+    atoms.calc = NequIPCalculator.from_deployed_model(
+        model_path="/home/marco/NequipMH/src/python/mapbi_model.pth",
+        species_to_type_name = {
+            "Pb": "Pb",
+            "I": "I",
+            "N" : "N",
+            "C" : "C",
+            "H" : "H",
+        }
+    )
 
     # TESTING: For now it will be a LJ potential
     # calc = LennardJones()
@@ -1094,7 +1124,7 @@ def main():
     # atoms.calc = calc
     # atoms = bulk('NaCl', crystalstructure='rocksalt', a=6.0)
     # atoms = read("input.ascii")
-    atoms = read("Si_in2.extxyz")
+    #atoms = read("Si_in2.extxyz")
     #write("input.cif", atoms)
     #atoms.pbc = True
 
@@ -1124,8 +1154,8 @@ def main():
 
     # BAZANT TEST
     # ___________________________________________________________________________________________________________
-    #e_pot_cur = atoms.get_potential_energy()
-    e_pot_cur, forces, deralat, stress_tensor = energyandforces(atoms)
+    e_pot_cur = atoms.get_potential_energy()
+    #e_pot_cur, forces, deralat, stress_tensor = energyandforces(atoms)
     # ___________________________________________________________________________________________________________
     fp = get_SOAP(atoms)
     history.append((e_pot_cur, 1, T, e_diff, "A", fp))
@@ -1138,8 +1168,8 @@ def main():
 
         # BAZANT TEST
         # ___________________________________________________________________________________________________________
-        #e_pot = atoms.get_potential_energy()
-        e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
+        e_pot = atoms.get_potential_energy()
+        #e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
         # ___________________________________________________________________________________________________________
 
         n_min += 1
@@ -1183,8 +1213,8 @@ def main():
 
         # BAZANT TEST
         # ___________________________________________________________________________________________________________
-        #e_pot = atoms.get_potential_energy()
-        e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
+        e_pot = atoms.get_potential_energy()
+        #e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
         # ___________________________________________________________________________________________________________
         history.append((e_pot, n_visits, T, e_diff, acc_rej, fp))
 
@@ -1198,10 +1228,10 @@ def main():
         atoms = atoms_cur.copy()
         # BAZANT TEST
         # ___________________________________________________________________________________________________________
-        #e_pot = atoms.get_potential_energy()
-        e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
+        e_pot = atoms.get_potential_energy()
+        #e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
         # ___________________________________________________________________________________________________________
-        print(e_pot)
+
 
 if __name__ == '__main__':
     main()
