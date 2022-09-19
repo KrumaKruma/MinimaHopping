@@ -13,7 +13,18 @@ import bazant
 import periodic_sqnm
 import free_or_fixed_cell_sqnm
 import warnings
-from dscribe.descriptors import SOAP
+from OverlapMatrixFingerprint import OverlapMatrixFingerprint as OMFP
+#from dscribe.descriptors import SOAP
+
+
+"""
+MH Software written by Marco Krummenacher (marco.krummenacher@unibas.ch)
+Parts of the software were originally developpen (some in Fortran) from other people:
+  -- VCSMD: Martin Sommer-Joergenson
+  -- VCS Softening: Hannes Huber
+  -- VCS optimizer: Moritz Gubler
+  -- OMFP in python: Jonas Finkler
+"""
 
 
 class cell_atom:
@@ -61,57 +72,130 @@ def costmatrix(desc1, desc2):
     return costmat
 
 
-def get_SOAP(atoms, rcut = 5, nmax = 8, lmax = 6, crossover=True, sigma=1.):
+# def get_SOAP(atoms, rcut = 5, nmax = 8, lmax = 6, crossover=True, sigma=1.):
+#     """
+#     atoms: ASE atoms object
+#         ASE atoms object containing the atomic structure
+#     rcut: float
+#         cut off radius of the SOAP fingerprint
+#     nmax: int
+#         number of radial basis functions
+#     lmax: int
+#         maximum degree of spherical harmonics
+#     crossover: bool
+#         Determines if crossover of atomic types should be included in the power spectrum. If enabled, the power
+#         spectrum is calculated over all unique species combinations Z and Z'. If disabled, the power spectrum does not
+#         contain cross-species information and is only run over each unique species Z. Turned on by default to
+#         correspond to the original definition.
+#     sigma: float
+#         standard deviation of the gaussian basis function
+#     Return: np array
+#         numpy array containing local environment SOAP descriptor
+#
+#     Ref:
+#         "Willatt, M., Musil, F., & Ceriotti, M. (2018).
+#         Feature optimization for atomistic machine learning
+#         yields a data-driven construction of the periodic
+#         table of the elements.  Phys. Chem. Chem. Phys., 20,
+#         29661-29668.
+#
+#         "Caro, M. (2019). Optimizing many-body atomic
+#         descriptors for enhanced computational performance of
+#         machine learning based interatomic potentials.  Phys.
+#         Rev. B, 100, 024112."
+#
+#     """
+#
+#
+#     element_list = list(set(atoms.get_chemical_symbols()))
+#
+#     pbc = atoms.pbc
+#     pbc_list = list(set(pbc))
+#     assert len(pbc_list) == 1, "Mixed periodic boundary conditions"
+#     pbc = pbc_list[0]
+#
+#     soap_desc = SOAP(species=element_list, rcut=rcut, nmax=nmax, lmax=lmax, crossover=crossover, periodic=pbc, sigma=sigma)
+#     desc = soap_desc.create(atoms)
+#
+#     return desc
+
+
+def get_OMFP(atoms, s=1, p=0, width_cutoff=3.5, maxnatsphere=100):
     """
-    atoms: ASE atoms object
-        ASE atoms object containing the atomic structure
-    rcut: float
-        cut off radius of the SOAP fingerprint
-    nmax: int
-        number of radial basis functions
-    lmax: int
-        maximum degree of spherical harmonics
-    crossover: bool
-        Determines if crossover of atomic types should be included in the power spectrum. If enabled, the power
-        spectrum is calculated over all unique species combinations Z and Z'. If disabled, the power spectrum does not
-        contain cross-species information and is only run over each unique species Z. Turned on by default to
-        correspond to the original definition.
-    sigma: float
-        standard deviation of the gaussian basis function
-    Return: np array
-        numpy array containing local environment SOAP descriptor
+    Calculation of the Overlapmatrix fingerprint. For peridoic systems a local environment fingerprint is calculated
+    and a hungarian algorithm has to be used for the fingerprint distance. For non-periodic systems a global fingerprint
+    is calculated and a simple l2-norm is sufficient for as a distance measure.
 
-    Ref:
-        "Willatt, M., Musil, F., & Ceriotti, M. (2018).
-        Feature optimization for atomistic machine learning
-        yields a data-driven construction of the periodic
-        table of the elements.  Phys. Chem. Chem. Phys., 20,
-        29661-29668.
+    If you use that function please reference:
 
-        "Caro, M. (2019). Optimizing many-body atomic
-        descriptors for enhanced computational performance of
-        machine learning based interatomic potentials.  Phys.
-        Rev. B, 100, 024112."
+    @article{sadeghi2013metrics,
+    title={Metrics for measuring distances in configuration spaces},
+    author={Sadeghi, Ali and Ghasemi, S Alireza and Schaefer, Bastian and Mohr, Stephan and Lill, Markus A and Goedecker, Stefan},
+    journal={The Journal of chemical physics},
+    volume={139},
+    number={18},
+    pages={184118},
+    year={2013},
+    publisher={American Institute of Physics}
+    }
 
+    and
+
+    @article{zhu2016fingerprint,
+    title={A fingerprint based metric for measuring similarities of crystalline structures},
+    author={Zhu, Li and Amsler, Maximilian and Fuhrer, Tobias and Schaefer, Bastian and Faraji, Somayeh and Rostami, Samare and Ghasemi, S Alireza and Sadeghi, Ali and Grauzinyte, Migle and Wolverton, Chris and others},
+    journal={The Journal of chemical physics},
+    volume={144},
+    number={3},
+    pages={034203},
+    year={2016},
+    publisher={AIP Publishing LLC}
+    }
+
+    Input:
+        atoms: ASE atoms object
+            ASE atoms object with conatins either a bulk structure or a non-periodic structure
+        s: int
+            number of s orbitals for which the fingerprint is calculated
+        p: int
+            number of p orbitals for which the fingerprint is calculated
+        width_cutoff: float
+            cutoff for searching neighbouring atoms
+        maxnatsphere:
+            maximum of the neighboring atoms which can be in the sphere
+    Return:
+        omfp: np array
+            numpy array which contains the fingerprint
     """
 
 
-    element_list = list(set(atoms.get_chemical_symbols()))
+    _pbc = list(set(atoms.pbc))
+    assert len(_pbc) == 1, "mixed boundary conditions"
 
-    pbc = atoms.pbc
-    pbc_list = list(set(pbc))
-    assert len(pbc_list) == 1, "Mixed periodic boundary conditions"
-    pbc = pbc_list[0]
+    if True in _pbc:
+        positions = atoms.get_positions()
+        lattice = atoms.get_cell()
+        elements = atoms.get_atomic_numbers()
+        omfpCalculator = OMFP.stefansOMFP(s=s, p=p, width_cutoff=width_cutoff, maxnatsphere=maxnatsphere)
+        omfp = omfpCalculator.fingerprint(positions, elements, lat=lattice)
+        omfp = np.array(omfp)
 
-    soap_desc = SOAP(species=element_list, rcut=rcut, nmax=nmax, lmax=lmax, crossover=crossover, periodic=pbc, sigma=sigma)
-    desc = soap_desc.create(atoms)
-
-    return desc
+    else:
+        positions = atoms.get_positions()
+        elements = atoms.get_atomic_numbers()
+        width_cutoff = 1000000
+        maxnatsphere = len(atoms)
+        omfpCalculator = OMFP.stefansOMFP(s=s, p=p, width_cutoff=width_cutoff, maxnatsphere=maxnatsphere)
+        omfp = omfpCalculator.globalFingerprint(positions, elements)
+        omfp = np.array(omfp)
+    print(len(omfp.shape))
+    return omfp
 
 
 def fp_distance(desc1, desc2):
     """
     Calcualtes the fingerprint distance of 2 structures with local environment descriptors using the hungarian algorithm
+    if a local environment descriptor is used. Else the distance is calculated using l2-norm.
     desc1: np array
         numpy array containing local environments of structure 1
     desc2: np array
@@ -120,16 +204,24 @@ def fp_distance(desc1, desc2):
         Global fingerprint distance between structure 1 and structure 2
     """
 
+    n_dim1 = len(desc1.shape)
+    n_dim2 = len(desc2.shape)
 
-    costmat = costmatrix(desc1,desc2)
-    ans_pos = scipy.optimize.linear_sum_assignment(costmat)
+    assert n_dim1 == n_dim2, "Dimension of vector 1 is and vector 2 is different"
+    assert n_dim1 < 3, "Dimension of vector 1 is larger that 2"
+    assert n_dim2 < 3, "Dimension of vector 2 is larger that 2"
 
 
-    fp_dist = 0.
-    for index1, index2 in zip(ans_pos[0], ans_pos[1]):
-        fp_dist += np.dot((desc1[index1,:]-desc2[index2,:]), (desc1[index1,:]-desc2[index2,:]))
+    if n_dim1 == 1 and n_dim2 == 1:
+        fp_dist = np.linalg.norm(desc1 - desc2)
+    else:
+        costmat = costmatrix(desc1,desc2)
+        ans_pos = scipy.optimize.linear_sum_assignment(costmat)
+        fp_dist = 0.
+        for index1, index2 in zip(ans_pos[0], ans_pos[1]):
+            fp_dist += np.dot((desc1[index1,:]-desc2[index2,:]), (desc1[index1,:]-desc2[index2,:]))
+        fp_dist = np.sqrt(fp_dist)
 
-    fp_dist = np.sqrt(fp_dist)
 
     return fp_dist
 
@@ -1079,8 +1171,8 @@ def vcs_optimizer(atoms, initial_step_size=1., nhist_max=10, lattice_weight=2, a
 
 def main():
     # Initial settings and paths
-    # path = "/home/marco/NequipMH/data/38/"
-    # filename = "acc-00000.xyz"
+    #path = "/home/marco/NequipMH/data/38/"
+    #filename = "acc-00000.xyz"
     # path = "/home/marco/NequipMH/data/"
     # filename = "LJC.extxyz"
     path = "/home/marco/NequipMH/src/python/"
@@ -1157,7 +1249,7 @@ def main():
     e_pot_cur = atoms.get_potential_energy()
     #e_pot_cur, forces, deralat, stress_tensor = energyandforces(atoms)
     # ___________________________________________________________________________________________________________
-    fp = get_SOAP(atoms)
+    fp = get_OMFP(atoms)
     history.append((e_pot_cur, 1, T, e_diff, "A", fp))
 
     for i in range(10000):
@@ -1196,7 +1288,7 @@ def main():
 
 
 
-        fp = get_SOAP(atoms)
+        fp = get_OMFP(atoms)
         if compare_energy:
             n_visits = in_history(e_pot, history)
         else:
