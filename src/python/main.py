@@ -19,7 +19,7 @@ from OverlapMatrixFingerprint import OverlapMatrixFingerprint as OMFP
 
 """
 MH Software written by Marco Krummenacher (marco.krummenacher@unibas.ch)
-Parts of the software were originally developpen (some in Fortran) from other people:
+Parts of the software were originally developped (some in Fortran) from other people:
   -- VCSMD: Martin Sommer-Joergenson
   -- VCS Softening: Hannes Huber
   -- VCS optimizer: Moritz Gubler
@@ -1196,52 +1196,60 @@ def main():
     # Read local minimum input file
     atoms = read(path + filename)
 
-    # Initialize calculator (Nequip)
-    atoms.calc = NequIPCalculator.from_deployed_model(
-        model_path="/home/marco/NequipMH/src/python/mapbi_model.pth",
-        species_to_type_name = {
-            "Pb": "Pb",
-            "I": "I",
-            "N" : "N",
-            "C" : "C",
-            "H" : "H",
-        }
+
+
+    # set up GP hyperparameters
+    kernels = ['twobody', 'threebody'] # use 2+3 body kernel
+    parameters = {'cutoff_twobody': 5.0,
+                  'cutoff_threebody': 3.5}
+    pm = ParameterHelper(
+        kernels = kernels,
+        random = True,
+        parameters=parameters
     )
 
-    # TESTING: For now it will be a LJ potential
-    # calc = LennardJones()
-    # calc.parameters.epsilon = 1.0
-    # calc.parameters.sigma = 1.0
-    # calc.parameters.rc = 12.0
-    # atoms.calc = calc
-    # atoms = bulk('NaCl', crystalstructure='rocksalt', a=6.0)
-    # atoms = read("input.ascii")
-    #atoms = read("Si_in2.extxyz")
-    #write("input.cif", atoms)
-    #atoms.pbc = True
+    hm = pm.as_dict()
+    hyps = hm['hyps']
+    cut = hm['cutoffs']
+    print('hyps', hyps)
+
+    gp_model = GaussianProcess(
+        kernels = kernels,
+        component = 'mc', # If you are using ASE, please set to "mc" no matter for single-component or multi-component
+        hyps = hyps,
+        cutoffs = cut,
+        hyp_labels = ['sig2','ls2','sig3','ls3','noise'],
+        opt_algorithm = 'L-BFGS-B',
+        n_cpus = 1
+    )
+
+
+    pseudo_dir = '/home/marco/NequipMH/src/python/'
+    pseudopotentials = {'Si': 'Si.UPF'}
+
+    input_data = {
+       'system': {
+           'ecutwfc': 44,
+           'ecutrho': 175},
+       'disk_io': 'low',
+       'electrons': {
+           'mixing_beta' : 0.4
+       }
+    }  # automatically put into 'control'
+
+    dft_calc = Espresso(pseudo_dir=pseudo_dir, pseudopotentials=pseudopotentials,
+                   tstress=True, tprnfor=True, kpts=(3, 3, 3), input_data=input_data)
+
+
+
+
+    OFT = mh_otf(gp_model, dft_calc)
+    quit()
+
+
 
     vcs_optimizer(atoms, verbose=True)
 
-    # pseudo_dir = '/home/marco/NequipMH/src/python/'
-    # pseudopotentials = {'Si': 'Si.UPF'}
-
-    # input_data = {
-    #    'system': {
-    #        'ecutwfc': 44,
-    #        'ecutrho': 175},
-    #    'disk_io': 'low',
-    #    'electrons': {
-    #        'mixing_beta' : 0.4
-    #    }
-    # }  # automatically put into 'control'
-
-    # calc = Espresso(pseudo_dir=pseudo_dir, pseudopotentials=pseudopotentials,
-    #                tstress=True, tprnfor=True, kpts=(3, 3, 3), input_data=input_data)
-
-    # ucf = UnitCellFilter(atoms)
-    # dyn = QuasiNewton(ucf)
-    # dyn.run(fmax=1e-2)
-    # write("LJC.extxyz", atoms)
     atoms_cur = atoms.copy()
 
     # BAZANT TEST
