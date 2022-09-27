@@ -14,7 +14,7 @@ from os.path import exists
 
 
 class mh_otf():
-    def __init__(self, gp_model, dft_calc, std_max=100.00, read=False, n_save = 1, n_train = 10):
+    def __init__(self, gp_model, dft_calc, std_max=100.00, read=False, n_save = 1, n_train = 10, threshold=0.01):
         self.gp_model = gp_model
         self.dft_calc = dft_calc
         self.std_max = std_max
@@ -30,6 +30,7 @@ class mh_otf():
         self.dft_list = []
         self.is_not_dft = None
         self.update_list = None
+        self.threshold = threshold
 
     def energyandforces(self, atoms):
         self.flare_atoms = FLARE_Atoms.from_ase_atoms(atoms)
@@ -95,7 +96,12 @@ class mh_otf():
         flare_stds = self.flare_atoms.stds
         noise = self.gp_model.force_noise
         print("DEBUG:   ", np.max(flare_stds), self.is_not_dft)
-        self.is_not_dft, self.update_list = learner.is_std_in_bound(std_tolerance=2, noise=noise, structure = self.flare_atoms, update_style="add_n", max_atoms_added=5)
+        if np.max(flare_stds) > self.threshold:
+            self.is_not_dft = False
+            self.update_list = list(np.unique(np.where(self.flare_atoms.stds > self.threshold)[0]))
+        else:
+            self.is_not_dft = True
+        #self.is_not_dft, self.update_list = learner.is_std_in_bound(std_tolerance=3, noise=noise, structure = self.flare_atoms, update_style="add_n", max_atoms_added=5)
         if self.is_not_dft:
             is_dft = False
             energy = self.flare_atoms.get_potential_energy()
