@@ -1,5 +1,6 @@
 from flare.ase.calculator import FLARE_Calculator
 from flare.ase.atoms import FLARE_Atoms
+from flare.utils import learner
 from ase.io import read, write
 from flare.gp import GaussianProcess
 from flare.struc import Structure
@@ -13,7 +14,7 @@ from os.path import exists
 
 
 class mh_otf():
-    def __init__(self, gp_model, dft_calc, std_max=0.01, read=False, n_save = 10, n_train = 10):
+    def __init__(self, gp_model, dft_calc, std_max=100.00, read=False, n_save = 1, n_train = 10):
         self.gp_model = gp_model
         self.dft_calc = dft_calc
         self.std_max = std_max
@@ -27,6 +28,8 @@ class mh_otf():
                                             use_mapping = False)
         self.n_dft = 0
         self.dft_list = []
+        self.is_not_dft = None
+        self.update_list = None
 
     def energyandforces(self, atoms):
         self.flare_atoms = FLARE_Atoms.from_ase_atoms(atoms)
@@ -34,6 +37,7 @@ class mh_otf():
             self.flare_atoms.set_calculator(self.flare_calculator)
             self._read()
         if not self.gp_model.training_labels:
+            self.update_list = [x for x in range(self.flare_atoms.nat)]
             energy, forces, stress = self.dft_update()
             is_dft = True
         else:
@@ -89,19 +93,21 @@ class mh_otf():
         self.flare_atoms.set_calculator(self.flare_calculator)
         flare_energy = self.flare_atoms.get_potential_energy()
         flare_stds = self.flare_atoms.stds
-        if np.max(flare_stds) > self.std_max:
+        noise = self.gp_model.force_noise
+        print("DEBUG:   ", np.max(flare_stds), self.is_not_dft)
+        self.is_not_dft, self.update_list = learner.is_std_in_bound(std_tolerance=2, noise=noise, structure = self.flare_atoms, update_style="add_n", max_atoms_added=5)
+        if self.is_not_dft:
+            is_dft = False
+            energy = self.flare_atoms.get_potential_energy()
+            forces = self.flare_atoms.get_forces()
+            stress = self.flare_atoms.get_stress(voigt=False, apply_constraint=False)
+        else:
             is_dft = True
             energy, forces, stress = self.dft_update()
             #print("DFT STEP:  ", energy)
             if self.n_dft%self.n_save == 0:
                 self._write()
             self.n_dft += 1
-        else:
-            is_dft = False
-            energy = self.flare_atoms.get_potential_energy()
-            forces = self.flare_atoms.get_forces()
-            stress = self.flare_atoms.get_stress()
-
             #print("FLARE STEP:   ", energy)
 
         return energy, forces, stress, is_dft
@@ -129,15 +135,15 @@ class mh_otf():
                     dft_stress[2],
                 ]
             )
-
+        dft_stress = self.flare_atoms.get_stress(voigt=False, apply_constraint=False)
         structure = Structure(cell, species, positions)
-        self.gp_model.update_db(struc=structure, forces=forces, energy=energy, stress=flare_stress)
+        self.gp_model.update_db(struc=structure, forces=forces,  custom_range=self.update_list, energy=energy, stress=flare_stress)
 
         self.gp_model.set_L_alpha()
         #print(self.gp_model.likelihood)
-        if self.n_dft%self.n_train == 0:
+        if self.n_dft%self.n_train == 0 or self.n_dft<10:
             self.gp_model.train(print_progress=False)
-        #print(self.gp_model.likelihood)
+        print(self.gp_model.likelihood)
         return energy, forces, dft_stress
 
 
