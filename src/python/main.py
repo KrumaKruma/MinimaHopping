@@ -645,7 +645,7 @@ def vcs_soften(atoms, OFT, cell_atoms, nsoft):
     # ___________________________________________________________________________________________________________
     # e_pot_in   = atoms.get_potential_energy()
     #e_pot_in, forces, deralat, stress_tensor = energyandforces(atoms)
-    energy, forces, stress, is_dft = OFT.energyandforces(atoms)
+    e_pot_in, forces, stress, is_dft = OFT.energyandforces(atoms)
     # deralat = lattice_derivative_stress(atoms.get_cell(complete=False), stress)
     # ___________________________________________________________________________________________________________
     positions_in = atoms.get_positions()
@@ -674,7 +674,7 @@ def vcs_soften(atoms, OFT, cell_atoms, nsoft):
         # forces = atoms.get_forces()
         # e_pot = atoms.get_potential_energy()
         # e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
-        energy, forces, stress, is_dft = OFT.energyandforces(atoms)
+        e_pot, forces, stress, is_dft = OFT.energyandforces(atoms)
         deralat = lattice_derivative_stress(atoms.get_cell(complete=False), stress)
         # ___________________________________________________________________________________________________________
 
@@ -1004,10 +1004,12 @@ def escape_trial(atoms, OFT, dt, T):
             velocities, cell_velocities = vcs_soften(atoms, OFT,cell_atoms, 20)
             atoms.set_velocities(velocities)
             cell_atoms.velocities = cell_velocities
+            OFT.threshold = 0.1
             vcsmd(atoms, OFT, cell_atoms, dt, verbose=True)
             reshape_cell2(atoms, 6)
+            OFT.threshold = 0.01
             # reshape_cell(atoms,3)
-            vcs_optimizer(atoms, verbose=False)
+            vcs_optimizer(atoms,OFT, verbose=True)
         else:
             velocities = soften(atoms, 20)
             atoms.set_velocities(velocities)
@@ -1117,7 +1119,7 @@ def optimizer(atoms, OFT, initial_step_size=0.0001, nhist_max=10, alpha_min=1e-5
 
 
 def vcs_optimizer(atoms, OFT,initial_step_size=0.01, nhist_max=10, lattice_weight=2, alpha_min=1e-3, eps_subsop=1e-4,
-                  max_force_threshold=0.0002, verbose=False):
+                  max_force_threshold=0.01, verbose=False):
     """
     Variable cell shape optimizer from Gubler et. al 2022 arXiv2206.07339
     Function optimizes atom positions and lattice vecotors
@@ -1165,8 +1167,7 @@ def vcs_optimizer(atoms, OFT,initial_step_size=0.01, nhist_max=10, lattice_weigh
         # energy, forces, deralat, stress_tensor = energyandforces(atoms)
         energy, forces, stress, is_dft = OFT.energyandforces(atoms)
         deralat = lattice_derivative_stress(atoms.get_cell(complete=False),stress)
-
-
+         
         i += 1
         max_force_comp = np.max(forces)
         max_latderiv_comp = np.max(deralat)
@@ -1198,8 +1199,8 @@ def main():
     #filename = "acc-00000.xyz"
     # path = "/home/marco/NequipMH/data/"
     # filename = "LJC.extxyz"
-    path = "/home/marco/NequipMH/src/python/"
-    filename = "ACC00000.ascii"
+    path = "./"
+    filename = "Si_in3.extxyz"
 
     # model_path = " "
     dt = 0.01
@@ -1219,11 +1220,11 @@ def main():
 
     # Read local minimum input file
     atoms = read(path + filename)
-    atoms.set_positions(np.random.normal(atoms.get_positions(),0.01))
+    #atoms.set_positions(np.random.normal(atoms.get_positions(),0.01))
     #cell=np.array([[100,0,0],[0,100,0],[0,0,100]])
     #atoms.set_cell(cell)
 
-
+    write("INPUT.ascii", atoms)
     # set up GP hyperparameters
     kernels = ['twobody', 'threebody'] # use 2+3 body kernel
     parameters = {'cutoff_twobody': 5.0,
@@ -1246,21 +1247,23 @@ def main():
         cutoffs = cut,
         hyp_labels = ['sig2','ls2','sig3','ls3','noise'],
         opt_algorithm = 'L-BFGS-B',
-        n_cpus = 7
+        n_cpus = 14
     )
 
 
-    pseudo_dir = '/home/marco/NequipMH/src/python/'
+    pseudo_dir = './'
     pseudopotentials = {'Si': 'Si.UPF'}
 
     # PAY ATTENTION TO REMOVE PWSCF.SAVE IF RESTARTED
     input_data = {
        'system': {
            'ecutwfc': 60,
-           'ecutrho': 280},
+           'ecutrho': 280,
+           'smearing': 'gauss',
+           'degauss' : 0.04},
        'disk_io': 'low',
        'electrons': {
-           'mixing_beta' : 0.4,
+           'mixing_beta' : 0.5,
            'startingpot' : 'file',
        }
     }  # automatically put into 'control'
@@ -1283,7 +1286,7 @@ def main():
     # print(atoms.get_potential_energy())
     # quit()
 
-    atoms.pbc = True
+    #atoms.pbc = True
     #atoms.set_positions(np.random.normal(atoms.get_positions(), 0.001))
 
     OFT = mh_otf(gp_model, dft_calc, read=False)
@@ -1310,7 +1313,8 @@ def main():
         # BAZANT TEST
         # ___________________________________________________________________________________________________________
         # e_pot = atoms.get_potential_energy()
-        e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
+        # e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
+        e_pot, forces, stress, is_dft = OFT.energyandforces(atoms)
         # ___________________________________________________________________________________________________________
 
         n_min += 1
@@ -1355,7 +1359,8 @@ def main():
         # BAZANT TEST
         # ___________________________________________________________________________________________________________
         #e_pot = atoms.get_potential_energy()
-        e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
+        #e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
+        e_pot, forces, stress, is_dft = OFT.energyandforces(atoms)
         # ___________________________________________________________________________________________________________
         history.append((e_pot, n_visits, T, e_diff, acc_rej, fp))
         sorted_history.append((e_pot, n_visits, T, e_diff, acc_rej, fp))
@@ -1371,7 +1376,8 @@ def main():
         # BAZANT TEST
         # ___________________________________________________________________________________________________________
         # e_pot = atoms.get_potential_energy()
-        e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
+        #e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
+        e_pot, forces, stress, is_dft = OFT.energyandforces(atoms)
         # ___________________________________________________________________________________________________________
 
 

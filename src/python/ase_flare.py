@@ -95,12 +95,12 @@ class mh_otf():
         flare_energy = self.flare_atoms.get_potential_energy()
         flare_stds = self.flare_atoms.stds
         noise = self.gp_model.force_noise
-        print("DEBUG:   ", np.max(flare_stds), self.is_not_dft)
         if np.max(flare_stds) > self.threshold:
             self.is_not_dft = False
             self.update_list = list(np.unique(np.where(self.flare_atoms.stds > self.threshold)[0]))
         else:
             self.is_not_dft = True
+        print("DEBUG:   ", np.max(flare_stds), self.is_not_dft, self.threshold)
         #self.is_not_dft, self.update_list = learner.is_std_in_bound(std_tolerance=3, noise=noise, structure = self.flare_atoms, update_style="add_n", max_atoms_added=5)
         if self.is_not_dft:
             is_dft = False
@@ -147,9 +147,13 @@ class mh_otf():
 
         self.gp_model.set_L_alpha()
         #print(self.gp_model.likelihood)
-        if self.n_dft%self.n_train == 0 or self.n_dft<10:
+        if self.n_dft<self.n_train:
             self.gp_model.train(print_progress=False)
         print(self.gp_model.likelihood)
+        #self.flare_atoms.set_calculator(self.flare_calculator)
+        #energy = self.flare_atoms.get_potential_energy()
+        #forces = self.flare_atoms.get_forces()
+        #stress = self.flare_atoms.get_stress(voigt=False, apply_constraint=False)
         return energy, forces, dft_stress
 
 
