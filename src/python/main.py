@@ -8,11 +8,12 @@ from ase.calculators.espresso import Espresso
 from ase import units
 import time
 import scipy
-import bazant
 import periodic_sqnm
 import free_or_fixed_cell_sqnm
 import warnings
 from OverlapMatrixFingerprint import OverlapMatrixFingerprint as OMFP
+from copy import deepcopy
+import os.path
 #from dscribe.descriptors import SOAP
 
 
@@ -50,6 +51,20 @@ class cell_atom:
 
 
 
+class minimum():
+    def __init__(self, atoms, n_visit, fingerprint, T, ediff, acc_rej):
+        self.atoms = atoms
+        self.fingerprint = fingerprint
+        self.temperature = T
+        self.ediff = ediff
+        self.acc_rej = acc_rej
+        self.n_visit = n_visit
+
+
+
+
+
+
 def costmatrix(desc1, desc2):
     """
     Cost matrix of the local fingerprints for the hungarian algorithm
@@ -70,53 +85,6 @@ def costmatrix(desc1, desc2):
 
     return costmat
 
-
-# def get_SOAP(atoms, rcut = 5, nmax = 8, lmax = 6, crossover=True, sigma=1.):
-#     """
-#     atoms: ASE atoms object
-#         ASE atoms object containing the atomic structure
-#     rcut: float
-#         cut off radius of the SOAP fingerprint
-#     nmax: int
-#         number of radial basis functions
-#     lmax: int
-#         maximum degree of spherical harmonics
-#     crossover: bool
-#         Determines if crossover of atomic types should be included in the power spectrum. If enabled, the power
-#         spectrum is calculated over all unique species combinations Z and Z'. If disabled, the power spectrum does not
-#         contain cross-species information and is only run over each unique species Z. Turned on by default to
-#         correspond to the original definition.
-#     sigma: float
-#         standard deviation of the gaussian basis function
-#     Return: np array
-#         numpy array containing local environment SOAP descriptor
-#
-#     Ref:
-#         "Willatt, M., Musil, F., & Ceriotti, M. (2018).
-#         Feature optimization for atomistic machine learning
-#         yields a data-driven construction of the periodic
-#         table of the elements.  Phys. Chem. Chem. Phys., 20,
-#         29661-29668.
-#
-#         "Caro, M. (2019). Optimizing many-body atomic
-#         descriptors for enhanced computational performance of
-#         machine learning based interatomic potentials.  Phys.
-#         Rev. B, 100, 024112."
-#
-#     """
-#
-#
-#     element_list = list(set(atoms.get_chemical_symbols()))
-#
-#     pbc = atoms.pbc
-#     pbc_list = list(set(pbc))
-#     assert len(pbc_list) == 1, "Mixed periodic boundary conditions"
-#     pbc = pbc_list[0]
-#
-#     soap_desc = SOAP(species=element_list, rcut=rcut, nmax=nmax, lmax=lmax, crossover=crossover, periodic=pbc, sigma=sigma)
-#     desc = soap_desc.create(atoms)
-#
-#     return desc
 
 
 def get_OMFP(atoms, s=1, p=0, width_cutoff=3.5, maxnatsphere=100):
@@ -388,14 +356,6 @@ def reshape_cell2(atoms, imax):
     return None
 
 
-def energyandforces(atoms):
-    positions = atoms.get_positions()
-    cell = atoms.get_cell(complete=False).T
-    nat = positions.shape[0]
-    e_pot, forces, deralat, stress_tensor = bazant.energyandforces_bazant(cell, positions.T, nat)
-
-    return e_pot, forces.T, deralat, stress_tensor
-
 
 def frac2cart(atoms, reduced_positions):
     """
@@ -622,11 +582,9 @@ def vcs_soften(atoms, cell_atoms, nsoft):
     cell_masses = cell_atoms.masses  # for the moment no masses
     masses = atoms.get_masses()
     # Get initial energy
-    # BAZANT TEST
-    # ___________________________________________________________________________________________________________
-    # e_pot_in   = atoms.get_potential_energy()
-    e_pot_in, forces, deralat, stress_tensor = energyandforces(atoms)
-    # ___________________________________________________________________________________________________________
+
+    e_pot_in   = atoms.get_potential_energy()
+
     positions_in = atoms.get_positions()
     cell_positions_in = cell_atoms.positions
 
@@ -648,14 +606,10 @@ def vcs_soften(atoms, cell_atoms, nsoft):
         positions = frac2cart(atoms, reduced_positions)
         atoms.set_positions(positions)
 
-        # BAZANT TEST
-        # ___________________________________________________________________________________________________________
-        # forces = atoms.get_forces()
-        # e_pot = atoms.get_potential_energy()
-        e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
-        # ___________________________________________________________________________________________________________
 
-        # deralat = lattice_derivative(atoms)
+        forces = atoms.get_forces()
+        e_pot = atoms.get_potential_energy()
+        deralat = lattice_derivative(atoms)
 
         # fd2 is only a control variable
         fd2 = 2. * (e_pot - e_pot_in) / (eps_dd ** 2)
@@ -714,11 +668,7 @@ def soften(atoms, nsoft):
     eps_dd = 1e-2
     alpha = 1e-3
     # Get initial energy
-    # BAZANT TEST
-    # ___________________________________________________________________________________________________________
     e_pot_in = atoms.get_potential_energy()
-    #e_pot_in, forces, deralat, stress_tensor = energyandforces(atoms)
-    # ___________________________________________________________________________________________________________
     positions_in = atoms.get_positions()
     masses = atoms.get_masses()
 
@@ -732,12 +682,8 @@ def soften(atoms, nsoft):
         w_positions = positions_in + velocities
         atoms.set_positions(w_positions)
 
-        # BAZANT TEST
-        # ___________________________________________________________________________________________________________
         e_pot = atoms.get_potential_energy()
         forces = atoms.get_forces()
-        #e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
-        # ___________________________________________________________________________________________________________
 
         # fd2 is only a control variable
         fd2 = 2. * (e_pot - e_pot_in) / eps_dd ** 2
@@ -795,12 +741,8 @@ def md(atoms, dt, n_max=4, verbose=True):
     # MD which visits at least three max
     masses = atoms.get_masses()[:, np.newaxis] / atoms.get_masses()[:, np.newaxis]  # for the moment no masses
 
-    # BAZANT TEST
-    # ___________________________________________________________________________________________________________
     epot_old = atoms.get_potential_energy()
     forces = atoms.get_forces()
-    # epot_old, forces, deralat, stress_tensor = energyandforces(atoms)
-    # ___________________________________________________________________________________________________________
 
     sign_old = -1
     n_change = 0
@@ -812,19 +754,10 @@ def md(atoms, dt, n_max=4, verbose=True):
         # Update postions
         atoms.set_positions(positions + dt * velocities + 0.5 * dt * dt * (forces / (masses)))
 
-        # BAZANT TEST
-        # ___________________________________________________________________________________________________________
-        # epot_old  = atoms.get_potential_energy()
         new_forces = atoms.get_forces()
-        # epot_old, new_forces, deralat, stress_tensor = energyandforces(atoms)
-        # ___________________________________________________________________________________________________________
         atoms.set_velocities(velocities + 0.5 * dt * ((forces + new_forces) / masses))
 
-        # BAZANT TEST
-        # ___________________________________________________________________________________________________________
         epot = atoms.get_potential_energy()
-        # epot, forces, deralat, stress_tensor = energyandforces(atoms)
-        # ___________________________________________________________________________________________________________
 
         sign = int(np.sign(epot_old - epot))
         if sign_old != sign:
@@ -875,22 +808,12 @@ def vcsmd(atoms, cell_atoms, dt, n_max=2, verbose=True):
     masses = atoms.get_masses()[:, np.newaxis] / atoms.get_masses()[:, np.newaxis]  # for the moment no masses
     cell_masses = cell_atoms.masses[:, np.newaxis]
 
-    # BAZANT TEST
-    # ___________________________________________________________________________________________________________
-    # epot_old  = atoms.get_potential_energy()
-    epot_old, forces, deralat, stress_tensor = energyandforces(atoms)
-    # ___________________________________________________________________________________________________________
-
     sign_old = -1
     n_change = 0
     i = 0
-
-    # BAZANT TEST
-    # ___________________________________________________________________________________________________________
-    # forces = atoms.get_forces()
-    e_pot_cur, forces, deralat, stress_tensor = energyandforces(atoms)
-    # ___________________________________________________________________________________________________________
-    cell_forces = deralat
+    epot_old = atoms.get_potential_energy()
+    forces = atoms.get_forces()
+    cell_forces = lattice_derivative(atoms)
     while n_change < n_max:
         velocities = atoms.get_velocities()
         positions = atoms.get_positions()
@@ -908,27 +831,18 @@ def vcsmd(atoms, cell_atoms, dt, n_max=2, verbose=True):
         atoms.set_positions(positions)
 
         # Update velocities
-        # BAZANT TEST
-        # ___________________________________________________________________________________________________________
-        # new_forces = atoms.get_forces()
-        e_pot_cur, new_forces, deralat, stress_tensor = energyandforces(atoms)
-        # ___________________________________________________________________________________________________________
+        new_forces = atoms.get_forces()
 
         atoms.set_velocities(velocities + 0.5 * dt * ((forces + new_forces) / masses))
 
         # Update velocities of the cell atoms
-        new_cell_forces = deralat
+        new_cell_forces = lattice_derivative(atoms)
         cell_atoms.velocities = cell_velocities + 0.5 * dt * ((cell_forces + new_cell_forces) / cell_masses)
 
         forces = new_forces
         cell_forces = new_cell_forces
 
-        # Update velocities
-        # BAZANT TEST
-        # ___________________________________________________________________________________________________________
-        # epot = atoms.get_potential_energy()
-        epot, new_forces, deralat, stress_tensor = energyandforces(atoms)
-        # ___________________________________________________________________________________________________________
+        epot = atoms.get_potential_energy()
 
         sign = int(np.sign(epot_old - epot))
         if sign_old != sign:
@@ -970,11 +884,8 @@ def escape_trial(atoms, dt, T):
         ASE atoms object containing a new minimum
     """
 
-    # BAZANT TEST
-    # ___________________________________________________________________________________________________________
-    # e_pot_curr = atoms.get_potential_energy()
+
     e_pot_curr, forces, deralat, stress_tensor = energyandforces(atoms)
-    # ___________________________________________________________________________________________________________
     escape = 0.0
     beta_s = 1.1
     while escape < 1e-3:
@@ -990,7 +901,6 @@ def escape_trial(atoms, dt, T):
             cell_atoms.velocities = cell_velocities
             vcsmd(atoms, cell_atoms, dt, verbose=False)
             reshape_cell2(atoms, 6)
-            # reshape_cell(atoms,3)
             vcs_optimizer(atoms, verbose=False)
         else:
             velocities = soften(atoms, 20)
@@ -998,11 +908,8 @@ def escape_trial(atoms, dt, T):
             md(atoms, dt, verbose=False)
             optimizer(atoms, verbose=False)
 
-        # BAZANT TEST
-        # ___________________________________________________________________________________________________________
-        # e_pot = atoms.get_potential_energy()
-        e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
-        # ___________________________________________________________________________________________________________
+        e_pot = atoms.get_potential_energy()
+
         escape = abs(e_pot - e_pot_curr)
         T *= beta_s
         #print("TEMPARATUR:   ", T, escape, e_pot_curr)
@@ -1025,8 +932,6 @@ def in_history_fp(fp1, history, epot ):
         if (abs(s[0]-epot)) < 0.01:
             fp2 = s[5]
             fp_dist = fp_distance(fp1, fp2)/fp2.shape[0]
-            #print("DDDD:   ", fp_dist, abs(s[0]-epot))
-            #print("DEBUG:  ",s[0]-epot, fp_dist)
             if fp_dist < 1e-3:
                i += 1
     return i + 1
@@ -1067,12 +972,9 @@ def optimizer(atoms, initial_step_size=0.0001, nhist_max=10, alpha_min=1e-5, eps
     max_force_comp = 100
     i = 0
     while max_force_comp > max_force_threshold:
-        # BAZANT TEST
-        # ___________________________________________________________________________________________________________
-        # energy = atoms.get_potential_energy()
-        # forces = atoms.get_forces()
-        energy, forces, deralat, stress_tensor = energyandforces(atoms)
-        # ___________________________________________________________________________________________________________
+
+        energy = atoms.get_potential_energy()
+        forces = atoms.get_forces()
 
         i += 1
         max_force_comp = np.max(forces)
@@ -1136,13 +1038,10 @@ def vcs_optimizer(atoms, initial_step_size=.01, nhist_max=10, lattice_weight=2, 
     max_force_comp = 100
     i = 0
     while max_force_comp > max_force_threshold:
-        # BAZANT TEST
-        # ___________________________________________________________________________________________________________
-        # energy = atoms.get_potential_energy()# and also deralat
-        # forces = atoms.get_forces()
-        # deralat = lattice_derivative(atoms)
-        energy, forces, deralat, stress_tensor = energyandforces(atoms)
-        # ___________________________________________________________________________________________________________
+
+        energy = atoms.get_potential_energy()
+        forces = atoms.get_forces()
+        deralat = lattice_derivative(atoms)
 
         i += 1
         max_force_comp = np.max(forces)
@@ -1175,8 +1074,6 @@ def main():
     #filename = "acc-00000.xyz"
     # path = "/home/marco/NequipMH/data/"
     # filename = "LJC.extxyz"
-    path = "/home/marco/NequipMH/src/python/"
-    filename = "ACC00000.ascii"
 
     # model_path = " "
     dt = 0.01
@@ -1185,43 +1082,68 @@ def main():
     alpha_r = 1.05
     n_acc = 0
     n_min = 0
-    history = []
-    sorted_history = []
-    acc_min_list = []
     T = 2500
     beta_decrease = 1. / 1.01
     beta_increase = 1.01
     enhanced_feedback = False
     compare_energy = False
 
-    # Read local minimum input file
-    atoms = read(path + filename)
-    atoms.pbc = True
-    #atoms.set_positions(np.random.normal(atoms.get_positions(), 0.001))
 
-    vcs_optimizer(atoms, verbose=True)
+    all_minima = []
+    is_acc_minima = os.path.exists('min.extxyz')
+    is_unique_minima = os.path.exists('acc.extxyz')
+    is_history = os.path.exists('history.dat')
+
+    if is_acc_minima and is_unique_minima and is_history:
+        is_restart = True
+    else:
+        is_restart = False
+
+    if is_restart:
+        accepted_minima = read("acc.extxyz", index=':')
+        unique_minima = read("min.extxyz", index=':')
+        atoms = accepted_minima[-1]
+        history_file = open('history.dat', 'r')
+        history = []
+        for line in history_file:
+            history.append(line)
+        last_line = history[-1].split()
+        T = float(last_line[2])
+        e_diff = float(last_line[3])
+        history_file.close()
+        history_file = open('history.dat', 'a')
+    else:
+        filename = "./ACC00000.xyz"
+        atoms = read(filename)
+        accepted_minima = []
+        unique_minima = []
+        history_file = open('history.dat', 'w')
+
+
+
+    atoms.calc = NequIPCalculator.from_deployed_model(
+        model_path="/scratch/snx3000/mkrummen/NequipMH/src/python/si_clusters.pth",
+        device = "cuda",
+        species_to_type_name = {
+            "Si": "Si",
+        }
+    )
+
+
 
     atoms_cur = atoms.copy()
 
-    # BAZANT TEST
-    # ___________________________________________________________________________________________________________
-    # e_pot_cur = atoms.get_potential_energy()
-    e_pot_cur, forces, deralat, stress_tensor = energyandforces(atoms)
-    # ___________________________________________________________________________________________________________
+    e_pot_cur = atoms.get_potential_energy()
     fp = get_OMFP(atoms)
-    history.append((e_pot_cur, 1, T, e_diff, "A", fp))
+
+    accepted_minima.append(deepcopy(atoms))
+    unique_minima.append(deepcopy(atoms))
+    all_minima.append(minimum(deepcopy(atoms), n_visit=1, fingerprint=fp, T=T, ediff=e_diff, acc_rej="I"))
 
     for i in range(10000):
         escape_trial(atoms, dt, T)
 
-        filename = "MIN" + str(n_min).zfill(5) + ".ascii"
-        write(filename, atoms)
-
-        # BAZANT TEST
-        # ___________________________________________________________________________________________________________
-        # e_pot = atoms.get_potential_energy()
-        e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
-        # ___________________________________________________________________________________________________________
+        e_pot = atoms.get_potential_energy()
 
         n_min += 1
         log_msg = "LOG:  {:d}  Epot:  {:1.5f}   E_diff:  {:1.5f}    Temp:   {:1.5f} ".format(n_min, e_pot, e_diff, T)
@@ -1231,27 +1153,19 @@ def main():
             e_pot_cur = e_pot
             e_diff *= alpha_a
             n_acc += 1
-            acc_min_list.append([atoms.copy(), e_pot_cur])
-            acc_min_list = sorted(acc_min_list, key=lambda x: x[1])
-            for k, acc_min in enumerate(acc_min_list):
-                atom = acc_min[0]
-                # print("DEBUGGY    ", acc_min[1])
-                filename = "ACC" + str(k).zfill(5) + ".ascii"
-                write(filename, atom)
             atoms_cur = atoms.copy()
             acc_rej = "A"
         else:
             e_diff *= alpha_r
             acc_rej = "R"
-            # print(atoms.get_pote ntial_energy()-e_pot_cur)
 
 
 
         fp = get_OMFP(atoms)
         if compare_energy:
-            n_visits = in_history(e_pot, history)
+            n_visits = in_history(e_pot, all_minima)
         else:
-            n_visits = in_history_fp(fp, sorted_history, e_pot)
+            n_visits = in_history_fp(fp, all_minima, e_pot)
 
 
         if n_visits > 1:
@@ -1261,28 +1175,31 @@ def main():
                 T *= beta_increase
         else:
             T *= beta_decrease
+            unique_minima.append(deepcopy(atoms))
+            unique_minima.sort(key=lambda x : x.get_potential_energy())
+            write("min.extxyz", unique_minima,  append=True)
 
-        # BAZANT TEST
-        # ___________________________________________________________________________________________________________
-        #e_pot = atoms.get_potential_energy()
-        e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
-        # ___________________________________________________________________________________________________________
-        history.append((e_pot, n_visits, T, e_diff, acc_rej, fp))
-        sorted_history.append((e_pot, n_visits, T, e_diff, acc_rej, fp))
-        sorted_history = sorted(sorted_history, key=lambda x: x[0])
-        if i % 1 == 0:
-            f = open("history.dat", "w")
-            for s in history:
-                history_msg = "{:1.5f}  {:d}  {:1.5f}  {:1.5f}  {:s} \n".format(s[0], s[1], s[2], s[3], s[4])
-                f.write(history_msg)
-            f.close()
+
+        if acc_rej == "A":
+            accepted_minima.append(deepcopy(atoms))
+            write("acc.extxyz", unique_minima, append=True)
+
+        all_minima.append(minimum(deepcopy(atoms), n_visit=n_visits, fingerprint=fp, T=T, ediff=e_diff, acc_rej=acc_rej))
+
+        history_msg = "{:1.5f}  {:d}  {:1.5f}  {:1.5f}  {:s} \n".format(atoms.get_potential_energy(),
+                                                                        n_visits,
+                                                                        T,
+                                                                        e_diff,
+                                                                        acc_rej)
+        history_file.write(history_msg)
+
+
+
+
 
         atoms = atoms_cur.copy()
-        # BAZANT TEST
-        # ___________________________________________________________________________________________________________
-        # e_pot = atoms.get_potential_energy()
-        e_pot, forces, deralat, stress_tensor = energyandforces(atoms)
-        # ___________________________________________________________________________________________________________
+
+    history_file.close()
 
 
 if __name__ == '__main__':
