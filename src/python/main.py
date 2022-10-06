@@ -740,6 +740,10 @@ def md(atoms, dt, n_max=4, verbose=True):
         atoms object containing all the information after the MD
     """
     # MD which visits at least three max
+    if verbose:
+        write("MD.extxyz", atoms)
+    
+    
     masses = atoms.get_masses()[:, np.newaxis] / atoms.get_masses()[:, np.newaxis]  # for the moment no masses
 
     epot_old = atoms.get_potential_energy()
@@ -770,8 +774,7 @@ def md(atoms, dt, n_max=4, verbose=True):
             md_msg = "MD STEP:  {:d}   e_pot: {:1.5f}  e_kin:  {:1.5f}   e_tot:  {:1.5f}".format(i, epot, e_kin,
                                                                                                  epot + e_kin)
             print(md_msg)
-            filename = "MD{0:05d}.xyz".format(i)
-            write(filename, atoms)
+            write("MD.extxyz", atoms,  append=True)
 
         if i > 10000:
             warning_msg = "Geometry did not converge in {:d} optimizations steps".format(i)
@@ -805,6 +808,8 @@ def vcsmd(atoms, cell_atoms, dt, n_max=2, verbose=True):
 
     """
     # MD which visits at least three max
+    if verbose:
+        write("MD.extxyz", atoms)
     # Initializations
     masses = atoms.get_masses()[:, np.newaxis] / atoms.get_masses()[:, np.newaxis]  # for the moment no masses
     cell_masses = cell_atoms.masses[:, np.newaxis]
@@ -858,8 +863,7 @@ def vcsmd(atoms, cell_atoms, dt, n_max=2, verbose=True):
             md_msg = "MD STEP:  {:d}   e_pot: {:1.5f}  e_kin:  {:1.5f}   e_tot:  {:1.5f}".format(i, epot, e_kin,
                                                                                                  epot + e_kin)
             print(md_msg)
-            filename = "MD{0:05d}.ascii".format(i)
-            write(filename, atoms)
+            write("MD.extxyz", atoms,  append=True)
 
         if i > 10000:
             warning_msg = "Geometry did not converge in {:d} optimizations steps".format(i)
@@ -969,6 +973,10 @@ def optimizer(atoms, initial_step_size=0.01, nhist_max=10, alpha_min=1e-5, eps_s
         optimized structure in atoms object
 
     """
+    if verbose:
+        write("OPT.extxyz", atoms)
+
+
 
     nat = atoms.get_positions().shape[0]
     optim = free_or_fixed_cell_sqnm.free_sqnm(nat=nat, initial_step_size=initial_step_size, nhist_max=nhist_max,
@@ -991,8 +999,7 @@ def optimizer(atoms, initial_step_size=0.01, nhist_max=10, alpha_min=1e-5, eps_s
         if verbose:
             opt_msg = "OPT Step: {:d}   energy: {:1.8f}  max_force_comp:  {:1.5e}".format(i, energy, max_force_comp)
             print(opt_msg)
-            filename = "OPT{0:05d}.ascii".format(i)
-            write(filename, atoms)
+            write("OPT.extxyz", atoms,  append=True)
 
         if i > 10000:
             warning_msg = "Geometry did not converge in {:d} optimizations steps".format(i)
@@ -1031,6 +1038,8 @@ def vcs_optimizer(atoms, initial_step_size=.01, nhist_max=10, lattice_weight=2, 
         optimized structure in atoms object
 
     """
+    if verbose:
+        write("OPT.extxyz", atoms)
 
     # Get nessecairy parameters from atoms object
     nat = atoms.get_positions().shape[0]
@@ -1062,8 +1071,8 @@ def vcs_optimizer(atoms, initial_step_size=.01, nhist_max=10, lattice_weight=2, 
         if verbose:
             opt_msg = "OPT Step: {:d}   energy: {:1.8f}  max_force_comp:  {:1.5e}".format(i, energy, max_force_comp)
             print(opt_msg)
-            filename = "OPT{0:05d}.ascii".format(i)
-            write(filename, atoms)
+            write("OPT.extxyz", atoms,  append=True)
+
 
         if i > 10000:
             warning_msg = "Geometry did not converge in {:d} optimizations steps".format(i)
