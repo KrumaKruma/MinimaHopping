@@ -8,6 +8,7 @@ from ase.calculators.espresso import Espresso
 from ase import units
 import time
 import scipy
+from nequip.ase import NequIPCalculator
 import periodic_sqnm
 import free_or_fixed_cell_sqnm
 import warnings
@@ -885,10 +886,11 @@ def escape_trial(atoms, dt, T):
     """
 
 
-    e_pot_curr, forces, deralat, stress_tensor = energyandforces(atoms)
+    e_pot_curr = atoms.get_potential_energy()
     escape = 0.0
+    fp_in = get_OMFP(atoms)
     beta_s = 1.1
-    while escape < 1e-3:
+    while escape < 2.e-3:
 
         MaxwellBoltzmannDistribution(atoms, temperature_K=T)
 
@@ -905,13 +907,15 @@ def escape_trial(atoms, dt, T):
         else:
             velocities = soften(atoms, 20)
             atoms.set_velocities(velocities)
-            md(atoms, dt, verbose=False)
-            optimizer(atoms, verbose=False)
+            md(atoms, dt, verbose=True)
+            optimizer(atoms, verbose=True)
 
         e_pot = atoms.get_potential_energy()
 
-        escape = abs(e_pot - e_pot_curr)
+        fp_out = get_OMFP(atoms)
+        escape = fp_distance(fp_in, fp_out)/fp_out.shape[0]
         T *= beta_s
+
         #print("TEMPARATUR:   ", T, escape, e_pot_curr)
 
     return
@@ -927,18 +931,19 @@ def in_history(e_pot_cur, history, ):
     return i + 1
 
 def in_history_fp(fp1, history, epot ):
-    i = 0
+    i = 1
     for s in history:
-        if (abs(s[0]-epot)) < 0.01:
-            fp2 = s[5]
+        energy_difference = abs(s.atoms.get_potential_energy() - epot)
+        if energy_difference < 0.01:
+            fp2 = s.fingerprint
             fp_dist = fp_distance(fp1, fp2)/fp2.shape[0]
-            if fp_dist < 1e-3:
+            if fp_dist < 1.e-3:
                i += 1
-    return i + 1
+    return i
 
 
-def optimizer(atoms, initial_step_size=0.0001, nhist_max=10, alpha_min=1e-5, eps_subsp=1e-4,
-              max_force_threshold=0.00002, verbose=False):
+def optimizer(atoms, initial_step_size=0.01, nhist_max=10, alpha_min=1e-5, eps_subsp=1e-4,
+              max_force_threshold=0.05, verbose=False):
     """
     Variable cell shape optimizer from Gubler et. al 2022 arXiv2206.07339
     Function optimizes atom positions and lattice vecotors
@@ -1082,7 +1087,7 @@ def main():
     alpha_r = 1.05
     n_acc = 0
     n_min = 0
-    T = 2500
+    T = 500
     beta_decrease = 1. / 1.01
     beta_increase = 1.01
     enhanced_feedback = False
@@ -1097,27 +1102,31 @@ def main():
     if is_acc_minima and is_unique_minima and is_history:
         is_restart = True
     else:
+        is_files = {is_history, is_unique_minima, is_acc_minima}
+        assert len(is_files)==1, 'Some but not all files exist for a restart.'
         is_restart = False
 
     if is_restart:
         accepted_minima = read("acc.extxyz", index=':')
         unique_minima = read("min.extxyz", index=':')
+        for atom in unique_minima:
+            fp = get_OMFP(atom)
+            all_minima.append(minimum(deepcopy(atom), n_visit=1, fingerprint=fp, T=-100.0, ediff=-10., acc_rej='NA'))
         atoms = accepted_minima[-1]
         history_file = open('history.dat', 'r')
         history = []
         for line in history_file:
             history.append(line)
+        #print(history)
         last_line = history[-1].split()
         T = float(last_line[2])
         e_diff = float(last_line[3])
         history_file.close()
-        history_file = open('history.dat', 'a')
     else:
-        filename = "./ACC00000.xyz"
+        filename = "input.extxyz"
         atoms = read(filename)
         accepted_minima = []
         unique_minima = []
-        history_file = open('history.dat', 'w')
 
 
 
@@ -1131,14 +1140,16 @@ def main():
 
 
 
+    optimizer(atoms, verbose=True)
+    
     atoms_cur = atoms.copy()
 
     e_pot_cur = atoms.get_potential_energy()
     fp = get_OMFP(atoms)
 
-    accepted_minima.append(deepcopy(atoms))
-    unique_minima.append(deepcopy(atoms))
-    all_minima.append(minimum(deepcopy(atoms), n_visit=1, fingerprint=fp, T=T, ediff=e_diff, acc_rej="I"))
+#    accepted_minima.append(deepcopy(atoms))
+#    unique_minima.append(deepcopy(atoms))
+#    all_minima.append(minimum(deepcopy(atoms), n_visit=1, fingerprint=fp, T=T, ediff=e_diff, acc_rej="I"))
 
     for i in range(10000):
         escape_trial(atoms, dt, T)
@@ -1153,7 +1164,7 @@ def main():
             e_pot_cur = e_pot
             e_diff *= alpha_a
             n_acc += 1
-            atoms_cur = atoms.copy()
+            atoms_cur = deepcopy(atoms)
             acc_rej = "A"
         else:
             e_diff *= alpha_r
@@ -1176,13 +1187,13 @@ def main():
         else:
             T *= beta_decrease
             unique_minima.append(deepcopy(atoms))
-            unique_minima.sort(key=lambda x : x.get_potential_energy())
-            write("min.extxyz", unique_minima,  append=True)
+            #unique_minima.sort(key=lambda x : x.get_potential_energy())
+            write("min.extxyz", unique_minima[-1],  append=True)
 
 
         if acc_rej == "A":
             accepted_minima.append(deepcopy(atoms))
-            write("acc.extxyz", unique_minima, append=True)
+            write("acc.extxyz", accepted_minima[-1], append=True)
 
         all_minima.append(minimum(deepcopy(atoms), n_visit=n_visits, fingerprint=fp, T=T, ediff=e_diff, acc_rej=acc_rej))
 
@@ -1191,15 +1202,16 @@ def main():
                                                                         T,
                                                                         e_diff,
                                                                         acc_rej)
+        history_file = open('history.dat', 'a')
         history_file.write(history_msg)
+        history_file.close()
 
 
 
 
 
-        atoms = atoms_cur.copy()
+        atoms = deepcopy(atoms_cur)
 
-    history_file.close()
 
 
 if __name__ == '__main__':
