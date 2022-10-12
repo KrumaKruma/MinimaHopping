@@ -880,7 +880,6 @@ def vcsmd(atoms, cell_atoms, dt, n_max=2, verbose=True):
 
     return None
 
-from soften import Softening
 def escape_trial(atoms, dt, T):
     """
     Escape loop to find a new minimum
@@ -917,15 +916,11 @@ def escape_trial(atoms, dt, T):
             # filename = "Si_mins.extxyz"
             atoms = read(filename)
             atoms.calc = calculator
-            cell_atoms.velocities = np.ones((3,3))
-            atoms.set_velocities(np.ones(atoms.get_positions().shape))
             velocities, cell_velocities = vcs_soften(atoms, cell_atoms, 10)
             filename = "Si_in3.extxyz"
             # filename = "Si_mins.extxyz"
             atoms = read(filename)
             atoms.calc = calculator
-            cell_atoms.velocities = np.ones((3,3))
-            atoms.set_velocities(np.ones(atoms.get_positions().shape))
             #cell_atoms.velocities = old_velo
             soft = Softening(atoms, cell_atoms)
             soft.run(10)
@@ -936,12 +931,15 @@ def escape_trial(atoms, dt, T):
             reshape_cell2(atoms, 6)
             vcs_optimizer(atoms, verbose=False)
         else:
-            velocities = soften(atoms, 10)
-            soft = Softening(atoms)
-            soft.run(10)
+            # velocities = soften(atoms, 10)
+            #soft = Softening(atoms)
+            #soft.run(10)
+            #quit()
+            #atoms.set_velocities(velocities)
+            md = MD(atoms, 0.01, 100, True)
+            md.run()
             quit()
-            atoms.set_velocities(velocities)
-            md(atoms, dt, verbose=True)
+            #md(atoms, dt, verbose=True)
             optimizer(atoms, verbose=True)
 
         e_pot = atoms.get_potential_energy()
@@ -1114,7 +1112,8 @@ def vcs_optimizer(atoms, initial_step_size=.01, nhist_max=10, lattice_weight=2, 
 
 
 
-
+from soften import Softening
+from md import MD
 
 
 # class Minimahopping:
@@ -1304,7 +1303,7 @@ def main():
         history_file.close()
     else:
         filename = "Si_in3.extxyz"
-        filename = "Si_mins.extxyz"
+        #filename = "Si_mins.extxyz"
         atoms = read(filename)
         accepted_minima = []
         unique_minima = []
@@ -1327,7 +1326,16 @@ def main():
 
     optimizer(atoms, verbose=True)
     write("si_opt.extxyz",atoms)
-    
+
+    MaxwellBoltzmannDistribution(atoms, temperature_K=T)
+    mass = .75 * np.sum(atoms.get_masses()) / 10.
+    cell_atoms = cell_atom(mass=mass, positions=atoms.get_cell())
+    cell_atoms.set_velocities_boltzmann(temperature=T)
+    md = MD(atoms,None,0.01, 100, True)
+    md.run()
+    quit()
+
+
     atoms_cur = atoms.copy()
 
     e_pot_cur = atoms.get_potential_energy()
