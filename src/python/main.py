@@ -418,6 +418,7 @@ def lattice_derivative(atoms):
     # ______________________________________________________________________________________
     cell = atoms.get_cell(complete=False)
 
+
     inv_cell = np.linalg.inv(cell)
     prefact = np.linalg.det(cell)
     deralat = - prefact * np.matmul(stress_tensor, inv_cell)
@@ -485,7 +486,7 @@ def moment_of_inertia(masses, positions):
         inertia_tensor[0, 2] -= mass * (at[0] * at[2])
         inertia_tensor[1, 2] -= mass * (at[1] * at[2])
 
-    inertia_tensor[1, 0] = inertia_tensor[0, 1]
+    inertia_tensor[1, 0] =  inertia_tensor[0, 1]
     inertia_tensor[2, 0] = inertia_tensor[0, 2]
     inertia_tensor[2, 1] = inertia_tensor[1, 2]
 
@@ -593,8 +594,10 @@ def vcs_soften(atoms, cell_atoms, nsoft):
     velocities = atoms.get_velocities()
     cell_velocities = cell_atoms.velocities
     norm_const = eps_dd / (np.sqrt(np.sum(velocities ** 2) + np.sum(cell_velocities ** 2)))
+
     velocities *= norm_const
     cell_velocities *= norm_const
+    print(cell_velocities)
 
     # Softening cycle
     for it in range(nsoft):
@@ -627,17 +630,20 @@ def vcs_soften(atoms, cell_atoms, nsoft):
         deralat += curve * cell_velocities
         res = np.sqrt(np.sum(forces * forces) + np.sum(deralat * deralat))
 
-        # print("SOFTEN:   ", it, tt, res, curve/fd2, e_pot - e_pot_in)
+        #print("SOFTEN:   ", it, tt, res, curve,fd2, e_pot - e_pot_in)
 
         w_positions = w_positions + alpha_pos * forces
         w_cell_positions = w_cell_positions + alpha_lat * deralat
         velocities = w_positions - positions_in
         cell_velocities = w_cell_positions - cell_positions_in
 
+
         velocities = elim_moment(velocities)
         cell_velocities = elim_torque(w_cell_positions, cell_velocities, cell_masses)
 
+
         sdd = eps_dd / np.sqrt(np.sum(velocities ** 2) + np.sum(cell_velocities ** 2))
+
         if res < (curve * eps_dd * 0.5):
             break
         velocities *= sdd
@@ -667,7 +673,7 @@ def soften(atoms, nsoft):
 
     # Softening constants
     eps_dd = 1e-2
-    alpha = 1e-3
+    alpha = 1e-1
     # Get initial energy
     e_pot_in = atoms.get_potential_energy()
     positions_in = atoms.get_positions()
@@ -687,7 +693,7 @@ def soften(atoms, nsoft):
         forces = atoms.get_forces()
 
         # fd2 is only a control variable
-        fd2 = 2. * (e_pot - e_pot_in) / eps_dd ** 2
+        fd2 =  (e_pot - e_pot_in) / eps_dd ** 2
 
         sdf = np.sum(velocities * forces)
         sdd = np.sum(velocities * velocities)
@@ -700,7 +706,7 @@ def soften(atoms, nsoft):
         res = np.sqrt(np.sum(forces * forces))
 
         # Print statement for debugging reasons
-        # print(it, tt, res, curve/ fd2,e_pot - e_pot_in)
+        print(it, tt, res, curve, fd2,e_pot - e_pot_in)
 
         w_positions = w_positions + alpha * forces
         velocities = w_positions - positions_in
@@ -874,7 +880,7 @@ def vcsmd(atoms, cell_atoms, dt, n_max=2, verbose=True):
 
     return None
 
-
+from soften import Softening
 def escape_trial(atoms, dt, T):
     """
     Escape loop to find a new minimum
@@ -897,19 +903,43 @@ def escape_trial(atoms, dt, T):
     while escape < 2.e-3:
 
         MaxwellBoltzmannDistribution(atoms, temperature_K=T)
+        calculator = LennardJones()
+        calculator.parameters.epsilon = 0.0102996
+        calculator.parameters.sigma = 3.4
+        calculator.parameters.rc = 12.0
 
         if True in atoms.pbc:
             mass = .75 * np.sum(atoms.get_masses()) / 10.
             cell_atoms = cell_atom(mass=mass, positions=atoms.get_cell())
             cell_atoms.set_velocities_boltzmann(temperature=T)
-            velocities, cell_velocities = vcs_soften(atoms, cell_atoms, 20)
+            #old_velo = deepcopy(cell_atoms.velocities)
+            filename = "Si_in3.extxyz"
+            # filename = "Si_mins.extxyz"
+            atoms = read(filename)
+            atoms.calc = calculator
+            cell_atoms.velocities = np.ones((3,3))
+            atoms.set_velocities(np.ones(atoms.get_positions().shape))
+            velocities, cell_velocities = vcs_soften(atoms, cell_atoms, 10)
+            filename = "Si_in3.extxyz"
+            # filename = "Si_mins.extxyz"
+            atoms = read(filename)
+            atoms.calc = calculator
+            cell_atoms.velocities = np.ones((3,3))
+            atoms.set_velocities(np.ones(atoms.get_positions().shape))
+            #cell_atoms.velocities = old_velo
+            soft = Softening(atoms, cell_atoms)
+            soft.run(10)
+            quit()
             atoms.set_velocities(velocities)
             cell_atoms.velocities = cell_velocities
             vcsmd(atoms, cell_atoms, dt, verbose=False)
             reshape_cell2(atoms, 6)
             vcs_optimizer(atoms, verbose=False)
         else:
-            velocities = soften(atoms, 20)
+            velocities = soften(atoms, 10)
+            soft = Softening(atoms)
+            soft.run(10)
+            quit()
             atoms.set_velocities(velocities)
             md(atoms, dt, verbose=True)
             optimizer(atoms, verbose=True)
@@ -1082,6 +1112,147 @@ def vcs_optimizer(atoms, initial_step_size=.01, nhist_max=10, lattice_weight=2, 
     return
 
 
+
+
+
+
+
+# class Minimahopping:
+#     _default_settings = {
+#         'T0' : 1000.,  # Initital temperature in Kelvin (float)
+#         'e_diff0' : 0.5, # Initial energy aceptance threshold (float)
+#         'alpha_a' : 0.95, # energy threshold adjustment parameter (float)
+#         'alpha_r' : 1.05, # energy threshold adjustment parameter (float)
+#         'beta_decrease' : 1./1.01, # temperature adjustment parameter (float)
+#         'beta_increase' : 1.01, # temperature adjustment parameter (float)
+#         'n_soft' : 20, # number of softening steps for the velocity before the MD (int)
+#         'dt' : 0.01, # timestep for the MD part (float)
+#         'mdmin' : 2, # criteria to stop the MD simulation (no. of minima) (int)
+#         'fmax' : 0.05, # max force component for optimization
+#         'enhanced_feedback' : False, # Enhanced feedback to adjust the temperature (bool)
+#         'comapre_energy' : False, # Comparing energies instead of overlap matrix fingerprints (bool)
+#         'minima_threshold' : 1e-3 # Fingerprint or energy difference for identifying identical configurations (float)
+#         'verbose' : True, # If True MD and optim. steps are written to the output (bool)
+#     }
+#
+#     def __init__(self, atoms, **kwargs):
+#         """Initialize with an ASE atoms object and keyword arguments."""
+#         self._atoms = atoms
+#         for key in kwargs:
+#             if key not in self._default_settings:
+#                 raise RuntimeError('Unknown keyword: %s' % key)
+#         for k, v in self._default_settings.items():
+#             setattr(self, '_%s' % k, kwargs.pop(k, v))
+#
+#         self._temperature = self._T0
+#         self._Ediff = self._Ediff0
+#
+#
+#     def __call__(self, totalsteps = None):
+#         self._startup()
+#         while True:
+#             if (self._counter >= totalsteps):
+#                 msg = 'Run terminated after {:d} steps'.format(totalsteps)
+#                 print(msg)
+#                 return
+#
+#             self._escape()
+#
+#     def _startup(self):
+#         # Check if run is restarted
+#         self.all_minima = []
+#         _is_acc_minima = os.path.exists('min.extxyz')
+#         _is_unique_minima = os.path.exists('acc.extxyz')
+#         _is_history = os.path.exists('history.dat')
+#
+#         if _is_acc_minima and _is_unique_minima and _is_history:
+#             _is_restart = True
+#         else:
+#             is_files = {_is_history, _is_unique_minima, _is_acc_minima}
+#             assert len(is_files)==1, 'Some but not all files exist for a restart.'
+#             _is_restart = False
+#
+#         if _is_restart:
+#             msg = 'Restart of previous run'
+#             print(msg)
+#             accepted_minima = read("acc.extxyz", index=':')
+#             unique_minima = read("min.extxyz", index=':')
+#             for atom in unique_minima:
+#                 fp = get_OMFP(atom)
+#                 self.all_minima.append(
+#                     minimum(deepcopy(atom), n_visit=1, fingerprint=fp, T=-100.0, ediff=-10., acc_rej='NA'))
+#             self.atoms = accepted_minima[-1]
+#             _history_file = open('history.dat', 'r')
+#             self.history = []
+#             for line in _history_file:
+#                 self.history.append(line)
+#             # print(history)
+#             _last_line = self.history[-1].split()
+#             self._temperature = float(_last_line[2])
+#             self._Ediff = float(_last_line[3])
+#             _history_file.close()
+#         else:
+#             msg = 'New MH run is started'
+#             print(msg)
+#             self.accepted_minima = []
+#             self.unique_minima = []
+#
+#
+#
+#     def _escape(self):
+#         """
+#         Escape loop to find a new minimum
+#         """
+#         _escape = 0.0
+#         _fp_in = get_OMFP(self._atoms)
+#         _beta_s = 1.1
+#         while _escape < 2.e-3:
+#
+#             MaxwellBoltzmannDistribution(self._atoms, temperature_K=self._temperature)
+#
+#             if True in self._atoms.pbc:
+#                 _mass = .75 * np.sum(self._atoms.get_masses()) / 10.
+#                 self._cell_atoms = cell_atom(mass=_mass, positions=self.atoms.get_cell())
+#                 self._cell_atoms.set_velocities_boltzmann(temperature=self._temperature)
+#                 velocities, cell_velocities = vcs_soften(atoms, cell_atoms, 20)
+#                 atoms.set_velocities(velocities)
+#                 cell_atoms.velocities = cell_velocities
+#                 vcsmd(atoms, cell_atoms, dt, verbose=False)
+#                 reshape_cell2(atoms, 6)
+#                 vcs_optimizer(atoms, verbose=False)
+#             else:
+#                 velocities = soften(atoms, 20)
+#                 atoms.set_velocities(velocities)
+#                 md(atoms, dt, verbose=True)
+#                 optimizer(atoms, verbose=True)
+#
+#             e_pot = atoms.get_potential_energy()
+#
+#             fp_out = get_OMFP(atoms)
+#             escape = fp_distance(fp_in, fp_out) / fp_out.shape[0]
+#             T *= beta_s
+#
+#                 # print("TEMPARATUR:   ", T, escape, e_pot_curr)
+#
+#             return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 def main():
     # Initial settings and paths
     #path = "/home/marco/NequipMH/data/38/"
@@ -1132,24 +1303,30 @@ def main():
         e_diff = float(last_line[3])
         history_file.close()
     else:
-        filename = "input.extxyz"
+        filename = "Si_in3.extxyz"
+        filename = "Si_mins.extxyz"
         atoms = read(filename)
         accepted_minima = []
         unique_minima = []
 
 
 
-    atoms.calc = NequIPCalculator.from_deployed_model(
-        model_path="/scratch/snx3000/mkrummen/NequipMH/src/python/si_clusters.pth",
-        device = "cuda",
-        species_to_type_name = {
-            "Si": "Si",
-        }
-    )
-
+    # atoms.calc = NequIPCalculator.from_deployed_model(
+    #     model_path="/home/marco/GITLAB_ASEMH/ASE_MH/src/python/si_clusters.pth",
+    #     device = "cpu",
+    #     species_to_type_name = {
+    #         "Si": "Si",
+    #     }
+    # )
+    calculator = LennardJones()
+    calculator.parameters.epsilon = 0.0102996
+    calculator.parameters.sigma = 3.4
+    calculator.parameters.rc = 12.0
+    atoms.calc = calculator
 
 
     optimizer(atoms, verbose=True)
+    write("si_opt.extxyz",atoms)
     
     atoms_cur = atoms.copy()
 
