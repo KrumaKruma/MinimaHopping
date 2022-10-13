@@ -16,6 +16,11 @@ from OverlapMatrixFingerprint import OverlapMatrixFingerprint as OMFP
 from copy import deepcopy
 import os.path
 #from dscribe.descriptors import SOAP
+from soften import Softening
+from md import MD
+from optim import Opt
+
+
 
 
 """
@@ -748,8 +753,8 @@ def md(atoms, dt, n_max=4, verbose=True):
     # MD which visits at least three max
     if verbose:
         write("MD.extxyz", atoms)
-    
-    
+
+
     masses = atoms.get_masses()[:, np.newaxis] / atoms.get_masses()[:, np.newaxis]  # for the moment no masses
 
     epot_old = atoms.get_potential_energy()
@@ -1112,138 +1117,215 @@ def vcs_optimizer(atoms, initial_step_size=.01, nhist_max=10, lattice_weight=2, 
 
 
 
-from soften import Softening
-from md import MD
 
 
-# class Minimahopping:
-#     _default_settings = {
-#         'T0' : 1000.,  # Initital temperature in Kelvin (float)
-#         'e_diff0' : 0.5, # Initial energy aceptance threshold (float)
-#         'alpha_a' : 0.95, # energy threshold adjustment parameter (float)
-#         'alpha_r' : 1.05, # energy threshold adjustment parameter (float)
-#         'beta_decrease' : 1./1.01, # temperature adjustment parameter (float)
-#         'beta_increase' : 1.01, # temperature adjustment parameter (float)
-#         'n_soft' : 20, # number of softening steps for the velocity before the MD (int)
-#         'dt' : 0.01, # timestep for the MD part (float)
-#         'mdmin' : 2, # criteria to stop the MD simulation (no. of minima) (int)
-#         'fmax' : 0.05, # max force component for optimization
-#         'enhanced_feedback' : False, # Enhanced feedback to adjust the temperature (bool)
-#         'comapre_energy' : False, # Comparing energies instead of overlap matrix fingerprints (bool)
-#         'minima_threshold' : 1e-3 # Fingerprint or energy difference for identifying identical configurations (float)
-#         'verbose' : True, # If True MD and optim. steps are written to the output (bool)
-#     }
-#
-#     def __init__(self, atoms, **kwargs):
-#         """Initialize with an ASE atoms object and keyword arguments."""
-#         self._atoms = atoms
-#         for key in kwargs:
-#             if key not in self._default_settings:
-#                 raise RuntimeError('Unknown keyword: %s' % key)
-#         for k, v in self._default_settings.items():
-#             setattr(self, '_%s' % k, kwargs.pop(k, v))
-#
-#         self._temperature = self._T0
-#         self._Ediff = self._Ediff0
-#
-#
-#     def __call__(self, totalsteps = None):
-#         self._startup()
-#         while True:
-#             if (self._counter >= totalsteps):
-#                 msg = 'Run terminated after {:d} steps'.format(totalsteps)
-#                 print(msg)
-#                 return
-#
-#             self._escape()
-#
-#     def _startup(self):
-#         # Check if run is restarted
-#         self.all_minima = []
-#         _is_acc_minima = os.path.exists('min.extxyz')
-#         _is_unique_minima = os.path.exists('acc.extxyz')
-#         _is_history = os.path.exists('history.dat')
-#
-#         if _is_acc_minima and _is_unique_minima and _is_history:
-#             _is_restart = True
-#         else:
-#             is_files = {_is_history, _is_unique_minima, _is_acc_minima}
-#             assert len(is_files)==1, 'Some but not all files exist for a restart.'
-#             _is_restart = False
-#
-#         if _is_restart:
-#             msg = 'Restart of previous run'
-#             print(msg)
-#             accepted_minima = read("acc.extxyz", index=':')
-#             unique_minima = read("min.extxyz", index=':')
-#             for atom in unique_minima:
-#                 fp = get_OMFP(atom)
-#                 self.all_minima.append(
-#                     minimum(deepcopy(atom), n_visit=1, fingerprint=fp, T=-100.0, ediff=-10., acc_rej='NA'))
-#             self.atoms = accepted_minima[-1]
-#             _history_file = open('history.dat', 'r')
-#             self.history = []
-#             for line in _history_file:
-#                 self.history.append(line)
-#             # print(history)
-#             _last_line = self.history[-1].split()
-#             self._temperature = float(_last_line[2])
-#             self._Ediff = float(_last_line[3])
-#             _history_file.close()
-#         else:
-#             msg = 'New MH run is started'
-#             print(msg)
-#             self.accepted_minima = []
-#             self.unique_minima = []
-#
-#
-#
-#     def _escape(self):
-#         """
-#         Escape loop to find a new minimum
-#         """
-#         _escape = 0.0
-#         _fp_in = get_OMFP(self._atoms)
-#         _beta_s = 1.1
-#         while _escape < 2.e-3:
-#
-#             MaxwellBoltzmannDistribution(self._atoms, temperature_K=self._temperature)
-#
-#             if True in self._atoms.pbc:
-#                 _mass = .75 * np.sum(self._atoms.get_masses()) / 10.
-#                 self._cell_atoms = cell_atom(mass=_mass, positions=self.atoms.get_cell())
-#                 self._cell_atoms.set_velocities_boltzmann(temperature=self._temperature)
-#                 velocities, cell_velocities = vcs_soften(atoms, cell_atoms, 20)
-#                 atoms.set_velocities(velocities)
-#                 cell_atoms.velocities = cell_velocities
-#                 vcsmd(atoms, cell_atoms, dt, verbose=False)
-#                 reshape_cell2(atoms, 6)
-#                 vcs_optimizer(atoms, verbose=False)
-#             else:
-#                 velocities = soften(atoms, 20)
-#                 atoms.set_velocities(velocities)
-#                 md(atoms, dt, verbose=True)
-#                 optimizer(atoms, verbose=True)
-#
-#             e_pot = atoms.get_potential_energy()
-#
-#             fp_out = get_OMFP(atoms)
-#             escape = fp_distance(fp_in, fp_out) / fp_out.shape[0]
-#             T *= beta_s
-#
-#                 # print("TEMPARATUR:   ", T, escape, e_pot_curr)
-#
-#             return
+class Minimahopping:
+    _default_settings = {
+        'T0' : 500.,  # Initital temperature in Kelvin (float)
+        'Ediff0' : 0.5, # Initial energy aceptance threshold (float)
+        'alpha_a' : 0.95, # energy threshold adjustment parameter (float)
+        'alpha_r' : 1.05, # energy threshold adjustment parameter (float)
+        'beta_decrease' : 1./1.01, # temperature adjustment parameter (float)
+        'beta_increase' : 1.01, # temperature adjustment parameter (float)
+        'n_soft' : 20, # number of softening steps for the velocity before the MD (int)
+        'dt' : 0.01, # timestep for the MD part (float)
+        'mdmin' : 2, # criteria to stop the MD simulation (no. of minima) (int)
+        'fmax' : 0.05, # max force component for optimization
+        'enhanced_feedback' : False, # Enhanced feedback to adjust the temperature (bool)
+        'comapre_energy' : False, # Comparing energies instead of overlap matrix fingerprints (bool)
+        'minima_threshold' : 1e-3, # Fingerprint or energy difference for identifying identical configurations (float)
+        'verbose' : True, # If True MD and optim. steps are written to the output (bool)
+    }
+
+    def __init__(self, atoms, **kwargs):
+        """Initialize with an ASE atoms object and keyword arguments."""
+        self._atoms = atoms
+        for key in kwargs:
+            if key not in self._default_settings:
+                raise RuntimeError('Unknown keyword: %s' % key)
+        for k, v in self._default_settings.items():
+            setattr(self, '_%s' % k, kwargs.pop(k, v))
+
+        self._temperature = self._T0
+        self._Ediff = self._Ediff0
+
+        self._counter = 0
+
+    def __call__(self, totalsteps = None):
+        self._startup()
+        while True:
+            if (self._counter >= totalsteps):
+                msg = 'Run terminated after {:d} steps'.format(totalsteps)
+                print(msg)
+                return
+
+            self._escape()
+
+    def _startup(self):
+        # Check if run is restarted
+        self.all_minima = []
+        _is_acc_minima = os.path.exists('min.extxyz')
+        _is_unique_minima = os.path.exists('acc.extxyz')
+        _is_history = os.path.exists('history.dat')
+
+        if _is_acc_minima and _is_unique_minima and _is_history:
+            _is_restart = True
+        else:
+            is_files = {_is_history, _is_unique_minima, _is_acc_minima}
+            assert len(is_files)==1, 'Some but not all files exist for a restart.'
+            _is_restart = False
+
+        if _is_restart:
+            msg = 'Restart of previous run'
+            print(msg)
+            accepted_minima = read("acc.extxyz", index=':')
+            unique_minima = read("min.extxyz", index=':')
+            for atom in unique_minima:
+                self._atoms = atom
+                fp = self._get_OMFP()
+                self.all_minima.append(
+                    minimum(deepcopy(atom), n_visit=1, fingerprint=fp, T=-100.0, ediff=-10., acc_rej='NA'))
+            self._atoms = accepted_minima[-1]
+            _history_file = open('history.dat', 'r')
+            self.history = []
+            for line in _history_file:
+                self.history.append(line)
+            # print(history)
+            _last_line = self.history[-1].split()
+            self._temperature = float(_last_line[2])
+            self._Ediff = float(_last_line[3])
+            _history_file.close()
+        else:
+            msg = 'New MH run is started'
+            print(msg)
+            self.accepted_minima = []
+            self.unique_minima = []
 
 
 
+    def _escape(self):
+        """
+        Escape loop to find a new minimum
+        """
+        _escape = 0.0
+        _fp_in = self._get_OMFP()
+        _beta_s = 1.1
+        while _escape < 2.e-3:
 
+            MaxwellBoltzmannDistribution(self._atoms, temperature_K=self._temperature)
 
+            if True in self._atoms.pbc:
+                _mass = .75 * np.sum(self._atoms.get_masses()) / 10.
+                self._cell_atoms = cell_atom(mass=_mass, positions=self._atoms.get_cell())
+                self._cell_atoms.set_velocities_boltzmann(temperature=self._temperature)
 
+                softening = Softening(self._atoms, self._cell_atoms)
+                _velocities, _cell_velocities = softening.run(self._n_soft)
+                self._atoms.set_velocities(_velocities)
+                self._cell_atoms.velocities = _cell_velocities
 
+                md = MD(atoms=self._atoms, cell_atoms=self._cell_atoms, dt=self._dt, n_max=self._mdmin, verbose=self._verbose)
+                _positions, _cell = md.run()
+                self._atoms.set_positions(_positions)
+                self._atoms.set_cell(_cell)
 
+                opt = Opt(atoms=self._atoms, max_froce_threshold=self._fmax)
+                opt.run()
+                quit()
+                #reshape_cell2(atoms, 6)
+                #vcs_optimizer(atoms, verbose=False)
+            else:
+                softening = Softening(self._atoms)
+                _velocities = softening.run(self._n_soft)
+                self._atoms.set_velocities(_velocities)
 
+                md = MD(atoms=self._atoms, cell_atoms=None, dt=self._dt, n_max=self._mdmin, verbose=self._verbose)
+                _positions = md.run()
+                self._atoms.set_positions(_positions)
 
+                opt = Opt(atoms=self._atoms, max_froce_threshold=self._fmax)
+                opt.run()
+                quit()
+                #velocities = soften(atoms, 20)
+                #atoms.set_velocities(velocities)
+                #md(atoms, dt, verbose=True)
+                #optimizer(atoms, verbose=True)
+
+            #e_pot = atoms.get_potential_energy()
+
+            #fp_out = get_OMFP(atoms)
+            #escape = fp_distance(fp_in, fp_out) / fp_out.shape[0]
+            #T *= beta_s
+
+                # print("TEMPARATUR:   ", T, escape, e_pot_curr)
+
+    def _get_OMFP(self, s=1, p=0, width_cutoff=3.5, maxnatsphere=100):
+        """
+        Calculation of the Overlapmatrix fingerprint. For peridoic systems a local environment fingerprint is calculated
+        and a hungarian algorithm has to be used for the fingerprint distance. For non-periodic systems a global fingerprint
+        is calculated and a simple l2-norm is sufficient for as a distance measure.
+
+        If you use that function please reference:
+
+        @article{sadeghi2013metrics,
+        title={Metrics for measuring distances in configuration spaces},
+        author={Sadeghi, Ali and Ghasemi, S Alireza and Schaefer, Bastian and Mohr, Stephan and Lill, Markus A and Goedecker, Stefan},
+        journal={The Journal of chemical physics},
+        volume={139},
+        number={18},
+        pages={184118},
+        year={2013},
+        publisher={American Institute of Physics}
+        }
+
+        and
+
+        @article{zhu2016fingerprint,
+        title={A fingerprint based metric for measuring similarities of crystalline structures},
+        author={Zhu, Li and Amsler, Maximilian and Fuhrer, Tobias and Schaefer, Bastian and Faraji, Somayeh and Rostami, Samare and Ghasemi, S Alireza and Sadeghi, Ali and Grauzinyte, Migle and Wolverton, Chris and others},
+        journal={The Journal of chemical physics},
+        volume={144},
+        number={3},
+        pages={034203},
+        year={2016},
+        publisher={AIP Publishing LLC}
+        }
+
+        Input:
+            s: int
+                number of s orbitals for which the fingerprint is calculated
+            p: int
+                number of p orbitals for which the fingerprint is calculated
+            width_cutoff: float
+                cutoff for searching neighbouring atoms
+            maxnatsphere:
+                maximum of the neighboring atoms which can be in the sphere
+        Return:
+            omfp: np array
+                numpy array which contains the fingerprint
+        """
+
+        _pbc = list(set(self._atoms.pbc))
+        assert len(_pbc) == 1, "mixed boundary conditions"
+
+        if True in _pbc:
+            _positions = self._atoms.get_positions()
+            _lattice = self._atoms.get_cell()
+            _elements = self._atoms.get_atomic_numbers()
+            _omfpCalculator = OMFP.stefansOMFP(s=s, p=p, width_cutoff=width_cutoff, maxnatsphere=maxnatsphere)
+            _omfp = _omfpCalculator.fingerprint(_positions, _elements, lat=_lattice)
+            _omfp = np.array(_omfp)
+
+        else:
+            _positions = self._atoms.get_positions()
+            _elements = self._atoms.get_atomic_numbers()
+            _width_cutoff = 1000000
+            _maxnatsphere = len(self._atoms)
+            _omfpCalculator = OMFP.stefansOMFP(s=s, p=p, width_cutoff=_width_cutoff, maxnatsphere=_maxnatsphere)
+            _omfp = _omfpCalculator.globalFingerprint(_positions, _elements)
+            _omfp = np.array(_omfp)
+
+        return _omfp
 
 
 
@@ -1253,6 +1335,27 @@ from md import MD
 
 
 def main():
+    filename = "Si_in3.extxyz"
+    #filename = "Si_mins.extxyz"
+    atoms = read(filename)
+    calculator = LennardJones()
+    calculator.parameters.epsilon = 0.0102996
+    calculator.parameters.sigma = 3.4
+    calculator.parameters.rc = 12.0
+    atoms.calc = calculator
+
+    mh = Minimahopping(atoms)
+    mh(totalsteps=10)
+
+
+
+
+
+
+
+
+
+def main2():
     # Initial settings and paths
     #path = "/home/marco/NequipMH/data/38/"
     #filename = "acc-00000.xyz"
@@ -1320,7 +1423,7 @@ def main():
     calculator = LennardJones()
     calculator.parameters.epsilon = 0.0102996
     calculator.parameters.sigma = 3.4
-    calculator.parameters.rc = 12.0
+    calculator.parameters.rc = 10.0
     atoms.calc = calculator
 
 
@@ -1331,8 +1434,11 @@ def main():
     mass = .75 * np.sum(atoms.get_masses()) / 10.
     cell_atoms = cell_atom(mass=mass, positions=atoms.get_cell())
     cell_atoms.set_velocities_boltzmann(temperature=T)
-    md = MD(atoms,None,0.01, 100, True)
-    md.run()
+
+
+    #md = MD(atoms,cell_atoms,0.001, 100, True)
+    #md.run()
+    #vcsmd(atoms,cell_atoms,0.001)
     quit()
 
 
