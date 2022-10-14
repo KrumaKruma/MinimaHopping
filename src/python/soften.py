@@ -109,7 +109,7 @@ class Softening():
         _tt = np.sqrt(_tt)
         self._res = np.sqrt(self._res)
 
-        print(_tt, self._res, self._curve , _fd2, _e_pot - self._e_pot_in)
+        #print(_tt, self._res, self._curve , _fd2, _e_pot - self._e_pot_in)
 
 
         #         sdd = eps_dd / np.sqrt(np.sum(velocities ** 2) + np.sum(cell_velocities ** 2))

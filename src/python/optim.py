@@ -51,7 +51,7 @@ class Opt():
 
 
     def _geom_opt(self,):
-        self._optim = free_or_fixed_cell_sqnm.free_sqnm(nat=self._nat, initial_step_size=self._initial_step_size, nhist_max=self._nhist_max,alpha_min=self._alpha_min, eps_subsp=self._eps_subsp)
+        self._optim = free_or_fixed_cell_sqnm.free_sqnm(nat=self._nat, initial_step_size=self._initial_step_size, nhist_max=self._nhist_max,alpha_min=self._alpha_min, eps_subsp=self._eps_subsop)
         self._max_force_comp = 100
         while self._max_force_comp > self._max_force_threshold:
             self._optim_step()

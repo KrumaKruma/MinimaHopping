@@ -19,6 +19,7 @@ import os.path
 from soften import Softening
 from md import MD
 from optim import Opt
+import lattice_operations as lat_opt
 
 
 
@@ -1130,10 +1131,9 @@ class Minimahopping:
         'n_soft' : 20, # number of softening steps for the velocity before the MD (int)
         'dt' : 0.01, # timestep for the MD part (float)
         'mdmin' : 2, # criteria to stop the MD simulation (no. of minima) (int)
-        'fmax' : 0.05, # max force component for optimization
+        'fmax' : 0.000005, # max force component for optimization
         'enhanced_feedback' : False, # Enhanced feedback to adjust the temperature (bool)
-        'comapre_energy' : False, # Comparing energies instead of overlap matrix fingerprints (bool)
-        'minima_threshold' : 1e-3, # Fingerprint or energy difference for identifying identical configurations (float)
+        'minima_threshold' : 1e-4, # Fingerprint or energy difference for identifying identical configurations (float)
         'verbose' : True, # If True MD and optim. steps are written to the output (bool)
     }
 
@@ -1160,10 +1160,21 @@ class Minimahopping:
                 return
 
             self._escape()
+            self._hoplog()
+            self._acc_rej_step()
+            self._n_visits = self._in_history_fp()
+            self._adj_temperature()
+            self._update_data()
+            self._history_log()
+            self._atoms = deepcopy(self._atoms_cur)
+
+
+
 
     def _startup(self):
         # Check if run is restarted
         self.all_minima = []
+        self._i_step = 0
         _is_acc_minima = os.path.exists('min.extxyz')
         _is_unique_minima = os.path.exists('acc.extxyz')
         _is_history = os.path.exists('history.dat')
@@ -1183,7 +1194,7 @@ class Minimahopping:
             for atom in unique_minima:
                 self._atoms = atom
                 fp = self._get_OMFP()
-                self.all_minima.append(
+                self._all_minima.append(
                     minimum(deepcopy(atom), n_visit=1, fingerprint=fp, T=-100.0, ediff=-10., acc_rej='NA'))
             self._atoms = accepted_minima[-1]
             _history_file = open('history.dat', 'r')
@@ -1201,6 +1212,8 @@ class Minimahopping:
             self.accepted_minima = []
             self.unique_minima = []
 
+        self._atoms_cur = deepcopy(self._atoms)
+
 
 
     def _escape(self):
@@ -1210,7 +1223,8 @@ class Minimahopping:
         _escape = 0.0
         _fp_in = self._get_OMFP()
         _beta_s = 1.1
-        while _escape < 2.e-3:
+        _temperature_in = self._temperature
+        while _escape < self._minima_threshold:
 
             MaxwellBoltzmannDistribution(self._atoms, temperature_K=self._temperature)
 
@@ -1229,11 +1243,12 @@ class Minimahopping:
                 self._atoms.set_positions(_positions)
                 self._atoms.set_cell(_cell)
 
+                lat_opt.reshape_cell2(self._atoms, 6)
+
                 opt = Opt(atoms=self._atoms, max_froce_threshold=self._fmax)
                 opt.run()
                 quit()
-                #reshape_cell2(atoms, 6)
-                #vcs_optimizer(atoms, verbose=False)
+
             else:
                 softening = Softening(self._atoms)
                 _velocities = softening.run(self._n_soft)
@@ -1243,21 +1258,89 @@ class Minimahopping:
                 _positions = md.run()
                 self._atoms.set_positions(_positions)
 
-                opt = Opt(atoms=self._atoms, max_froce_threshold=self._fmax)
+                opt = Opt(atoms=self._atoms, max_froce_threshold=self._fmax, verbose=self._verbose)
                 opt.run()
-                quit()
-                #velocities = soften(atoms, 20)
-                #atoms.set_velocities(velocities)
-                #md(atoms, dt, verbose=True)
-                #optimizer(atoms, verbose=True)
 
             #e_pot = atoms.get_potential_energy()
 
-            #fp_out = get_OMFP(atoms)
-            #escape = fp_distance(fp_in, fp_out) / fp_out.shape[0]
-            #T *= beta_s
-
+            _fp_out = self._get_OMFP()
+            self._fp = _fp_out
+            _escape = fp_distance(_fp_in, _fp_out) / _fp_out.shape[0]
+            self._temperature *= _beta_s
+        self._temperature = _temperature_in
                 # print("TEMPARATUR:   ", T, escape, e_pot_curr)
+
+
+    def _hoplog(self):
+        self._i_step += 1
+        log_msg = "LOG:  {:d}  Epot:  {:1.5f}   E_diff:  {:1.5f}    Temp:   {:1.5f} ".format(self._i_step,
+                                                                                             self._atoms.get_potential_energy(),
+                                                                                             self._Ediff,
+                                                                                             self._temperature)
+        print(log_msg)
+
+
+
+    def _acc_rej_step(self):
+        _e_pot_cur = self._atoms_cur.get_potential_energy()
+        _e_pot = self._atoms.get_potential_energy()
+        if abs(_e_pot_cur - _e_pot) < self._Ediff:
+            #e_pot_cur = e_pot
+            self._Ediff *= self._alpha_a
+            #n_acc += 1
+            self._atoms_cur = deepcopy(self._atoms)
+            self._acc_rej = "A"
+        else:
+            self._Ediff *= self._alpha_r
+            self._acc_rej = "R"
+
+
+    def _in_history_fp(self,):
+        _epot = self._atoms.get_potential_energy()
+        _fp1 = self._fp
+        i = 1
+        for s in self.all_minima:
+            _energy_difference = abs(s.atoms.get_potential_energy() - _epot)
+            if _energy_difference < 0.0001:
+                _fp2 = s.fingerprint
+                _fp_dist = self.fp_distance(_fp1, _fp2) / _fp2.shape[0]
+                if _fp_dist < self._minima_threshold:
+                    i += 1
+        return i
+
+    def _adj_temperature(self,):
+        if self._n_visits > 1:
+            if self._enhanced_feedback:
+                self._temperature = self._temperature * self._beta_increase * (1. + 1. * np.log(float(self._n_visits)))
+            else:
+                self._temperature = self._temperature * self._beta_increase
+        else:
+            self._temperature = self._temperature * self._beta_decrease
+            self.unique_minima.append(deepcopy(self._atoms))
+            #unique_minima.sort(key=lambda x : x.get_potential_energy())
+            write("min.extxyz", self.unique_minima[-1],  append=True)
+
+    def _update_data(self):
+        if self._acc_rej == "A":
+            self.accepted_minima.append(deepcopy(self._atoms))
+            write("acc.extxyz", self.accepted_minima[-1], append=True)
+
+        self.all_minima.append(minimum(deepcopy(self._atoms),
+                                       n_visit=self._n_visits,
+                                       fingerprint=self._fp,
+                                       T=self._temperature,
+                                       ediff=self._Ediff,
+                                       acc_rej=self._acc_rej))
+
+    def _history_log(self):
+        history_msg = "{:1.5f}  {:d}  {:1.5f}  {:1.5f}  {:s} \n".format(self._atoms.get_potential_energy(),
+                                                                        self._n_visits,
+                                                                        self._temperature,
+                                                                        self._Ediff,
+                                                                        self._acc_rej)
+        history_file = open('history.dat', 'a')
+        history_file.write(history_msg)
+        history_file.close()
 
     def _get_OMFP(self, s=1, p=0, width_cutoff=3.5, maxnatsphere=100):
         """
@@ -1327,6 +1410,56 @@ class Minimahopping:
 
         return _omfp
 
+    def fp_distance(self, desc1, desc2):
+        """
+        Calcualtes the fingerprint distance of 2 structures with local environment descriptors using the hungarian algorithm
+        if a local environment descriptor is used. Else the distance is calculated using l2-norm.
+        desc1: np array
+            numpy array containing local environments of structure 1
+        desc2: np array
+            numpy array containing local environments of structure 2
+        Return:
+            Global fingerprint distance between structure 1 and structure 2
+        """
+
+        n_dim1 = len(desc1.shape)
+        n_dim2 = len(desc2.shape)
+
+        assert n_dim1 == n_dim2, "Dimension of vector 1 is and vector 2 is different"
+        assert n_dim1 < 3, "Dimension of vector 1 is larger that 2"
+        assert n_dim2 < 3, "Dimension of vector 2 is larger that 2"
+
+        if n_dim1 == 1 and n_dim2 == 1:
+            fp_dist = np.linalg.norm(desc1 - desc2)
+        else:
+            costmat = _costmatrix(desc1, desc2)
+            ans_pos = scipy.optimize.linear_sum_assignment(costmat)
+            fp_dist = 0.
+            for index1, index2 in zip(ans_pos[0], ans_pos[1]):
+                fp_dist += np.dot((desc1[index1, :] - desc2[index2, :]), (desc1[index1, :] - desc2[index2, :]))
+            fp_dist = np.sqrt(fp_dist)
+
+        return fp_dist
+
+    def _costmatrix(self, desc1, desc2):
+        """
+        Cost matrix of the local fingerprints for the hungarian algorithm
+        desc1: np array
+            numpy array containing local fingerprints of structure 1
+        desc2: np array
+            numpy array containing local fingerprints of structure 2
+        Return:
+            cost matrix of with the distances of the local fingerprints
+        """
+        assert desc1.shape[0] == desc2.shape[0], "descriptor has not the same length"
+
+        costmat = np.zeros((desc1.shape[0], desc2.shape[0]))
+
+        for i, vec1 in enumerate(desc1):
+            for j, vec2 in enumerate(desc2):
+                costmat[i, j] = np.linalg.norm(vec1 - vec2)
+
+        return costmat
 
 
 
@@ -1335,17 +1468,17 @@ class Minimahopping:
 
 
 def main():
-    filename = "Si_in3.extxyz"
-    #filename = "Si_mins.extxyz"
+    #filename = "Si_in3.extxyz"
+    filename = "LJ38.xyz"
     atoms = read(filename)
     calculator = LennardJones()
-    calculator.parameters.epsilon = 0.0102996
-    calculator.parameters.sigma = 3.4
-    calculator.parameters.rc = 12.0
+    calculator.parameters.epsilon = 1.0
+    calculator.parameters.sigma = 1.0
+    calculator.parameters.rc = 6.0
     atoms.calc = calculator
 
-    mh = Minimahopping(atoms)
-    mh(totalsteps=10)
+    mh = Minimahopping(atoms, verbose=False)
+    mh(totalsteps=100)
 
 
 
@@ -1392,7 +1525,7 @@ def main2():
         accepted_minima = read("acc.extxyz", index=':')
         unique_minima = read("min.extxyz", index=':')
         for atom in unique_minima:
-            fp = get_OMFP(atom)
+            fp = _get_OMFP(atom)
             all_minima.append(minimum(deepcopy(atom), n_visit=1, fingerprint=fp, T=-100.0, ediff=-10., acc_rej='NA'))
         atoms = accepted_minima[-1]
         history_file = open('history.dat', 'r')
