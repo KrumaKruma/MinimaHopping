@@ -1121,19 +1121,22 @@ def vcs_optimizer(atoms, initial_step_size=.01, nhist_max=10, lattice_weight=2, 
 
 
 class Minimahopping:
+    #todo: write fingerprints to file
     _default_settings = {
         'T0' : 500.,  # Initital temperature in Kelvin (float)
-        'Ediff0' : 0.5, # Initial energy aceptance threshold (float)
-        'alpha_a' : 0.95, # energy threshold adjustment parameter (float)
-        'alpha_r' : 1.05, # energy threshold adjustment parameter (float)
-        'beta_decrease' : 1./1.01, # temperature adjustment parameter (float)
-        'beta_increase' : 1.01, # temperature adjustment parameter (float)
-        'n_soft' : 20, # number of softening steps for the velocity before the MD (int)
+        'beta_decrease': 1. / 1.01,  # temperature adjustment parameter (float)
+        'beta_increase': 1.01,  # temperature adjustment parameter (float)
+        'Ediff0' : .5, # Initial energy aceptance threshold (float)
+        'alpha_a' : 0.95, # factor for decreasing Ediff (float)
+        'alpha_r' : 1.05, # factor for increasing Ediff (float)
+        'n_soft' : 10, # number of softening steps for the velocity before the MD (int)
         'dt' : 0.01, # timestep for the MD part (float)
-        'mdmin' : 2, # criteria to stop the MD simulation (no. of minima) (int)
-        'fmax' : 0.000005, # max force component for optimization
+        'mdmin' : 3, # criteria to stop the MD trajectory (no. of minima) (int)
+        'fmax' : 0.000005, # max force component for the local geometry optimization
         'enhanced_feedback' : False, # Enhanced feedback to adjust the temperature (bool)
-        'minima_threshold' : 1e-4, # Fingerprint or energy difference for identifying identical configurations (float)
+        'energy_threshold' : 0.00005, # Energy threshold at which a OMFP distance calculation is performed (float)
+        #todo: nposlow configs parameter
+        'minima_threshold' : 1e-5, # Fingerprint difference for identifying identical configurations (float)
         'verbose' : True, # If True MD and optim. steps are written to the output (bool)
     }
 
@@ -1170,7 +1173,6 @@ class Minimahopping:
 
 
 
-
     def _startup(self):
         # Check if run is restarted
         self.all_minima = []
@@ -1194,7 +1196,7 @@ class Minimahopping:
             for atom in unique_minima:
                 self._atoms = atom
                 fp = self._get_OMFP()
-                self._all_minima.append(
+                self.all_minima.append(
                     minimum(deepcopy(atom), n_visit=1, fingerprint=fp, T=-100.0, ediff=-10., acc_rej='NA'))
             self._atoms = accepted_minima[-1]
             _history_file = open('history.dat', 'r')
@@ -1225,7 +1227,6 @@ class Minimahopping:
         _beta_s = 1.1
         _temperature_in = self._temperature
         while _escape < self._minima_threshold:
-
             MaxwellBoltzmannDistribution(self._atoms, temperature_K=self._temperature)
 
             if True in self._atoms.pbc:
@@ -1246,8 +1247,10 @@ class Minimahopping:
                 lat_opt.reshape_cell2(self._atoms, 6)
 
                 opt = Opt(atoms=self._atoms, max_froce_threshold=self._fmax)
-                opt.run()
-                quit()
+                _positions, _lattice, self._noise = opt.run()
+                self._atoms.set_positions(_positions)
+                self._atoms.set_cell(_lattice)
+
 
             else:
                 softening = Softening(self._atoms)
@@ -1257,17 +1260,20 @@ class Minimahopping:
                 md = MD(atoms=self._atoms, cell_atoms=None, dt=self._dt, n_max=self._mdmin, verbose=self._verbose)
                 _positions = md.run()
                 self._atoms.set_positions(_positions)
-
+                print("DEBII:   ", self._atoms.get_potential_energy())
                 opt = Opt(atoms=self._atoms, max_froce_threshold=self._fmax, verbose=self._verbose)
-                opt.run()
-
+                _positions, self._noise = opt.run()
+                self._atoms.set_positions(_positions)
             #e_pot = atoms.get_potential_energy()
+
+            self._check_energy_threshold()
 
             _fp_out = self._get_OMFP()
             self._fp = _fp_out
             _escape = fp_distance(_fp_in, _fp_out) / _fp_out.shape[0]
             self._temperature *= _beta_s
         self._temperature = _temperature_in
+
                 # print("TEMPARATUR:   ", T, escape, e_pot_curr)
 
 
@@ -1299,9 +1305,10 @@ class Minimahopping:
         _epot = self._atoms.get_potential_energy()
         _fp1 = self._fp
         i = 1
+        #todo: work with sorted list and don't loop over all minima (bisection search)
         for s in self.all_minima:
             _energy_difference = abs(s.atoms.get_potential_energy() - _epot)
-            if _energy_difference < 0.0001:
+            if _energy_difference < self._energy_threshold:
                 _fp2 = s.fingerprint
                 _fp_dist = self.fp_distance(_fp1, _fp2) / _fp2.shape[0]
                 if _fp_dist < self._minima_threshold:
@@ -1341,6 +1348,13 @@ class Minimahopping:
         history_file = open('history.dat', 'a')
         history_file.write(history_msg)
         history_file.close()
+
+
+    def _check_energy_threshold(self):
+        if self._energy_threshold < self._noise:
+            _warning_msg = 'Energy threshold is below the noise level'
+            warnings.warn(_warning_msg, FutureWarning)
+
 
     def _get_OMFP(self, s=1, p=0, width_cutoff=3.5, maxnatsphere=100):
         """

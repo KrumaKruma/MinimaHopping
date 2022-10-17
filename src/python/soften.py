@@ -3,6 +3,11 @@ from copy import deepcopy
 import lattice_operations as lat_opt
 
 class Softening():
+    """
+    Softening the velocites along the softest modes of the postitions and the lattice in case of periodic boundary
+    conditions.
+    Reference fortran implementation originally written by Hannes Huber
+    """
     def __init__(self, atoms, cell_atoms = None):
         self._atoms = deepcopy(atoms)
         if cell_atoms is not None:
@@ -18,6 +23,9 @@ class Softening():
 
 
     def run(self,  nsoft):
+        '''
+        Running the softening of the velocities iteratively
+        '''
         self._initialize()
         for i in range(nsoft):
             self._update_velocities()
@@ -37,6 +45,9 @@ class Softening():
 
 
     def _initialize(self):
+        '''
+        Initialization before the iterative part of the softening
+        '''
         self._masses = self._atoms.get_masses()
         self._pos_in = self._atoms.get_positions()
         self._e_pot_in = self._atoms.get_potential_energy()
@@ -53,6 +64,9 @@ class Softening():
 
 
     def _norm_velocities(self):
+        '''
+        Normalization of the velocities
+        '''
         if self._cell_atoms is None:
             self._norm_const = self._eps_dd / np.sqrt(np.sum(self._velocities ** 2))
             self._velocities *= self._norm_const
@@ -63,6 +77,9 @@ class Softening():
 
 
     def _update_velocities(self):
+        '''
+        Performing one softening steps of the velocities
+        '''
         self._pos = self._pos_in + self._velocities
         self._atoms.set_positions(self._pos)
 
@@ -188,6 +205,9 @@ class Softening():
 
 
     def _moment_of_inertia(self, positions, masses):
+        '''
+        Calcualtion of the eigenvalues and eigenvectors of the inertia tensor
+        '''
         inertia_tensor = np.zeros((3, 3))
         for at, mass in zip(positions, masses):
             inertia_tensor[0, 0] += mass * (at[1] ** 2 + at[2] ** 2)

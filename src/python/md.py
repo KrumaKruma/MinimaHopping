@@ -6,6 +6,10 @@ from ase.io import read, write
 
 
 class MD():
+    '''
+    Velocity Verlet MD which visits n_max maxima for clusters and variable cell shape velocity Verlet MD for bulk
+    systems
+    '''
     def __init__(self, atoms, cell_atoms=None, dt=0.001, n_max=3, verbose=True):
         self._atoms = deepcopy(atoms)
         self._dt = dt
@@ -18,6 +22,9 @@ class MD():
 
 
     def run(self):
+        '''
+        Running the MD over n_max maxima. If this is not reached after 10'000 steps the MD stops
+        '''
         self._initialize()
         while self._n_change < self._n_max:
             self._verlet_step()
@@ -33,6 +40,9 @@ class MD():
 
 
     def _initialize(self,):
+        '''
+        Initialization of the MD before the iterative part starts
+        '''
         self._masses = self._atoms.get_masses()[:, np.newaxis]/ self._atoms.get_masses()[:, np.newaxis]  # for the moment no masses
         self._forces = self._atoms.get_forces()
         self._e_pot = self._atoms.get_potential_energy()
@@ -47,6 +57,9 @@ class MD():
 
 
     def _verlet_step(self):
+        '''
+        Performing one Verlet step
+        '''
         _velocities = self._atoms.get_velocities()
         _positions = self._atoms.get_positions()
         self._atoms.set_positions(_positions + self._dt * _velocities + 0.5 * self._dt * self._dt * (self._forces / self._masses))
@@ -63,6 +76,9 @@ class MD():
 
 
     def _check(self):
+        '''
+        Check if a new maximum is found or if 10000 steps are reached
+        '''
         if self._i_steps > 10000:
             warning_msg = "MD did not overcome {:d} maxima in 10000 steps".format(self._n_max)
             warnings.warn(warning_msg, FutureWarning)
@@ -76,6 +92,10 @@ class MD():
             self._e_pot = _e_pot_new
 
     def _write(self):
+        '''
+        Write each MD step into a file and print epot, ekin and etot. The file is overwritten each time the MD is
+        started
+        '''
         _e_kin = 0.5 * np.sum(self._masses * self._atoms.get_velocities() * self._atoms.get_velocities())
         if self._cell_atoms is not None:
             _e_kin = _e_kin + 0.5 * np.sum(self._cell_masses * self._cell_atoms.velocities * self._cell_atoms.velocities)
@@ -90,6 +110,9 @@ class MD():
 
 
     def _update_lattice_positions(self):
+        '''
+        Update of the lattice postions and moving the atoms accordingly
+        '''
         _positions = self._atoms.get_positions()
         _lattice = self._cell_atoms.positions
         _reduced_positions = lat_opt.cart2frac(_positions, _lattice)
@@ -101,6 +124,9 @@ class MD():
 
 
     def _update_lattice_velocities(self,):
+        '''
+        Update the lattice velocities
+        '''
         _stress_tensor = self._atoms.get_stress(voigt=False, apply_constraint=False)
         _lattice = self._atoms.get_cell()
         _lattice_force_new = lat_opt.lattice_derivative(_stress_tensor, _lattice)
