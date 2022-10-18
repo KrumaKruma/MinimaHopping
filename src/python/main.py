@@ -20,6 +20,7 @@ from soften import Softening
 from md import MD
 from optim import Opt
 import lattice_operations as lat_opt
+import bisect
 
 
 
@@ -66,6 +67,12 @@ class minimum():
         self.ediff = ediff
         self.acc_rej = acc_rej
         self.n_visit = n_visit
+
+    def __lt__(self, other):
+        return self.atoms.get_potential_energy() < other.atoms.get_potential_energy()
+
+    def __gt__(self, other):
+        return self.atoms.get_potential_energy() > other.atoms.get_potential_energy()
 
 
 
@@ -968,7 +975,8 @@ def in_history(e_pot_cur, history, ):
             i += 1
     return i + 1
 
-def in_history_fp(fp1, history, epot ):
+def in_history_fp(fp1, history):
+    self._atoms
     i = 1
     for s in history:
         energy_difference = abs(s.atoms.get_potential_energy() - epot)
@@ -1123,7 +1131,7 @@ def vcs_optimizer(atoms, initial_step_size=.01, nhist_max=10, lattice_weight=2, 
 class Minimahopping:
     #todo: write fingerprints to file
     _default_settings = {
-        'T0' : 500.,  # Initital temperature in Kelvin (float)
+        'T0' : 50000.,  # Initital temperature in Kelvin (float)
         'beta_decrease': 1. / 1.01,  # temperature adjustment parameter (float)
         'beta_increase': 1.01,  # temperature adjustment parameter (float)
         'Ediff0' : .5, # Initial energy aceptance threshold (float)
@@ -1176,6 +1184,7 @@ class Minimahopping:
     def _startup(self):
         # Check if run is restarted
         self.all_minima = []
+        self.all_minima_sorted = []
         self._i_step = 0
         _is_acc_minima = os.path.exists('min.extxyz')
         _is_unique_minima = os.path.exists('acc.extxyz')
@@ -1260,7 +1269,7 @@ class Minimahopping:
                 md = MD(atoms=self._atoms, cell_atoms=None, dt=self._dt, n_max=self._mdmin, verbose=self._verbose)
                 _positions = md.run()
                 self._atoms.set_positions(_positions)
-                print("DEBII:   ", self._atoms.get_potential_energy())
+                #print("DEBII:   ", self._atoms.get_potential_energy())
                 opt = Opt(atoms=self._atoms, max_froce_threshold=self._fmax, verbose=self._verbose)
                 _positions, self._noise = opt.run()
                 self._atoms.set_positions(_positions)
@@ -1302,13 +1311,42 @@ class Minimahopping:
 
 
     def _in_history_fp(self,):
+        mini = minimum(deepcopy(self._atoms),
+                       n_visit=-1,
+                       fingerprint=self._fp,
+                       T=self._temperature,
+                       ediff=self._Ediff,
+                       acc_rej=self._acc_rej)
+        _i_start = bisect.bisect(self.all_minima_sorted, mini)
         _epot = self._atoms.get_potential_energy()
         _fp1 = self._fp
         i = 1
-        #todo: work with sorted list and don't loop over all minima (bisection search)
-        for s in self.all_minima:
-            _energy_difference = abs(s.atoms.get_potential_energy() - _epot)
-            if _energy_difference < self._energy_threshold:
+
+        #backward
+        _energy_difference = 0
+        _i_compare = _i_start
+        while _energy_difference < self._energy_threshold:
+            _i_compare -= 1
+            if _i_compare < 0:
+                break
+            else:
+                s = self.all_minima_sorted[_i_compare]
+                _energy_difference = abs(s.atoms.get_potential_energy() - _epot)
+                _fp2 = s.fingerprint
+                _fp_dist = self.fp_distance(_fp1, _fp2) / _fp2.shape[0]
+                if _fp_dist < self._minima_threshold:
+                    i += 1
+
+
+        #forward
+        _i_compare = _i_start
+        while _energy_difference < self._energy_threshold:
+            _i_compare += 1
+            if _i_compare+1 > len(self.all_minima_sorted):
+                break
+            else:
+                s = self.all_minima_sorted[_i_compare]
+                _energy_difference = abs(s.atoms.get_potential_energy() - _epot)
                 _fp2 = s.fingerprint
                 _fp_dist = self.fp_distance(_fp1, _fp2) / _fp2.shape[0]
                 if _fp_dist < self._minima_threshold:
@@ -1332,12 +1370,14 @@ class Minimahopping:
             self.accepted_minima.append(deepcopy(self._atoms))
             write("acc.extxyz", self.accepted_minima[-1], append=True)
 
-        self.all_minima.append(minimum(deepcopy(self._atoms),
+        mini = minimum(deepcopy(self._atoms),
                                        n_visit=self._n_visits,
                                        fingerprint=self._fp,
                                        T=self._temperature,
                                        ediff=self._Ediff,
-                                       acc_rej=self._acc_rej))
+                                       acc_rej=self._acc_rej)
+        self.all_minima.append(mini)
+        bisect.insort(self.all_minima_sorted, mini)
 
     def _history_log(self):
         history_msg = "{:1.5f}  {:d}  {:1.5f}  {:1.5f}  {:s} \n".format(self._atoms.get_potential_energy(),
@@ -1446,7 +1486,7 @@ class Minimahopping:
         if n_dim1 == 1 and n_dim2 == 1:
             fp_dist = np.linalg.norm(desc1 - desc2)
         else:
-            costmat = _costmatrix(desc1, desc2)
+            costmat = self._costmatrix(desc1, desc2)
             ans_pos = scipy.optimize.linear_sum_assignment(costmat)
             fp_dist = 0.
             for index1, index2 in zip(ans_pos[0], ans_pos[1]):
