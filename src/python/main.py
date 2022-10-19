@@ -2,25 +2,19 @@ import numpy as np
 from ase.io import read, write
 from ase.calculators.lj import LennardJones
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
-from ase import Atoms
-from ase import units
-from ase.calculators.espresso import Espresso
-from ase import units
-import time
 import scipy
-from nequip.ase import NequIPCalculator
-import periodic_sqnm
-import free_or_fixed_cell_sqnm
 import warnings
 from OverlapMatrixFingerprint import OverlapMatrixFingerprint as OMFP
 from copy import deepcopy
 import os
-#from dscribe.descriptors import SOAP
 from soften import Softening
 from md import MD
 from optim import Opt
+from minimum import Minimum
+from cell_atom import Cell_atom
 import lattice_operations as lat_opt
 import bisect
+from bazant_calc import BazantCalculator
 
 
 
@@ -33,48 +27,6 @@ Parts of the software were originally developped (some in Fortran) from other pe
   -- VCS optimizer: Moritz Gubler
   -- OMFP in python: Jonas Finkler
 """
-
-
-class cell_atom:
-    def __init__(self, positions, mass=None, velocities=None):
-        self.positions = positions
-        self.masses = np.array([mass, mass, mass])
-        self.velocities = velocities
-
-    def set_velocities_boltzmann(self, temperature):
-        """
-        Set the velocity of the cell atoms for the MD part accorting to a temperature and the boltzmann distribution
-        Input:
-            temperature: float
-                Temperature of the cell atoms
-        Return:
-            velocities of the cell atoms
-        """
-        xi = np.random.standard_normal((len(self.masses), 3))
-        temp = units.kB * temperature
-        self.velocities = xi * np.sqrt(self.masses * temp)[:, np.newaxis]
-        self.velocities /= self.masses
-
-        return None
-
-
-
-class minimum():
-    def __init__(self, atoms, n_visit, fingerprint, T, ediff, acc_rej):
-        self.atoms = atoms
-        self.fingerprint = fingerprint
-        self.temperature = T
-        self.ediff = ediff
-        self.acc_rej = acc_rej
-        self.n_visit = n_visit
-
-    def __lt__(self, other):
-        return self.atoms.get_potential_energy() < other.atoms.get_potential_energy()
-
-    def __gt__(self, other):
-        return self.atoms.get_potential_energy() > other.atoms.get_potential_energy()
-
-
 
 
 class Minimahopping:
@@ -92,7 +44,7 @@ class Minimahopping:
         'enhanced_feedback' : False, # Enhanced feedback to adjust the temperature (bool)
         'energy_threshold' : 0.00005, # Energy threshold at which a OMFP distance calculation is performed (float)
         'n_poslow' : 5, # Number of posmin files which are written in sorted order (int)
-        'minima_threshold' : 1e-4, # Fingerprint difference for identifying identical configurations (float)
+        'minima_threshold' : 1e-3, # Fingerprint difference for identifying identical configurations (float)
         'verbose' : True, # If True MD and optim. steps are written to the output (bool)
     }
 
@@ -137,8 +89,8 @@ class Minimahopping:
         self.unique_minima = []
         self.accepted_minima = []
         self._i_step = 0
-        _is_acc_minima = os.path.exists('min.extxyz')
-        _is_unique_minima = os.path.exists('acc.extxyz')
+        _is_acc_minima = os.path.exists('acc.extxyz')
+        _is_unique_minima = os.path.exists('min.extxyz')
         _is_history = os.path.exists('history.dat')
 
         if _is_unique_minima and _is_history:
@@ -168,7 +120,7 @@ class Minimahopping:
 
                 for fp, atom in zip(fps, unique_minima):
                     self.all_minima.append(
-                        minimum(deepcopy(atom), n_visit=1, fingerprint=fp, T=-100.0, ediff=-10., acc_rej='NA'))
+                        Minimum(deepcopy(atom), n_visit=1, fingerprint=fp, T=-100.0, ediff=-10., acc_rej='NA'))
             else:
                 warn_msg = 'Fingerprints all recalculated for all found minima'
                 warnings.warn(warn_msg, FutureWarning)
@@ -176,7 +128,7 @@ class Minimahopping:
                     self._atoms = atom
                     fp = self._get_OMFP()
                     self.all_minima.append(
-                        minimum(deepcopy(atom), n_visit=1, fingerprint=fp, T=-100.0, ediff=-10., acc_rej='NA'))
+                        Minimum(deepcopy(atom), n_visit=1, fingerprint=fp, T=-100.0, ediff=-10., acc_rej='NA'))
 
             self._atoms.calc = calc
 
@@ -242,7 +194,7 @@ class Minimahopping:
 
             if True in self._atoms.pbc:
                 _mass = .75 * np.sum(self._atoms.get_masses()) / 10.
-                self._cell_atoms = cell_atom(mass=_mass, positions=self._atoms.get_cell())
+                self._cell_atoms = Cell_atom(mass=_mass, positions=self._atoms.get_cell())
                 self._cell_atoms.set_velocities_boltzmann(temperature=self._temperature)
 
                 softening = Softening(self._atoms, self._cell_atoms)
@@ -301,9 +253,7 @@ class Minimahopping:
         _e_pot_cur = self._atoms_cur.get_potential_energy()
         _e_pot = self._atoms.get_potential_energy()
         if abs(_e_pot_cur - _e_pot) < self._Ediff:
-            #e_pot_cur = e_pot
             self._Ediff *= self._alpha_a
-            #n_acc += 1
             self._atoms_cur = deepcopy(self._atoms)
             self._acc_rej = "A"
         else:
@@ -312,7 +262,7 @@ class Minimahopping:
 
 
     def _in_history_fp(self,):
-        mini = minimum(deepcopy(self._atoms),
+        mini = Minimum(deepcopy(self._atoms),
                        n_visit=-1,
                        fingerprint=self._fp,
                        T=self._temperature,
@@ -390,7 +340,7 @@ class Minimahopping:
             self.accepted_minima.append(deepcopy(self._atoms))
             write("acc.extxyz", self.accepted_minima[-1], append=True)
 
-        mini = minimum(deepcopy(self._atoms),
+        mini = Minimum(deepcopy(self._atoms),
                                        n_visit=self._n_visits,
                                        fingerprint=self._fp,
                                        T=self._temperature,
@@ -562,16 +512,17 @@ class Minimahopping:
 
 
 def main():
-    filename = "LJC.extxyz"
+    filename = "Si_in3.extxyz"
     #filename = "LJ38.xyz"
     atoms = read(filename)
-    calculator = LennardJones()
-    calculator.parameters.epsilon = 1.0
-    calculator.parameters.sigma = 1.0
-    calculator.parameters.rc = 6.0
+    #calculator = LennardJones()
+    #calculator.parameters.epsilon = 1.0
+    #calculator.parameters.sigma = 1.0
+    #calculator.parameters.rc = 6.0
+    calculator = BazantCalculator()
     atoms.calc = calculator
 
-    mh = Minimahopping(atoms, verbose=False)
+    mh = Minimahopping(atoms, verbose=True)
     mh(totalsteps=100)
 
 

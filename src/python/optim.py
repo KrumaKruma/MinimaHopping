@@ -12,7 +12,7 @@ class Opt():
     '''
     SQNM optimization for clusters and variable cell shape SQNM for bulk systems
     '''
-    def __init__(self, atoms, max_froce_threshold,initial_step_size=0.00001, nhist_max=10, lattice_weight=2, alpha_min=1e-3, eps_subsop=1e-3, verbose=True):
+    def __init__(self, atoms, max_froce_threshold,initial_step_size=None, nhist_max=10, lattice_weight=2, alpha_min=1e-3, eps_subsop=1e-3, verbose=True):
         self._atoms = deepcopy(atoms)
         self._max_force_threshold = max_froce_threshold
         self._initial_step_size = initial_step_size
@@ -48,6 +48,9 @@ class Opt():
         '''
         variable cell shape geometry optimization
         '''
+        if self._initial_step_size is None:
+            self._get_init_step()
+
         _init_lat = self._atoms.get_cell().T
         self._optim = periodic_sqnm.periodic_sqnm(self._nat, _init_lat, self._initial_step_size, self._nhist_max, self._lattice_weight, self._alpha_min, self._eps_subsop)
         self._max_force_comp = 100
@@ -63,6 +66,10 @@ class Opt():
         '''
         Cluster or fixed cell geometry optimization
         '''
+
+        if self._initial_step_size is None:
+            self._get_init_step()
+
         self._optim = free_or_fixed_cell_sqnm.free_sqnm(nat=self._nat, initial_step_size=self._initial_step_size, nhist_max=self._nhist_max,alpha_min=self._alpha_min, eps_subsp=self._eps_subsop)
         self._max_force_comp = 100
         while self._max_force_comp > self._max_force_threshold:
@@ -113,6 +120,16 @@ class Opt():
         self._atoms.set_cell(_lat_new.T)
 
 
+    def _get_init_step(self,):
+        _f0 = self._atoms.get_forces()
+        _alpha = 0.001
+        _x1 = self._atoms.get_positions() - _alpha*_f0
+        _atom = deepcopy(self._atoms)
+        _atom.set_positions(_x1)
+        _f1 = _atom.get_forces()
+        self._initial_step_size = 1. / (np.linalg.norm(_f1-_f0) / (_alpha*np.linalg.norm(_f0)))
+
+
     def _check(self):
         '''
         Check if the geometry optimization has reached the limit of 10000 optimization steps.
@@ -129,7 +146,11 @@ class Opt():
         printed
         '''
         _energy = self._atoms.get_potential_energy()
-        opt_msg = "OPT Step: {:d}   energy: {:1.8f}  max_force_comp:  {:1.5e}".format(self._i_step, _energy, self._max_force_comp)
+        opt_msg = "OPT Step: {:d}   energy: {:1.8f}  max_force_comp:  {:1.5e}   gain ratio:   {:1.5e}   stepsize:   {:1.5e}".format(self._i_step,
+                                                                                                                                    _energy,
+                                                                                                                                    self._max_force_comp,
+                                                                                                                                    self._optim.optimizer.gainratio,
+                                                                                                                                    self._optim.optimizer.alpha)
         print(opt_msg)
         write("OPT.extxyz", self._atoms, append=True)
 
