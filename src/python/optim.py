@@ -123,7 +123,7 @@ class Opt():
     def _get_init_step(self,):
         _f0 = self._atoms.get_forces()
         _alpha = 0.001
-        _x1 = self._atoms.get_positions() - _alpha*_f0
+        _x1 = self._atoms.get_positions() + _alpha*_f0
         _atom = deepcopy(self._atoms)
         _atom.set_positions(_x1)
         _f1 = _atom.get_forces()
