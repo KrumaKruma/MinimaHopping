@@ -43,6 +43,7 @@ class Minimahopping:
         'energy_threshold' : 0.00005, # Energy threshold at which a OMFP distance calculation is performed (float)
         'n_poslow' : 5, # Number of posmin files which are written in sorted order (int)
         'minima_threshold' : 1e-3, # Fingerprint difference for identifying identical configurations (float)
+        'restart_optim' : False, # Reoptimizes all the proviously found minima which are read (bool)
         'verbose' : True, # If True MD and optim. steps are written to the output (bool)
     }
 
@@ -90,7 +91,6 @@ class Minimahopping:
         _is_acc_minima = os.path.exists('acc.extxyz')
         _is_unique_minima = os.path.exists('min.extxyz')
         _is_history = os.path.exists('history.dat')
-
         if _is_unique_minima and _is_history:
             _is_restart = True
         else:
@@ -109,10 +109,10 @@ class Minimahopping:
                 self._atoms = accepted_minima[-1]
             else:
                 warn_msg = 'No previous accepted minima detected restart at last found minimum'
-                warnings.warn(warn_msg, FutureWarning)
+                warnings.warn(warn_msg, UserWarning)
                 self._atoms = unique_minima[-1]
 
-            if os.path.exists('fp.dat'):
+            if os.path.exists('fp.dat') and not self._restart_optim:
                 fps = self._read_fp()
                 assert len(fps) == len(unique_minima), 'FP and minima file have not the same length, delete fp file for fp recalculation'
 
@@ -121,14 +121,24 @@ class Minimahopping:
                         Minimum(deepcopy(atom), n_visit=1, fingerprint=fp, T=-100.0, ediff=-10., acc_rej='NA'))
             else:
                 warn_msg = 'Fingerprints all recalculated for all found minima'
-                warnings.warn(warn_msg, FutureWarning)
+                warnings.warn(warn_msg, UserWarning)
                 for atom in unique_minima:
-                    self._atoms = atom
-                    fp = self._get_OMFP()
+                    if self._restart_optim:
+                        atom.calc = calc
+                        _positions, _lattice = self._restart_opt(atom)
+                        atom.set_positions(_positions)
+                        atom.set_cell(_lattice)
+
+                    fp = self._get_OMFP(atom)
                     self.all_minima.append(
                         Minimum(deepcopy(atom), n_visit=1, fingerprint=fp, T=-100.0, ediff=-10., acc_rej='NA'))
 
             self._atoms.calc = calc
+            if self._restart_optim:
+                _positions, _lattice = self._restart_opt(self._atoms)
+                self._atoms.set_positions(_positions)
+                self._atoms.set_cell(_lattice)
+
 
             _history_file = open('history.dat', 'r')
             self.history = []
@@ -139,12 +149,27 @@ class Minimahopping:
             self._temperature = float(_last_line[2])
             self._Ediff = float(_last_line[3])
             _history_file.close()
-
         else:
             msg = 'New MH run is started'
             print(msg)
+            _positions, _lattice = self._restart_opt(self._atoms)
+            self._atoms.set_positions(_positions)
+            self._atoms.set_cell(_lattice)
+            write("acc.extxyz", self._atoms, append=True)
 
         self._atoms_cur = deepcopy(self._atoms)
+
+
+    def _restart_opt(self, atoms, ):
+        _atoms = deepcopy(atoms)
+        opt = Opt(atoms=_atoms, max_froce_threshold=self._fmax, verbose=self._verbose)
+        if True in self._atoms.pbc:
+            _positions, _lattice, _noise = opt.run()
+        else:
+            _positions, _noise = opt.run()
+            _lattice = np.zeros((3,3))
+        return _positions, _lattice
+
 
 
 
@@ -184,7 +209,7 @@ class Minimahopping:
         Escape loop to find a new minimum
         """
         _escape = 0.0
-        _fp_in = self._get_OMFP()
+        _fp_in = self._get_OMFP(self._atoms)
         _beta_s = 1.1
         _temperature_in = self._temperature
         while _escape < self._minima_threshold:
@@ -207,7 +232,7 @@ class Minimahopping:
 
                 lat_opt.reshape_cell2(self._atoms, 6)
 
-                opt = Opt(atoms=self._atoms, max_froce_threshold=self._fmax, verbose=True)
+                opt = Opt(atoms=self._atoms, max_froce_threshold=self._fmax, verbose=self._verbose)
                 _positions, _lattice, self._noise = opt.run()
                 self._atoms.set_positions(_positions)
                 self._atoms.set_cell(_lattice)
@@ -226,7 +251,7 @@ class Minimahopping:
 
             self._check_energy_threshold()
 
-            _fp_out = self._get_OMFP()
+            _fp_out = self._get_OMFP(self._atoms)
             self._fp = _fp_out
             _escape = self.fp_distance(_fp_in, _fp_out) / _fp_out.shape[0]
             self._temperature *= _beta_s
@@ -357,7 +382,7 @@ class Minimahopping:
     def _check_energy_threshold(self):
         if self._energy_threshold < self._noise:
             _warning_msg = 'Energy threshold is below the noise level'
-            warnings.warn(_warning_msg, FutureWarning)
+            warnings.warn(_warning_msg, UserWarning)
 
 
     def _write_poslow(self,):
@@ -379,7 +404,7 @@ class Minimahopping:
                 break
 
 
-    def _get_OMFP(self, s=1, p=0, width_cutoff=1.5, maxnatsphere=100):
+    def _get_OMFP(self, _atoms,s=1, p=0, width_cutoff=1.5, maxnatsphere=100):
         """
         Calculation of the Overlapmatrix fingerprint. For peridoic systems a local environment fingerprint is calculated
         and a hungarian algorithm has to be used for the fingerprint distance. For non-periodic systems a global fingerprint
@@ -430,18 +455,18 @@ class Minimahopping:
 
         if True in _pbc:
             _ang2bohr = 1.8897161646320724
-            _positions = self._atoms.get_positions()*_ang2bohr
-            _lattice = self._atoms.get_cell()*_ang2bohr
-            _elements = self._atoms.get_atomic_numbers()
+            _positions = _atoms.get_positions()*_ang2bohr
+            _lattice = _atoms.get_cell()*_ang2bohr
+            _elements = _atoms.get_atomic_numbers()
             _omfpCalculator = OMFP.stefansOMFP(s=s, p=p, width_cutoff=width_cutoff, maxnatsphere=maxnatsphere)
             _omfp = _omfpCalculator.fingerprint(_positions, _elements, lat=_lattice)
             _omfp = np.array(_omfp)
 
         else:
-            _positions = self._atoms.get_positions()
-            _elements = self._atoms.get_atomic_numbers()
+            _positions = _atoms.get_positions()
+            _elements = _atoms.get_atomic_numbers()
             _width_cutoff = 1000000
-            _maxnatsphere = len(self._atoms)
+            _maxnatsphere = len(_atoms)
             _omfpCalculator = OMFP.stefansOMFP(s=s, p=p, width_cutoff=_width_cutoff, maxnatsphere=_maxnatsphere)
             _omfp = _omfpCalculator.globalFingerprint(_positions, _elements)
             _omfp = np.array(_omfp)

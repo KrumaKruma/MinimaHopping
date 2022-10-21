@@ -137,7 +137,7 @@ class Opt():
         if self._i_step > 10000:
             self._max_force_comp = -1
             warning_msg = "Geometry did not converge in {:d} optimizations steps".format(self._i_step)
-            warnings.warn(warning_msg, FutureWarning)
+            warnings.warn(warning_msg, UserWarning)
 
 
     def _write(self):

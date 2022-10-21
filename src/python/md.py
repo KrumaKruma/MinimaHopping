@@ -81,7 +81,7 @@ class MD():
         '''
         if self._i_steps > 10000:
             warning_msg = "MD did not overcome {:d} maxima in 10000 steps".format(self._n_max)
-            warnings.warn(warning_msg, FutureWarning)
+            warnings.warn(warning_msg, UserWarning)
             self._n_change = self._n_max
         else:
             _e_pot_new = self._atoms.get_potential_energy()

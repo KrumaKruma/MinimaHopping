@@ -208,7 +208,7 @@ class OverlapMatrixFingerprint:
             return f
         else:
             warning_msg = "Fingerprint of length {:d} is truncated to length {:d}".format(fp.shape[0], self.fplen)
-            warnings.warn(warning_msg, FutureWarning)
+            warnings.warn(warning_msg, UserWarning)
             return fp[:self.fplen]
 
     @staticmethod
