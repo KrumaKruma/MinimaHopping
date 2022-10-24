@@ -44,6 +44,7 @@ class Minimahopping:
         'n_poslow' : 5, # Number of posmin files which are written in sorted order (int)
         'minima_threshold' : 1e-3, # Fingerprint difference for identifying identical configurations (float)
         'restart_optim' : False, # Reoptimizes all the proviously found minima which are read (bool)
+        'start_lowest': False, # If True the run is restarted with the lowest alredy known minimum
         'verbose' : True, # If True MD and optim. steps are written to the output (bool)
     }
 
@@ -119,6 +120,8 @@ class Minimahopping:
                 for fp, atom in zip(fps, unique_minima):
                     self.all_minima.append(
                         Minimum(deepcopy(atom), n_visit=1, fingerprint=fp, T=-100.0, ediff=-10., acc_rej='NA'))
+                    self.all_minima_sorted.append(
+                        Minimum(deepcopy(atom), n_visit=1, fingerprint=fp, T=-100.0, ediff=-10., acc_rej='NA'))
             else:
                 warn_msg = 'Fingerprints all recalculated for all found minima'
                 warnings.warn(warn_msg, UserWarning)
@@ -132,13 +135,20 @@ class Minimahopping:
                     fp = self._get_OMFP(atom)
                     self.all_minima.append(
                         Minimum(deepcopy(atom), n_visit=1, fingerprint=fp, T=-100.0, ediff=-10., acc_rej='NA'))
+                    self.all_minima_sorted.append(
+                        Minimum(deepcopy(atom), n_visit=1, fingerprint=fp, T=-100.0, ediff=-10., acc_rej='NA'))
 
-            self._atoms.calc = calc
+
             if self._restart_optim:
                 _positions, _lattice = self._restart_opt(self._atoms)
                 self._atoms.set_positions(_positions)
                 self._atoms.set_cell(_lattice)
 
+            self.all_minima_sorted.sort()
+            if self._start_lowest:
+                self._atoms = self.all_minima_sorted[0].atoms
+
+            self._atoms.calc = calc
 
             _history_file = open('history.dat', 'r')
             self.history = []
