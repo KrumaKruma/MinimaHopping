@@ -29,20 +29,20 @@ Parts of the software were originally developped (some in Fortran) from other pe
 
 class Minimahopping:
     _default_settings = {
-        'T0' : 500.,  # Initital temperature in Kelvin (float)
-        'beta_decrease': 1. / 1.01,  # temperature adjustment parameter (float)
-        'beta_increase': 1.01,  # temperature adjustment parameter (float)
+        'T0' : 50000.,  # Initital temperature in Kelvin (float)
+        'beta_decrease': 1. / 1.1,  # temperature adjustment parameter (float)
+        'beta_increase': 1.1,  # temperature adjustment parameter (float)
         'Ediff0' : .5, # Initial energy aceptance threshold (float)
         'alpha_a' : 0.95, # factor for decreasing Ediff (float)
         'alpha_r' : 1.05, # factor for increasing Ediff (float)
         'n_soft' : 10, # number of softening steps for the velocity before the MD (int)
         'dt' : 0.01, # timestep for the MD part (float)
-        'mdmin' : 3, # criteria to stop the MD trajectory (no. of minima) (int)
+        'mdmin' : 100, # criteria to stop the MD trajectory (no. of minima) (int)
         'fmax' : 0.000005, # max force component for the local geometry optimization
         'enhanced_feedback' : False, # Enhanced feedback to adjust the temperature (bool)
         'energy_threshold' : 0.00005, # Energy threshold at which a OMFP distance calculation is performed (float)
         'n_poslow' : 5, # Number of posmin files which are written in sorted order (int)
-        'minima_threshold' : 1e-3, # Fingerprint difference for identifying identical configurations (float)
+        'minima_threshold' : 1e-4, # Fingerprint difference for identifying identical configurations (float)
         'restart_optim' : False, # Reoptimizes all the proviously found minima which are read (bool)
         'start_lowest': False, # If True the run is restarted with the lowest alredy known minimum
         'verbose' : True, # If True MD and optim. steps are written to the output (bool)
@@ -220,7 +220,7 @@ class Minimahopping:
         """
         _escape = 0.0
         _fp_in = self._get_OMFP(self._atoms)
-        _beta_s = 1.1
+        _beta_s = 1.01
         _temperature_in = self._temperature
         while _escape < self._minima_threshold:
             MaxwellBoltzmannDistribution(self._atoms, temperature_K=self._temperature)
@@ -265,7 +265,7 @@ class Minimahopping:
             self._fp = _fp_out
             _escape = self.fp_distance(_fp_in, _fp_out) / _fp_out.shape[0]
             self._temperature *= _beta_s
-        self._temperature = _temperature_in
+        #self._temperature = _temperature_in
 
 
     def _hoplog(self):
