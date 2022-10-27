@@ -168,6 +168,12 @@ class Minimahopping:
             write("acc.extxyz", self._atoms, append=True)
 
         self._atoms_cur = deepcopy(self._atoms)
+        self._n_visits = 1
+        self._acc_rej = 'I'
+        self._history_log()
+
+
+
 
 
     def _restart_opt(self, atoms, ):
@@ -278,7 +284,7 @@ class Minimahopping:
 
 
 
-    def _acc_rej_step(self):
+    def _acc_rej_step(self,):
         _e_pot_cur = self._atoms_cur.get_potential_energy()
         _e_pot = self._atoms.get_potential_energy()
         if abs(_e_pot_cur - _e_pot) < self._Ediff:

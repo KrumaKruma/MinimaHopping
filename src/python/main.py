@@ -12,7 +12,7 @@ def main():
     calculator.parameters.rc = 6.0
     atoms.calc = calculator
 
-    mh = Minimahopping(atoms, verbose=True)
+    mh = Minimahopping(atoms, verbose=False)
     mh(totalsteps=100)
 
 
