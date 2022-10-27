@@ -169,7 +169,7 @@ class Minimahopping:
 
         self._atoms_cur = deepcopy(self._atoms)
         self._n_visits = 1
-        self._acc_rej = 'I'
+        self._acc_rej = 'Init'
         self._history_log()
 
 
@@ -228,7 +228,13 @@ class Minimahopping:
         _fp_in = self._get_OMFP(self._atoms)
         _beta_s = 1.01
         _temperature_in = self._temperature
+        _i_steps = 0
         while _escape < self._minima_threshold:
+            if _i_steps > 0:
+                self._acc_rej = 'Same'
+                self._history_log()
+
+
             MaxwellBoltzmannDistribution(self._atoms, temperature_K=self._temperature)
 
             if True in self._atoms.pbc:
@@ -270,7 +276,16 @@ class Minimahopping:
             _fp_out = self._get_OMFP(self._atoms)
             self._fp = _fp_out
             _escape = self.fp_distance(_fp_in, _fp_out) / _fp_out.shape[0]
+
             self._temperature *= _beta_s
+
+            write('locm.extxyz', self._atoms, append=True)
+
+            _i_steps += 1
+
+        self._acc_rej = 'Inter'
+        self._history_log()
+
         #self._temperature = _temperature_in
 
 
@@ -290,10 +305,10 @@ class Minimahopping:
         if abs(_e_pot_cur - _e_pot) < self._Ediff:
             self._Ediff *= self._alpha_a
             self._atoms_cur = deepcopy(self._atoms)
-            self._acc_rej = "A"
+            self._acc_rej = "Accepted"
         else:
             self._Ediff *= self._alpha_r
-            self._acc_rej = "R"
+            self._acc_rej = "Rejected"
 
 
     def _in_history_fp(self,):
@@ -393,6 +408,7 @@ class Minimahopping:
         history_file = open('history.dat', 'a')
         history_file.write(history_msg)
         history_file.close()
+        self._n_visits = 0
 
 
     def _check_energy_threshold(self):
