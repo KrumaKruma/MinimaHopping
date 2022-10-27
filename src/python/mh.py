@@ -32,7 +32,7 @@ class Minimahopping:
         'T0' : 50000.,  # Initital temperature in Kelvin (float)
         'beta_decrease': 1. / 1.1,  # temperature adjustment parameter (float)
         'beta_increase': 1.1,  # temperature adjustment parameter (float)
-        'Ediff0' : .5, # Initial energy aceptance threshold (float)
+        'Ediff0' : .0005, # Initial energy aceptance threshold (float)
         'alpha_a' : 0.95, # factor for decreasing Ediff (float)
         'alpha_r' : 1.05, # factor for increasing Ediff (float)
         'n_soft' : 10, # number of softening steps for the velocity before the MD (int)
@@ -88,6 +88,7 @@ class Minimahopping:
         self.all_minima_sorted = []
         self.unique_minima = []
         self.accepted_minima = []
+        self.intermediate_minima = []
         self._i_step = 0
         _is_acc_minima = os.path.exists('acc.extxyz')
         _is_unique_minima = os.path.exists('min.extxyz')
@@ -169,7 +170,7 @@ class Minimahopping:
 
         self._atoms_cur = deepcopy(self._atoms)
         self._n_visits = 1
-        self._acc_rej = 'Init'
+        self._acc_rej = 'Initial'
         self._history_log()
 
 
@@ -230,10 +231,10 @@ class Minimahopping:
         _temperature_in = self._temperature
         _i_steps = 0
         while _escape < self._minima_threshold:
+
             if _i_steps > 0:
                 self._acc_rej = 'Same'
                 self._history_log()
-
 
             MaxwellBoltzmannDistribution(self._atoms, temperature_K=self._temperature)
 
@@ -283,6 +284,8 @@ class Minimahopping:
 
             _i_steps += 1
 
+
+        self.intermediate_minima.append(deepcopy(self._atoms))
         self._acc_rej = 'Inter'
         self._history_log()
 
@@ -301,14 +304,18 @@ class Minimahopping:
 
     def _acc_rej_step(self,):
         _e_pot_cur = self._atoms_cur.get_potential_energy()
-        _e_pot = self._atoms.get_potential_energy()
-        if abs(_e_pot_cur - _e_pot) < self._Ediff:
-            self._Ediff *= self._alpha_a
-            self._atoms_cur = deepcopy(self._atoms)
-            self._acc_rej = "Accepted"
-        else:
-            self._Ediff *= self._alpha_r
-            self._acc_rej = "Rejected"
+        idebug = 0
+        for atom in self.intermediate_minima:
+            _e_pot = atom.get_potential_energy()
+            idebug += 1
+            if abs(_e_pot_cur - _e_pot) < self._Ediff:
+                self._Ediff *= self._alpha_a
+                self._atoms_cur = deepcopy(atom)
+                self._acc_rej = "Accepted"
+                self.intermediate_minima = []
+            else:
+                self._Ediff *= self._alpha_r
+                self._acc_rej = "Rejected"
 
 
     def _in_history_fp(self,):
