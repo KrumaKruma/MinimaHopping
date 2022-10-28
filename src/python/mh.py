@@ -32,7 +32,7 @@ class Minimahopping:
         'T0' : 50000.,  # Initital temperature in Kelvin (float)
         'beta_decrease': 1. / 1.1,  # temperature adjustment parameter (float)
         'beta_increase': 1.1,  # temperature adjustment parameter (float)
-        'Ediff0' : .0005, # Initial energy aceptance threshold (float)
+        'Ediff0' : .05, # Initial energy aceptance threshold (float)
         'alpha_a' : 0.95, # factor for decreasing Ediff (float)
         'alpha_r' : 1.05, # factor for increasing Ediff (float)
         'n_soft' : 10, # number of softening steps for the velocity before the MD (int)
@@ -90,6 +90,12 @@ class Minimahopping:
         self.accepted_minima = []
         self.intermediate_minima = []
         self._i_step = 0
+
+        self._n_min = 1
+        self._n_unique = 0
+        self._n_notunique = 0
+        self._n_same = 0
+
         _is_acc_minima = os.path.exists('acc.extxyz')
         _is_unique_minima = os.path.exists('min.extxyz')
         _is_history = os.path.exists('history.dat')
@@ -227,14 +233,16 @@ class Minimahopping:
         """
         _escape = 0.0
         _fp_in = self._get_OMFP(self._atoms)
-        _beta_s = 1.01
+        _beta_s = 1.1
         _temperature_in = self._temperature
         _i_steps = 0
         while _escape < self._minima_threshold:
 
             if _i_steps > 0:
+                self._n_same += 1
                 self._acc_rej = 'Same'
                 self._history_log()
+                self._temperature *= _beta_s
 
             MaxwellBoltzmannDistribution(self._atoms, temperature_K=self._temperature)
 
@@ -278,12 +286,11 @@ class Minimahopping:
             self._fp = _fp_out
             _escape = self.fp_distance(_fp_in, _fp_out) / _fp_out.shape[0]
 
-            self._temperature *= _beta_s
 
             write('locm.extxyz', self._atoms, append=True)
 
             _i_steps += 1
-
+            self._n_min += 1
 
         self.intermediate_minima.append(deepcopy(self._atoms))
         self._acc_rej = 'Inter'
@@ -363,11 +370,13 @@ class Minimahopping:
 
     def _adj_temperature(self,):
         if self._n_visits > 1:
+            self._n_notunique += 1
             if self._enhanced_feedback:
                 self._temperature = self._temperature * self._beta_increase * (1. + 1. * np.log(float(self._n_visits)))
             else:
                 self._temperature = self._temperature * self._beta_increase
         else:
+            self._n_unique += 1
             self._temperature = self._temperature * self._beta_decrease
             self.unique_minima.append(deepcopy(self._atoms))
             write("min.extxyz", self.unique_minima[-1],  append=True)
@@ -407,11 +416,19 @@ class Minimahopping:
         bisect.insort(self.all_minima_sorted, mini)
 
     def _history_log(self):
-        history_msg = "{:1.5f}  {:d}  {:1.5f}  {:1.5f}  {:s} \n".format(self._atoms.get_potential_energy(),
+        _notunique_frac = float(self._n_notunique)/float(self._n_min)
+        _same_frac = float(self._n_same)/float(self._n_min)
+        _unique_frac = 1. - (_notunique_frac+_same_frac)
+
+        history_msg = "{:1.5f}  {:d}  {:1.5f}  {:1.5f}  {:1.2f}  {:1.2f}  {:1.2f} {:s} \n".format(self._atoms.get_potential_energy(),
                                                                         self._n_visits,
                                                                         self._temperature,
                                                                         self._Ediff,
+                                                                        _same_frac,
+                                                                        _notunique_frac,
+                                                                        _unique_frac,
                                                                         self._acc_rej)
+
         history_file = open('history.dat', 'a')
         history_file.write(history_msg)
         history_file.close()
