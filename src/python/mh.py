@@ -39,11 +39,11 @@ class Minimahopping:
         'np_orb' : 1, # number of p orbitals in OMFP fingerprint
         'width_cutoff' : 3.5, # with cutoff for OMFP fingerprint
         'dt' : 0.01, # timestep for the MD part (float)
-        'mdmin' : 2, # criteria to stop the MD trajectory (no. of minima) (int)
+        'mdmin' : 6, # criteria to stop the MD trajectory (no. of minima) (int)
         'fmax' : 0.000005, # max force component for the local geometry optimization
         'enhanced_feedback' : False, # Enhanced feedback to adjust the temperature (bool)
         'energy_threshold' : 0.00005, # Energy threshold at which a OMFP distance calculation is performed (float)
-        'n_poslow' : 5, # Number of posmin files which are written in sorted order (int)
+        'n_poslow' : 30, # Number of posmin files which are written in sorted order (int)
         'minima_threshold' : 1e-4, # Fingerprint difference for identifying identical configurations (float)
         'restart_optim' : False, # Reoptimizes all the proviously found minima which are read (bool)
         'start_lowest': False, # If True the run is restarted with the lowest alredy known minimum
@@ -235,7 +235,7 @@ class Minimahopping:
         """
         _escape = 0.0
         _fp_in = self._get_OMFP(self._atoms,s=self._ns_orb, p=self._np_orb, width_cutoff=self._width_cutoff)
-        _beta_s = 1.1
+        _beta_s = 1.05
         _temperature_in = self._temperature
         _i_steps = 0
         while _escape < self._minima_threshold:
@@ -404,7 +404,7 @@ class Minimahopping:
 
 
     def _update_data(self):
-        if self._acc_rej == "A":
+        if self._acc_rej == "Accepted":
             self.accepted_minima.append(deepcopy(self._atoms))
             write("acc.extxyz", self.accepted_minima[-1], append=True)
 
