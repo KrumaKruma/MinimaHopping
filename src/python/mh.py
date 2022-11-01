@@ -422,7 +422,7 @@ class Minimahopping:
         _same_frac = float(self._n_same)/float(self._n_min)
         _unique_frac = 1. - (_notunique_frac+_same_frac)
 
-        history_msg = "{:1.5f}  {:d}  {:1.5f}  {:1.5f}  {:1.2f}  {:1.2f}  {:1.2f} {:s} \n".format(self._atoms.get_potential_energy(),
+        history_msg = "{:1.9f}  {:d}  {:1.5f}  {:1.5f}  {:1.2f}  {:1.2f}  {:1.2f} {:s} \n".format(self._atoms.get_potential_energy(),
                                                                         self._n_visits,
                                                                         self._temperature,
                                                                         self._Ediff,
