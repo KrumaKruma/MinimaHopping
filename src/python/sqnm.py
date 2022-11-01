@@ -53,7 +53,7 @@ class SQNM:
 
             # remove noisy directions from subspace
             dim_subsp = sum(self.s_eval[:self.nhist] / self.s_eval[self.nhist - 1] > self.eps_subsp)
-
+            #dim_subsp = min(1, dim_subsp)
             self.s_eval[:dim_subsp] = self.s_eval[(self.nhist - dim_subsp):self.nhist]
             self.s_evec[:, :dim_subsp] = self.s_evec[:, (self.nhist - dim_subsp):self.nhist]
 
@@ -94,11 +94,11 @@ class SQNM:
         self.prev_df_dx = df_dx
         return self.dir_of_descent
 
-    def lower_limit(self):
+    def lower_bound(self):
         if self.nhist < 1:
-            print("At least one optimization step needs to be done before lower_limit can be called.")
+        #    print("At least one optimization step needs to be done before lower_limit can be called.")
             return 0
-        return .5 * np.dot(self.prev_df_dx, self.prev_df_dx) / self.h_eval[0]
+        return self.prev_f_of_x - .5 * np.dot(self.prev_df_dx, self.prev_df_dx) / self.h_eval[0]
 
 def _test_fun(x):
     n = len(x)

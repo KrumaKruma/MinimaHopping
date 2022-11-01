@@ -15,15 +15,24 @@ class free_sqnm:
             print("Number of subspace dimensions will be reduced")
             nhist_max = self.ndim
         self.optimizer = sqnm.SQNM(self.ndim, nhist_max, initial_step_size, eps_subsp, alpha_min)
+        self.fluct = 0.0
 
     def optimizer_step(self, pos, epot, forces):
+        # check for noise in forces using eq. 23 of vc-sqnm paper
+        fnoise = np.linalg.norm(np.sum(forces, axis=1)) / np.sqrt(3 * self.nat)
+        if self.fluct == 0.0:
+            self.fluct = fnoise
+        else:
+            self.fluct = .8 * self.fluct + .2 * fnoise
+        if self.fluct > 0.2 * np.max( np.abs(forces) ):
+            print("""Warning: noise in forces is larger than 0.2 times the largest force component. Convergence is not guaranteed.""", file=sys.stderr)
         pos = pos.reshape(3 * self.nat)
         pos = pos + self.optimizer.sqnm_step(pos, epot, -forces.reshape(3 * self.nat))
         pos = pos.reshape((3, self.nat))
         return pos
 
-    def lower_limit(self):
-        return self.optimizer.lower_limit()
+    def lower_bound(self):
+        return self.optimizer.lower_bound()
 
 
 def _energyandforces(nat, pos, alat):
@@ -49,10 +58,14 @@ def _tests():
 
     opt = free_sqnm(nat, alpha, 10, 1e-2, 1e-4)
 
-    for i in range(50):
+    for i in range(30):
         epot, forces, deralat = _energyandforces(nat, pos, lat)
         print(epot, np.linalg.norm(forces), np.linalg.norm(deralat))
         pos = opt.optimizer_step(pos, epot, forces)
+
+    print('The current energy is: ', epot)
+    print('The estimated lower bound of the ground state is:', opt.lower_bound())
+    print('The estimated energy error is:', epot - opt.lower_bound())
 
 if __name__ == "__main__":
     _tests()

@@ -36,10 +36,10 @@ class Opt():
             write("OPT.extxyz", self._atoms)
         if True in _pbc:
             self._vcs_geom_opt()
-            return self._atoms.get_positions(), self._atoms.get_cell(), self._optim.lower_limit()
+            return self._atoms.get_positions(), self._atoms.get_cell(), self._optim.lower_bound()
         else:
             self._geom_opt()
-            return self._atoms.get_positions(), self._optim.lower_limit()
+            return self._atoms.get_positions(), self._optim.lower_bound()
 
 
 
