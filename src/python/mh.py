@@ -39,7 +39,7 @@ class Minimahopping:
         'np_orb' : 1, # number of p orbitals in OMFP fingerprint
         'width_cutoff' : 3.5, # with cutoff for OMFP fingerprint
         'dt' : 0.01, # timestep for the MD part (float)
-        'mdmin' : 10, # criteria to stop the MD trajectory (no. of minima) (int)
+        'mdmin' : 3, # criteria to stop the MD trajectory (no. of minima) (int)
         'fmax' : 0.000005, # max force component for the local geometry optimization
         'pre_fmax' : 0.005, # force norm for pre relaxation
         'enhanced_feedback' : False, # Enhanced feedback to adjust the temperature (bool)
@@ -263,7 +263,7 @@ class Minimahopping:
                     opt = Opt(atoms=self._atoms, max_froce_threshold=self._pre_fmax, verbose=self._verbose)
                     _positions, _lattice, self._noise = opt.run()
                     self._atoms.set_positions(_positions)
-                    self._atoms.set_cell(_cell)
+                    self._atoms.set_cell(_lattice)
 
 
                 softening = Softening(self._atoms, self._cell_atoms)

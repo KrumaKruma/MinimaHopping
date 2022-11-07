@@ -1,23 +1,19 @@
 from ase.io import read, write
 from ase.calculators.lj import LennardJones
 from mh import Minimahopping
+from bazant_calc import BazantCalculator
+from bazant_sym_calc import BazantSymmetryCalculator
 
 
 def main():
-    filename = "../../data/LJ38.xyz"
+    filename = "../../data/Si_in_non_gm.extxyz"
     atoms = read(filename)
-    calculator = LennardJones()
-    calculator.parameters.epsilon = 1.0
-    calculator.parameters.sigma = 1.0
-    calculator.parameters.rc = 6.0
+    calculator = BazantCalculator()
     atoms.calc = calculator
 
-    calc2 = LennardJones()
-    calc2.parameters.epsilon = 1.1
-    calc2.parameters.sigma = 1.1
-    calc2.parameters.rc = 3.0
+    calc2 = BazantSymmetryCalculator()
 
-    mh = Minimahopping(atoms, calc2, verbose=False)
+    mh = Minimahopping(atoms, calc2, verbose=True)
     mh(totalsteps=100)
 
 
@@ -27,4 +23,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
