@@ -12,7 +12,12 @@ def main():
     calculator.parameters.rc = 6.0
     atoms.calc = calculator
 
-    mh = Minimahopping(atoms, verbose=False)
+    calc2 = LennardJones()
+    calc2.parameters.epsilon = 1.1
+    calc2.parameters.sigma = 1.1
+    calc2.parameters.rc = 3.0
+
+    mh = Minimahopping(atoms, calc2, verbose=False)
     mh(totalsteps=100)
 
 

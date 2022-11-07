@@ -48,11 +48,15 @@ class Minimahopping:
         'restart_optim' : False, # Reoptimizes all the proviously found minima which are read (bool)
         'start_lowest': False, # If True the run is restarted with the lowest alredy known minimum
         'verbose' : True, # If True MD and optim. steps are written to the output (bool)
+        'switch_calc_md' : True # Switches to the second calculator for the softening and MD
+        'switch_calc_opt' : True # Switches to the second calculator for the optimization part
     }
 
-    def __init__(self, atoms, **kwargs):
+    def __init__(self, atoms, calc2,**kwargs):
         """Initialize with an ASE atoms object and keyword arguments."""
         self._atoms = atoms
+        self._calc = atoms.calc
+        self._calc2 = calc2
         for key in kwargs:
             if key not in self._default_settings:
                 raise RuntimeError('Unknown keyword: %s' % key)
@@ -253,6 +257,9 @@ class Minimahopping:
                 self._cell_atoms = Cell_atom(mass=_mass, positions=self._atoms.get_cell())
                 self._cell_atoms.set_velocities_boltzmann(temperature=self._temperature)
 
+                if self._switch_calc_md:
+                    self._atoms.calc = self._calc2
+
                 softening = Softening(self._atoms, self._cell_atoms)
                 _velocities, _cell_velocities = softening.run(self._n_soft)
                 self._atoms.set_velocities(_velocities)
@@ -263,6 +270,10 @@ class Minimahopping:
                 self._atoms.set_positions(_positions)
                 self._atoms.set_cell(_cell)
 
+                if self._switch_calc_md:
+                    self._atoms.calc = self._calc
+
+
                 lat_opt.reshape_cell2(self._atoms, 6)
 
                 opt = Opt(atoms=self._atoms, max_froce_threshold=self._fmax, verbose=self._verbose)
@@ -271,6 +282,9 @@ class Minimahopping:
                 self._atoms.set_cell(_lattice)
 
             else:
+                if self._switch_calc_md:
+                    self._atoms.calc = self._calc2
+
                 softening = Softening(self._atoms)
                 _velocities = softening.run(self._n_soft)
                 self._atoms.set_velocities(_velocities)
@@ -278,6 +292,10 @@ class Minimahopping:
                 md = MD(atoms=self._atoms, cell_atoms=None, dt=self._dt, n_max=self._mdmin, verbose=self._verbose)
                 _positions = md.run()
                 self._atoms.set_positions(_positions)
+
+                if self._switch_calc_md:
+                    self._atoms.calc = self._calc
+
                 opt = Opt(atoms=self._atoms, max_froce_threshold=self._fmax, verbose=self._verbose)
                 _positions, self._noise = opt.run()
                 self._atoms.set_positions(_positions)
