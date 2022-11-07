@@ -1,17 +1,18 @@
 from ase.io import read, write
 #from ase.calculators.lj import LennardJones
-from ase.calculators.eam import EAM
+#from ase.calculators.eam import EAM
 from mh import Minimahopping
-
+from bazant_calc import BazantCalculator
 
 def main():
-    filename = "../../data/Na55.xyz"
+    filename = "../../data/Si_in3.extxyz"
     atoms = read(filename)
     # calculator = LennardJones()
     # calculator.parameters.epsilon = 1.0
     # calculator.parameters.sigma = 1.0
     # calculator.parameters.rc = 6.0
-    calculator = EAM(potential="Na_v2.eam.fs")
+    # calculator = EAM(potential="Na_v2.eam.fs")
+    calculator = BazantCalculator()
     atoms.calc = calculator
 
     mh = Minimahopping(atoms, verbose=True)
