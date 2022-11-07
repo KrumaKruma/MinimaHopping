@@ -34,17 +34,17 @@ class Minimahopping:
         'Ediff0' : .05, # Initial energy aceptance threshold (float)
         'alpha_a' : 0.95, # factor for decreasing Ediff (float)
         'alpha_r' : 1.05, # factor for increasing Ediff (float)
-        'n_soft' : 10, # number of softening steps for the velocity before the MD (int)
+        'n_soft' : 20, # number of softening steps for the velocity before the MD (int)
         'ns_orb' : 1, # number of s orbitals in OMFP fingerprint
         'np_orb' : 1, # number of p orbitals in OMFP fingerprint
         'width_cutoff' : 3.5, # with cutoff for OMFP fingerprint
         'dt' : 0.01, # timestep for the MD part (float)
-        'mdmin' : 10, # criteria to stop the MD trajectory (no. of minima) (int)
+        'mdmin' : 2, # criteria to stop the MD trajectory (no. of minima) (int)
         'fmax' : 0.000005, # max force component for the local geometry optimization
         'enhanced_feedback' : False, # Enhanced feedback to adjust the temperature (bool)
         'energy_threshold' : 0.00005, # Energy threshold at which a OMFP distance calculation is performed (float)
         'n_poslow' : 30, # Number of posmin files which are written in sorted order (int)
-        'minima_threshold' : 1e-4, # Fingerprint difference for identifying identical configurations (float)
+        'minima_threshold' : 2.e-5, # Fingerprint difference for identifying identical configurations (float)
         'restart_optim' : False, # Reoptimizes all the proviously found minima which are read (bool)
         'start_lowest': False, # If True the run is restarted with the lowest alredy known minimum
         'verbose' : True, # If True MD and optim. steps are written to the output (bool)

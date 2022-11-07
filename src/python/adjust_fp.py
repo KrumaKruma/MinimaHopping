@@ -1,7 +1,8 @@
 import numpy as np
 import scipy
 from ase.io import read, write
-from ase.calculators.lj import LennardJones
+#from ase.calculators.lj import LennardJones
+from ase.calculators.eam import EAM
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
 from md import MD
 from optim import Opt
@@ -226,16 +227,14 @@ class adjust_fp():
 
 
 def main():
-    filename = "../../data/LJ38.xyz"
+    filename = "../../data/Na55.xyz"
     atoms = read(filename)
-    calculator = LennardJones()
-    calculator.parameters.epsilon = 1.0
-    calculator.parameters.sigma = 1.0
-    calculator.parameters.rc = 6.0
+    calculator = EAM(potential="Na_v2.eam.fs")
+    atoms.calc = calculator
     atoms.calc = calculator
 
 
-    fnrm = 5e-3
+    fnrm =  0.000005
     adjust = adjust_fp(atoms, fnrm, )
     fp_max, fp_mean, fp_std = adjust.run()
     msg = 'Maximal fingerprint distance between the same local minima:\n' + str(fp_max)
