@@ -41,6 +41,7 @@ class Minimahopping:
         'dt' : 0.01, # timestep for the MD part (float)
         'mdmin' : 10, # criteria to stop the MD trajectory (no. of minima) (int)
         'fmax' : 0.000005, # max force component for the local geometry optimization
+        'pre_fmax' : 0.005, # force norm for pre relaxation
         'enhanced_feedback' : False, # Enhanced feedback to adjust the temperature (bool)
         'energy_threshold' : 0.00005, # Energy threshold at which a OMFP distance calculation is performed (float)
         'n_poslow' : 30, # Number of posmin files which are written in sorted order (int)
@@ -48,8 +49,7 @@ class Minimahopping:
         'restart_optim' : False, # Reoptimizes all the proviously found minima which are read (bool)
         'start_lowest': False, # If True the run is restarted with the lowest alredy known minimum
         'verbose' : True, # If True MD and optim. steps are written to the output (bool)
-        'switch_calc_md' : True # Switches to the second calculator for the softening and MD
-        'switch_calc_opt' : True # Switches to the second calculator for the optimization part
+        'switch_calc' : True # Switches to the second calculator for the softening and MD
     }
 
     def __init__(self, atoms, calc2,**kwargs):
@@ -257,8 +257,14 @@ class Minimahopping:
                 self._cell_atoms = Cell_atom(mass=_mass, positions=self._atoms.get_cell())
                 self._cell_atoms.set_velocities_boltzmann(temperature=self._temperature)
 
-                if self._switch_calc_md:
+                #==================================BIAS SWITCH==================================
+                if self._switch_calc:
                     self._atoms.calc = self._calc2
+                    opt = Opt(atoms=self._atoms, max_froce_threshold=self._pre_fmax, verbose=self._verbose)
+                    _positions, _lattice, self._noise = opt.run()
+                    self._atoms.set_positions(_positions)
+                    self._atoms.set_cell(_cell)
+
 
                 softening = Softening(self._atoms, self._cell_atoms)
                 _velocities, _cell_velocities = softening.run(self._n_soft)
@@ -270,20 +276,31 @@ class Minimahopping:
                 self._atoms.set_positions(_positions)
                 self._atoms.set_cell(_cell)
 
-                if self._switch_calc_md:
-                    self._atoms.calc = self._calc
-
-
                 lat_opt.reshape_cell2(self._atoms, 6)
+
+                opt = Opt(atoms=self._atoms, max_froce_threshold=self._pre_fmax, verbose=self._verbose)
+                _positions, _lattice, self._noise = opt.run()
+                self._atoms.set_positions(_positions)
+                self._atoms.set_cell(_lattice)
+
+                if self._switch_calc:
+                    self._atoms.calc = self._calc
 
                 opt = Opt(atoms=self._atoms, max_froce_threshold=self._fmax, verbose=self._verbose)
                 _positions, _lattice, self._noise = opt.run()
                 self._atoms.set_positions(_positions)
                 self._atoms.set_cell(_lattice)
+                #========================================================================================
 
             else:
-                if self._switch_calc_md:
+
+                #=====================================BIAS SWITCH========================================
+                if self._switch_calc:
                     self._atoms.calc = self._calc2
+                    opt = Opt(atoms=self._atoms, max_froce_threshold=self._pre_fmax, verbose=self._verbose)
+                    _positions, self._noise = opt.run()
+                    self._atoms.set_positions(_positions)
+
 
                 softening = Softening(self._atoms)
                 _velocities = softening.run(self._n_soft)
@@ -293,12 +310,19 @@ class Minimahopping:
                 _positions = md.run()
                 self._atoms.set_positions(_positions)
 
-                if self._switch_calc_md:
+
+                opt = Opt(atoms=self._atoms, max_froce_threshold=self._pre_fmax, verbose=self._verbose)
+                _positions, self._noise = opt.run()
+                self._atoms.set_positions(_positions)
+
+                if self._switch_calc:
                     self._atoms.calc = self._calc
 
                 opt = Opt(atoms=self._atoms, max_froce_threshold=self._fmax, verbose=self._verbose)
                 _positions, self._noise = opt.run()
                 self._atoms.set_positions(_positions)
+
+
 
             self._check_energy_threshold()
 

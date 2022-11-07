@@ -135,7 +135,13 @@ class Softening():
         self._velocities = self._pos - self._pos_in
 
         if self._cell_atoms is not None:
-            self._cell_positions = self._cell_positions + self._alpha_lat*_deralat
+            self._cell_positions[0, 0] = self._cell_positions[0, 0] + self._alpha_lat * _deralat[0, 0]
+            self._cell_positions[0, 1] = self._cell_positions[0, 1] + self._alpha_lat * _deralat[0, 1]
+            self._cell_positions[0, 2] = self._cell_positions[0, 2] + self._alpha_lat * _deralat[0, 2]
+            self._cell_positions[1, 0] = self._cell_positions[1, 0] + self._alpha_lat * _deralat[1, 0]
+            self._cell_positions[1, 1] = self._cell_positions[1, 1] + self._alpha_lat * _deralat[1, 1]
+            self._cell_positions[2, 0] = self._cell_positions[2, 0] + self._alpha_lat * _deralat[2, 0]
+
             self._cell_velocities = self._cell_positions - self._cell_positions_in
             self._velocities = self._elim_moment(self._velocities)
             self._cell_velocities = self._elim_torque(self._cell_velocities, self._cell_positions, self._cell_masses)
