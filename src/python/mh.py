@@ -39,7 +39,7 @@ class Minimahopping:
         'np_orb' : 1, # number of p orbitals in OMFP fingerprint
         'width_cutoff' : 3.5, # with cutoff for OMFP fingerprint
         'dt' : 0.01, # timestep for the MD part (float)
-        'mdmin' : 6, # criteria to stop the MD trajectory (no. of minima) (int)
+        'mdmin' : 10, # criteria to stop the MD trajectory (no. of minima) (int)
         'fmax' : 0.000005, # max force component for the local geometry optimization
         'enhanced_feedback' : False, # Enhanced feedback to adjust the temperature (bool)
         'energy_threshold' : 0.00005, # Energy threshold at which a OMFP distance calculation is performed (float)
@@ -317,7 +317,7 @@ class Minimahopping:
         for atom in self.intermediate_minima:
             _e_pot = atom.get_potential_energy()
             idebug += 1
-            if abs(_e_pot_cur - _e_pot) < self._Ediff:
+            if  _e_pot - _e_pot_cur < self._Ediff:
                 self._Ediff *= self._alpha_a
                 self._atoms_cur = deepcopy(atom)
                 self._acc_rej = "Accepted"
