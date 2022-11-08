@@ -44,7 +44,7 @@ class Minimahopping:
         'enhanced_feedback' : False, # Enhanced feedback to adjust the temperature (bool)
         'energy_threshold' : 0.00005, # Energy threshold at which a OMFP distance calculation is performed (float)
         'n_poslow' : 30, # Number of posmin files which are written in sorted order (int)
-        'minima_threshold' : 5.e-5, # Fingerprint difference for identifying identical configurations (float)
+        'minima_threshold' : 5.e-3, # Fingerprint difference for identifying identical configurations (float)
         'restart_optim' : False, # Reoptimizes all the proviously found minima which are read (bool)
         'start_lowest': False, # If True the run is restarted with the lowest alredy known minimum
         'verbose' : True, # If True MD and optim. steps are written to the output (bool)
