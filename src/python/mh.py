@@ -38,6 +38,7 @@ class Minimahopping:
         'ns_orb' : 1, # number of s orbitals in OMFP fingerprint
         'np_orb' : 1, # number of p orbitals in OMFP fingerprint
         'width_cutoff' : 3.5, # with cutoff for OMFP fingerprint
+        'exclude': [], # Elements which are to be excluded from the OMFP (list of str)
         'dt' : 0.05, # timestep for the MD part (float)
         'mdmin' : 2, # criteria to stop the MD trajectory (no. of minima) (int)
         'fmax' : 0.000005, # max force component for the local geometry optimization
@@ -510,23 +511,35 @@ class Minimahopping:
 
         _pbc = list(set(self._atoms.pbc))
         assert len(_pbc) == 1, "mixed boundary conditions"
+        _ang2bohr = 1.8897161646320724
+
+        _symbols = self._atoms.get_chemical_symbols()
+        _positions = self._atoms.get_positions()
+        _elements = _atoms.get_atomic_numbers()
+        _selected_postions = []
+        _selected_elem = []
+
+        for symb,elem, pos in zip(_symbols, _elements,_positions):
+            if symb not in self._exclude:
+                _selected_postions.append(pos)
+                _selected_elem.append(elem)
+        _selected_postions = np.array(_selected_postions)
+
 
         if True in _pbc:
-            _ang2bohr = 1.8897161646320724
-            _positions = _atoms.get_positions()*_ang2bohr
+            _selected_positions = _selected_postions*_ang2bohr
             _lattice = _atoms.get_cell()*_ang2bohr
-            _elements = _atoms.get_atomic_numbers()
             _omfpCalculator = OMFP.stefansOMFP(s=s, p=p, width_cutoff=width_cutoff, maxnatsphere=maxnatsphere)
-            _omfp = _omfpCalculator.fingerprint(_positions, _elements, lat=_lattice)
+            _omfp = _omfpCalculator.fingerprint(_selected_positions, _selected_elem, lat=_lattice)
             _omfp = np.array(_omfp)
 
         else:
-            _positions = _atoms.get_positions()
+            _selected_positions = _selected_postions*_ang2bohr
             _elements = _atoms.get_atomic_numbers()
             _width_cutoff = 1000000
             _maxnatsphere = len(_atoms)
             _omfpCalculator = OMFP.stefansOMFP(s=s, p=p, width_cutoff=_width_cutoff, maxnatsphere=_maxnatsphere)
-            _omfp = _omfpCalculator.globalFingerprint(_positions, _elements)
+            _omfp = _omfpCalculator.globalFingerprint(_selected_positions, _selected_elem)
             _omfp = np.array(_omfp)
 
         return _omfp
