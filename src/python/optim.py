@@ -12,7 +12,7 @@ class Opt():
     '''
     SQNM optimization for clusters and variable cell shape SQNM for bulk systems
     '''
-    def __init__(self, atoms, max_froce_threshold,initial_step_size=None, nhist_max=10, lattice_weight=2, alpha_min=1e-3, eps_subsop=1e-3, verbose=True):
+    def __init__(self, atoms, max_froce_threshold,outpath,initial_step_size=None, nhist_max=10, lattice_weight=2, alpha_min=1e-3, eps_subsop=1e-3, verbose=True):
         self._atoms = deepcopy(atoms)
         self._max_force_threshold = max_froce_threshold
         self._initial_step_size = initial_step_size
@@ -21,6 +21,7 @@ class Opt():
         self._alpha_min = alpha_min
         self._eps_subsop = eps_subsop
         self._verbose = verbose
+        self._outpath = outpath
 
         self._nat = self._atoms.get_positions().shape[0]
         self._i_step = 0
@@ -33,7 +34,7 @@ class Opt():
         _pbc = list(set(self._atoms.pbc))
         assert len(_pbc) == 1, "mixed boundary conditions"
         if self._verbose:
-            write("OPT.extxyz", self._atoms)
+            write(self._outpath + "OPT.extxyz", self._atoms)
         if True in _pbc:
             self._vcs_geom_opt()
             return self._atoms.get_positions(), self._atoms.get_cell(), self._optim.lower_bound()
@@ -152,6 +153,6 @@ class Opt():
                                                                                                                                     self._optim.optimizer.gainratio,
                                                                                                                                     self._optim.optimizer.alpha)
         print(opt_msg)
-        write("OPT.extxyz", self._atoms, append=True)
+        write(self._outpath + "OPT.extxyz", self._atoms, append=True)
 
 
