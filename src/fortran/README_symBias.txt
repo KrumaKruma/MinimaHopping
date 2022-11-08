@@ -1,6 +1,12 @@
-gfortran symmetry_penalty_v3.f90  -llapack -lblas -fopenmp
+SciCORE:
+ml purge
+ml PyTorch
+f2py3 -c -lm -lopenblas -lpthread symmetry_penalty_v3.f90 -m sympenlib --fcompiler=gfortran --f90flags="-fopenmp"
+
 
 gfortran:
+gfortran symmetry_penalty_v3.f90  -llapack -lblas -fopenmp
+
 f2py3 -c -llapack -lblas symmetry_penalty_v3.f90 -m sympenlib --fcompiler=gfortran --f90flags="-fopenmp -O0" -lgomp
 
 
