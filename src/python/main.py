@@ -1,18 +1,20 @@
-from ase.io import read, write
+
 from ase.calculators.eam import EAM
 from mh import Minimahopping
+from ase.cluster.wulff import wulff_construction
+
+
 
 def main():
-    filename = "../../data/Na55.xyz"
-    atoms = read(filename)
-    # calculator = LennardJones()
-    # calculator.parameters.epsilon = 1.0
-    # calculator.parameters.sigma = 1.0
-    # calculator.parameters.rc = 6.0
+    # construct a chain with 13 atoms:
+    atoms = wulff_construction('Na', surfaces=[(1, 0, 0), (0, 1, 0),(0, 0, 1)], energies=[0.001, 0.001, 0.15],
+                           size=13, # maximum number of atoms
+                           structure='bcc', rounding='above')
+
     calculator = EAM(potential="Na_v2.eam.fs")
     atoms.calc = calculator
 
-    mh = Minimahopping(atoms, verbose=True)
+    mh = Minimahopping(atoms, verbose=False)
     mh(totalsteps=100)
 
 
