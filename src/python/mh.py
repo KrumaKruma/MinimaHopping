@@ -99,9 +99,13 @@ class Minimahopping:
         self._n_notunique = 0
         self._n_same = 0
 
-        _is_acc_minima = os.path.exists('acc.extxyz')
-        _is_unique_minima = os.path.exists('min.extxyz')
-        _is_history = os.path.exists('history.dat')
+        self._outpath = 'output/'
+        if not os.path.exists(self._outpath):
+            os.mkdir(self._outpath)
+
+        _is_acc_minima = os.path.exists(self._outpath + 'acc.extxyz')
+        _is_unique_minima = os.path.exists(self._outpath + 'min.extxyz')
+        _is_history = os.path.exists(self._outpath + 'history.dat')
         if _is_unique_minima and _is_history:
             _is_restart = True
         else:
@@ -114,16 +118,16 @@ class Minimahopping:
             print(msg)
             calc = self._atoms.calc
 
-            unique_minima = read("min.extxyz", index=':')
+            unique_minima = read(self._outpath + "min.extxyz", index=':')
             if _is_acc_minima:
-                accepted_minima = read("acc.extxyz", index=':')
+                accepted_minima = read(self._outpath + "acc.extxyz", index=':')
                 self._atoms = accepted_minima[-1]
             else:
                 warn_msg = 'No previous accepted minima detected restart at last found minimum'
                 warnings.warn(warn_msg, UserWarning)
                 self._atoms = unique_minima[-1]
 
-            if os.path.exists('fp.dat') and not self._restart_optim:
+            if os.path.exists(self._outpath + 'fp.dat') and not self._restart_optim:
                 fps = self._read_fp()
                 assert len(fps) == len(unique_minima), 'FP and minima file have not the same length, delete fp file for fp recalculation'
 
@@ -160,7 +164,7 @@ class Minimahopping:
 
             self._atoms.calc = calc
 
-            _history_file = open('history.dat', 'r')
+            _history_file = open(self._outpath + 'history.dat', 'r')
             self.history = []
             for line in _history_file:
                 self.history.append(line)
@@ -175,7 +179,7 @@ class Minimahopping:
             _positions, _lattice = self._restart_opt(self._atoms)
             self._atoms.set_positions(_positions)
             self._atoms.set_cell(_lattice)
-            write("acc.extxyz", self._atoms, append=True)
+            write(self._outpath + "acc.extxyz", self._atoms, append=True)
 
         self._atoms_cur = deepcopy(self._atoms)
         self._n_visits = 1
@@ -188,7 +192,7 @@ class Minimahopping:
 
     def _restart_opt(self, atoms, ):
         _atoms = deepcopy(atoms)
-        opt = Opt(atoms=_atoms, max_froce_threshold=self._fmax, verbose=self._verbose)
+        opt = Opt(atoms=_atoms, outpath=self._outpath,max_froce_threshold=self._fmax, verbose=self._verbose)
         if True in self._atoms.pbc:
             _positions, _lattice, _noise = opt.run()
         else:
@@ -200,7 +204,7 @@ class Minimahopping:
 
 
     def _read_fp(self):
-        fp_file = open('fp.dat', 'r')
+        fp_file = open(self._outpath + 'fp.dat', 'r')
         fps = []
         if True in self._atoms.pbc:
             fp_array = []
@@ -259,14 +263,14 @@ class Minimahopping:
                 self._atoms.set_velocities(_velocities)
                 self._cell_atoms.velocities = _cell_velocities
 
-                md = MD(atoms=self._atoms, cell_atoms=self._cell_atoms, dt=self._dt, n_max=self._mdmin, verbose=self._verbose)
+                md = MD(atoms=self._atoms, outpath=self._outpath, cell_atoms=self._cell_atoms, dt=self._dt, n_max=self._mdmin, verbose=self._verbose)
                 _positions, _cell = md.run()
                 self._atoms.set_positions(_positions)
                 self._atoms.set_cell(_cell)
 
                 lat_opt.reshape_cell2(self._atoms, 6)
 
-                opt = Opt(atoms=self._atoms, max_froce_threshold=self._fmax, verbose=self._verbose)
+                opt = Opt(atoms=self._atoms, outpath=self._outpath, max_froce_threshold=self._fmax, verbose=self._verbose)
                 _positions, _lattice, self._noise = opt.run()
                 self._atoms.set_positions(_positions)
                 self._atoms.set_cell(_lattice)
@@ -276,10 +280,10 @@ class Minimahopping:
                 _velocities = softening.run(self._n_soft)
                 self._atoms.set_velocities(_velocities)
 
-                md = MD(atoms=self._atoms, cell_atoms=None, dt=self._dt, n_max=self._mdmin, verbose=self._verbose)
+                md = MD(atoms=self._atoms, outpath=self._outpath, cell_atoms=None, dt=self._dt, n_max=self._mdmin, verbose=self._verbose)
                 _positions = md.run()
                 self._atoms.set_positions(_positions)
-                opt = Opt(atoms=self._atoms, max_froce_threshold=self._fmax, verbose=self._verbose)
+                opt = Opt(atoms=self._atoms, outpath=self._outpath, max_froce_threshold=self._fmax, verbose=self._verbose)
                 _positions, self._noise = opt.run()
                 self._atoms.set_positions(_positions)
 
@@ -290,7 +294,7 @@ class Minimahopping:
             _escape = self.fp_distance(_fp_in, _fp_out) / _fp_out.shape[0]
 
 
-            write('locm.extxyz', self._atoms, append=True)
+            write(self._outpath + 'locm.extxyz', self._atoms, append=True)
 
             _i_steps += 1
             self._n_min += 1
@@ -382,12 +386,12 @@ class Minimahopping:
             self._n_unique += 1
             self._temperature = self._temperature * self._beta_decrease
             self.unique_minima.append(deepcopy(self._atoms))
-            write("min.extxyz", self.unique_minima[-1],  append=True)
+            write(self._outpath + "min.extxyz", self.unique_minima[-1],  append=True)
             self._write_fp()
 
 
     def _write_fp(self):
-        fp_file = open('fp.dat', 'a')
+        fp_file = open(self._outpath + 'fp.dat', 'a')
         if True in self._atoms.pbc:
             for env in self._fp:
                 for num in env:
@@ -407,7 +411,7 @@ class Minimahopping:
     def _update_data(self):
         if self._acc_rej == "Accepted":
             self.accepted_minima.append(deepcopy(self._atoms))
-            write("acc.extxyz", self.accepted_minima[-1], append=True)
+            write(self._outpath + "acc.extxyz", self.accepted_minima[-1], append=True)
 
         mini = Minimum(deepcopy(self._atoms),
                                        n_visit=self._n_visits,
@@ -432,7 +436,7 @@ class Minimahopping:
                                                                         _unique_frac,
                                                                         self._acc_rej)
 
-        history_file = open('history.dat', 'a')
+        history_file = open(self._outpath + 'history.dat', 'a')
         history_file.write(history_msg)
         history_file.close()
         self._n_visits = 0

@@ -10,11 +10,12 @@ class MD():
     Velocity Verlet MD which visits n_max maxima for clusters and variable cell shape velocity Verlet MD for bulk
     systems
     '''
-    def __init__(self, atoms, cell_atoms=None, dt=0.001, n_max=3, verbose=True):
+    def __init__(self, atoms, outpath, cell_atoms=None, dt=0.001, n_max=3, verbose=True):
         self._atoms = deepcopy(atoms)
         self._dt = dt
         self._n_max = n_max
         self._verbose = verbose
+        self._outpath = outpath
         if cell_atoms is not None:
             self._cell_atoms = deepcopy(cell_atoms)
         else:
@@ -106,7 +107,7 @@ class MD():
                                                                                              _e_kin,
                                                                                              _e_pot + _e_kin)
         print(md_msg)
-        write("MD.extxyz", self._atoms, append=True)
+        write(self._outpath + "MD.extxyz", self._atoms, append=True)
 
 
     def _update_lattice_positions(self):
