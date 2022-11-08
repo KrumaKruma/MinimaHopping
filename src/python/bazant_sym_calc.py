@@ -63,17 +63,23 @@ class BazantSymmetryCalculator(BazantCalculator):
         #Get energy, forces, deralat from calculator
         energy = self.atoms.get_potential_energy()
         forces = self.atoms.get_forces()
-        stress = self.atoms.get_stress(voigt=False,apply_constraint=False)
-        cell = self.atoms.get_cell(complete=False)
-        deralat = self.lattice_derivative(stress, cell)
+
+        # no lattice, no stress, no deralat
+        if self.atoms.cell.rank == 3:
+            stress = self.atoms.get_stress(voigt=False,apply_constraint=False)
+            cell = self.atoms.get_cell(complete=False)
+            deralat = self.lattice_derivative(stress, cell)
+        # large cell, zero deralat
+        else:
+            cell = np.array( [[100.0, 0.0, 0.0 ], [0.0, 100.0, 0.0 ], [0.0, 0.0, 100.0 ]] )
+            deralat = np.array( [[0.0, 0.0, 0.0 ], [0.0, 0.0, 0.0 ], [0.0, 0.0, 0.0 ]] )
 
         bias, dbiasdr, dbiasdalat = sym_bias_wrapper.symmetry_bias(atoms, width_cutoff = self.width_cutoff, natx_sphere = self.natx_sphere, nums = self.nums, nump = self.nump, lengthfp = self.lengthfp, num_cat = self.num_cat, nex_cutoff = self.nex_cutoff)
         b_e_pot, b_forces, b_deralat = sym_bias_wrapper.add_bias_2_pes(atoms, energy, forces, deralat, self.pweight, bias, dbiasdr, dbiasdalat)
 
-        b_stress = - np.matmul(b_deralat, cell) / np.linalg.det(cell)
-
         # no lattice, no stress
         if self.atoms.cell.rank == 3:
+            b_stress = - np.matmul(b_deralat, cell) / np.linalg.det(cell)
             stress_out = np.zeros((6,))
             stress_out[0] = b_stress[0,0]
             stress_out[1] = b_stress[1,1]
