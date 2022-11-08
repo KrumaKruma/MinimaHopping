@@ -34,7 +34,7 @@ class Opt():
         _pbc = list(set(self._atoms.pbc))
         assert len(_pbc) == 1, "mixed boundary conditions"
         if self._verbose:
-            write("OPT.extxyz", self._atoms)
+            write(self._outpath + "OPT.extxyz", self._atoms)
         if True in _pbc:
             self._vcs_geom_opt()
             return self._atoms.get_positions(), self._atoms.get_cell(), self._optim.lower_bound()

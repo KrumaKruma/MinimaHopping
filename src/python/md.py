@@ -44,6 +44,8 @@ class MD():
         '''
         Initialization of the MD before the iterative part starts
         '''
+        if self._verbose:
+            write(self._outpath + "MD.extxyz", self._atoms)
         self._masses = self._atoms.get_masses()[:, np.newaxis]/ self._atoms.get_masses()[:, np.newaxis]  # for the moment no masses
         self._forces = self._atoms.get_forces()
         self._e_pot = self._atoms.get_potential_energy()
