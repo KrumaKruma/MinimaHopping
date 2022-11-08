@@ -28,17 +28,17 @@ Parts of the software were originally developped (some in Fortran) from other pe
 
 class Minimahopping:
     _default_settings = {
-        'T0' : 500.,  # Initital temperature in Kelvin (float)
+        'T0' : 2000.,  # Initital temperature in Kelvin (float)
         'beta_decrease': 1. / 1.1,  # temperature adjustment parameter (float)
         'beta_increase': 1.1,  # temperature adjustment parameter (float)
-        'Ediff0' : .05, # Initial energy aceptance threshold (float)
+        'Ediff0' : .01, # Initial energy aceptance threshold (float)
         'alpha_a' : 0.95, # factor for decreasing Ediff (float)
         'alpha_r' : 1.05, # factor for increasing Ediff (float)
         'n_soft' : 20, # number of softening steps for the velocity before the MD (int)
         'ns_orb' : 1, # number of s orbitals in OMFP fingerprint
         'np_orb' : 1, # number of p orbitals in OMFP fingerprint
         'width_cutoff' : 3.5, # with cutoff for OMFP fingerprint
-        'dt' : 0.01, # timestep for the MD part (float)
+        'dt' : 0.05, # timestep for the MD part (float)
         'mdmin' : 2, # criteria to stop the MD trajectory (no. of minima) (int)
         'fmax' : 0.000005, # max force component for the local geometry optimization
         'enhanced_feedback' : False, # Enhanced feedback to adjust the temperature (bool)
