@@ -1,7 +1,7 @@
 import numpy as np
 import scipy
 from ase.io import read, write
-#from ase.calculators.lj import LennardJones
+from ase.calculators.lj import LennardJones
 from ase.calculators.eam import EAM
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
 from md import MD
@@ -14,14 +14,18 @@ from copy import deepcopy
 
 
 class adjust_fp():
-    def __init__(self, atoms, fmax,iterations=100, temperature=500, dt=0.01, md_min=1):
+    def __init__(self, atoms, fmax,iterations=10, temperature=500, dt=0.1, md_min=1, s=1, p=1, width_cutoff=1.5, exclude=[]):
         self._atoms = deepcopy(atoms)
         self.n_steps = iterations
         self._temperature = temperature
         self._dt = dt
         self._mdmin = md_min
         self._fmax = fmax
-        self._verbose = False
+        self._s = s
+        self._p = p
+        self._width_cutoff = width_cutoff
+        self._verbose = True
+        self._exclude = exclude
 
 
         self.md_structures = []
@@ -50,14 +54,14 @@ class adjust_fp():
         _mass = .75 * np.sum(self._atoms.get_masses()) / 10.
         self._cell_atoms = Cell_atom(mass=_mass, positions=self._atoms.get_cell())
         self._cell_atoms.set_velocities_boltzmann(temperature=self._temperature)
-        md = MD(atoms=self._atoms, cell_atoms=self._cell_atoms, dt=self._dt, n_max=self._mdmin, verbose=self._verbose)
+        md = MD(atoms=self._atoms,outpath='./', cell_atoms=self._cell_atoms, dt=self._dt, n_max=self._mdmin, verbose=self._verbose)
         _positions, _cell = md.run()
         self._atoms.set_positions(_positions)
         self._atoms.set_cell(_cell)
 
 
     def _md(self,):
-        md = MD(atoms=self._atoms, cell_atoms=None, dt=self._dt, n_max=self._mdmin, verbose=self._verbose)
+        md = MD(atoms=self._atoms, outpath='./',cell_atoms=None, dt=self._dt, n_max=self._mdmin, verbose=self._verbose)
         _positions = md.run()
         self._atoms.set_positions(_positions)
 
@@ -71,7 +75,7 @@ class adjust_fp():
 
     def _vcs_opt(self,):
         for _atom in self.md_structures:
-            opt = Opt(atoms=_atom, max_froce_threshold=self._fmax, verbose=self._verbose)
+            opt = Opt(atoms=_atom, outpath='./', max_froce_threshold=self._fmax, verbose=self._verbose)
             _positions, _lattice, self._noise = opt.run()
             _atom.set_positions(_positions)
             _atom.set_cell(_lattice)
@@ -79,7 +83,7 @@ class adjust_fp():
 
     def _c_opt(self,):
         for _atom in self.md_structures:
-            opt = Opt(atoms=_atom, max_froce_threshold=self._fmax, verbose=self._verbose)
+            opt = Opt(atoms=_atom,outpath='./', max_froce_threshold=self._fmax, verbose=self._verbose)
             _positions, self._noise = opt.run()
             _atom.set_positions(_positions)
             self.opt_structures.append(deepcopy(_atom))
@@ -87,7 +91,7 @@ class adjust_fp():
 
     def _fingerprints(self,):
         for _atom in self.opt_structures:
-            fp = self._get_OMFP(_atom)
+            fp = self._get_OMFP(_atom, s=self._s, p=self._p, width_cutoff=self._width_cutoff, exclude=self._exclude)
             self.fps.append(fp)
 
 
@@ -102,10 +106,7 @@ class adjust_fp():
         self._mean_dist = np.mean(_distances)
         self._std_dist = np.std(_distances)
 
-
-
-
-    def _get_OMFP(self, _atoms,s=1, p=0, width_cutoff=1.5, maxnatsphere=100):
+    def _get_OMFP(self, _atoms, s=1, p=1, width_cutoff=1.5, maxnatsphere=100, exclude=[]):
         """
         Calculation of the Overlapmatrix fingerprint. For peridoic systems a local environment fingerprint is calculated
         and a hungarian algorithm has to be used for the fingerprint distance. For non-periodic systems a global fingerprint
@@ -153,23 +154,34 @@ class adjust_fp():
 
         _pbc = list(set(self._atoms.pbc))
         assert len(_pbc) == 1, "mixed boundary conditions"
+        _ang2bohr = 1.8897161646320724
+
+        _symbols = _atoms.get_chemical_symbols()
+        _positions = _atoms.get_positions()
+        _elements = _atoms.get_atomic_numbers()
+        _selected_postions = []
+        _selected_elem = []
+
+        for symb, elem, pos in zip(_symbols, _elements, _positions):
+            if symb not in exclude:
+                _selected_postions.append(pos)
+                _selected_elem.append(elem)
+        _selected_postions = np.array(_selected_postions)
 
         if True in _pbc:
-            _ang2bohr = 1.8897161646320724
-            _positions = _atoms.get_positions()*_ang2bohr
-            _lattice = _atoms.get_cell()*_ang2bohr
-            _elements = _atoms.get_atomic_numbers()
+            _selected_positions = _selected_postions * _ang2bohr
+            _lattice = _atoms.get_cell() * _ang2bohr
             _omfpCalculator = OMFP.stefansOMFP(s=s, p=p, width_cutoff=width_cutoff, maxnatsphere=maxnatsphere)
-            _omfp = _omfpCalculator.fingerprint(_positions, _elements, lat=_lattice)
+            _omfp = _omfpCalculator.fingerprint(_selected_positions, _selected_elem, lat=_lattice)
             _omfp = np.array(_omfp)
 
         else:
-            _positions = _atoms.get_positions()
+            _selected_positions = _selected_postions #* _ang2bohr
             _elements = _atoms.get_atomic_numbers()
             _width_cutoff = 1000000
             _maxnatsphere = len(_atoms)
             _omfpCalculator = OMFP.stefansOMFP(s=s, p=p, width_cutoff=_width_cutoff, maxnatsphere=_maxnatsphere)
-            _omfp = _omfpCalculator.globalFingerprint(_positions, _elements)
+            _omfp = _omfpCalculator.globalFingerprint(_selected_positions, _selected_elem)
             _omfp = np.array(_omfp)
 
         return _omfp
@@ -230,12 +242,15 @@ def main():
     filename = "../../data/Na55.xyz"
     atoms = read(filename)
     calculator = EAM(potential="Na_v2.eam.fs")
-    atoms.calc = calculator
+    # calculator = LennardJones()
+    # calculator.parameters.epsilon = 1.0
+    # calculator.parameters.sigma = 1.0
+    # calculator.parameters.rc = 6.0
     atoms.calc = calculator
 
 
-    fnrm =  0.000005
-    adjust = adjust_fp(atoms, fnrm, )
+    fnrm =  0.001
+    adjust = adjust_fp(atoms, fnrm,)
     fp_max, fp_mean, fp_std = adjust.run()
     msg = 'Maximal fingerprint distance between the same local minima:\n' + str(fp_max)
     msg += '\n Mean fingerprint distance between the same local minima:\n' + str(fp_mean)

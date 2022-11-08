@@ -168,7 +168,6 @@ class Minimahopping:
             self.history = []
             for line in _history_file:
                 self.history.append(line)
-            # print(history)
             _last_line = self.history[-1].split()
             self._temperature = float(_last_line[2])
             self._Ediff = float(_last_line[3])
@@ -239,11 +238,13 @@ class Minimahopping:
         Escape loop to find a new minimum
         """
         _escape = 0.0
+        _escape_energy = 0.0
         _fp_in = self._get_OMFP(self._atoms,s=self._ns_orb, p=self._np_orb, width_cutoff=self._width_cutoff)
+        _energy_in = self._atoms.get_potential_energy()
         _beta_s = 1.05
         _temperature_in = self._temperature
         _i_steps = 0
-        while _escape < self._minima_threshold:
+        while _escape < self._minima_threshold or _escape_energy < self._energy_threshold:
 
             if _i_steps > 0:
                 self._n_same += 1
@@ -290,9 +291,10 @@ class Minimahopping:
             self._check_energy_threshold()
 
             _fp_out = self._get_OMFP(self._atoms, s=self._ns_orb, p=self._np_orb, width_cutoff=self._width_cutoff)
+            _energy_out = self._atoms.get_potential_energy()
             self._fp = _fp_out
             _escape = self.fp_distance(_fp_in, _fp_out) / _fp_out.shape[0]
-
+            _escape_energy = abs(_energy_in - _energy_out)
 
             write(self._outpath + 'locm.extxyz', self._atoms, append=True)
 
@@ -513,12 +515,12 @@ class Minimahopping:
                 numpy array which contains the fingerprint
         """
 
-        _pbc = list(set(self._atoms.pbc))
+        _pbc = list(set(_atoms.pbc))
         assert len(_pbc) == 1, "mixed boundary conditions"
         _ang2bohr = 1.8897161646320724
 
-        _symbols = self._atoms.get_chemical_symbols()
-        _positions = self._atoms.get_positions()
+        _symbols = _atoms.get_chemical_symbols()
+        _positions = _atoms.get_positions()
         _elements = _atoms.get_atomic_numbers()
         _selected_postions = []
         _selected_elem = []
