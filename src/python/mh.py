@@ -73,10 +73,17 @@ class Minimahopping:
                 print(msg)
                 return
 
-            self._escape()
-            self._hoplog()
-            self._acc_rej_step()
-            self._n_visits = self._in_history_fp()
+            try:
+                self._escape()
+                self._hoplog()
+                self._acc_rej_step()
+                self._n_visits = self._in_history_fp()
+            except KeyboardInterrupt:
+                print('The minima hopping simulation was interrupted exit now.')
+                quit()
+            except InterruptedError:
+                print('The minima hopping simulation was interrupted exit now.')
+                quit()
             self._adj_temperature()
             self._update_data()
             self._write_poslow()
