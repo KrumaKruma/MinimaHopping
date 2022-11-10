@@ -27,6 +27,7 @@ class Opt():
         self._i_step = 0
 
 
+
     def run(self):
         '''
         Performing either variable cell shape or cluster optimization
@@ -35,6 +36,8 @@ class Opt():
         assert len(_pbc) == 1, "mixed boundary conditions"
         if self._verbose:
             write(self._outpath + "OPT.extxyz", self._atoms)
+            f = open(self._outpath + "OPT_log.dat", "w")
+            f.close()
         if True in _pbc:
             self._vcs_geom_opt()
             return self._atoms.get_positions(), self._atoms.get_cell(), self._optim.lower_bound()
@@ -147,12 +150,14 @@ class Opt():
         printed
         '''
         _energy = self._atoms.get_potential_energy()
-        opt_msg = "OPT Step: {:d}   energy: {:1.8f}  max_force_comp:  {:1.5e}   gain ratio:   {:1.5e}   stepsize:   {:1.5e}".format(self._i_step,
+        opt_msg = "OPT Step: {:d}   energy: {:1.8f}  max_force_comp:  {:1.5e}   gain ratio:   {:1.5e}   stepsize:   {:1.5e}\n".format(self._i_step,
                                                                                                                                     _energy,
                                                                                                                                     self._max_force_comp,
                                                                                                                                     self._optim.optimizer.gainratio,
                                                                                                                                     self._optim.optimizer.alpha)
-        print(opt_msg)
+        f = open(self._outpath+"OPT_log.dat", "a")
+        f.write(opt_msg)
+        f.close()
         write(self._outpath + "OPT.extxyz", self._atoms, append=True)
 
 

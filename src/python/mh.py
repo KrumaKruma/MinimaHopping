@@ -13,7 +13,7 @@ from md import MD
 from optim import Opt
 from minimum import Minimum
 from cell_atom import Cell_atom
-
+import time
 
 
 """
@@ -49,6 +49,8 @@ class Minimahopping:
         'restart_optim' : False, # Reoptimizes all the proviously found minima which are read (bool)
         'start_lowest': False, # If True the run is restarted with the lowest alredy known minimum
         'verbose' : True, # If True MD and optim. steps are written to the output (bool)
+        'new_start': False, # If True the Run is restarted and written to different output folders
+        'run_time': "infinit" # String in the format D-HH:MM:SS, if infinit set run_time to infinit
     }
 
     def __init__(self, atoms, **kwargs):
@@ -67,32 +69,62 @@ class Minimahopping:
 
     def __call__(self, totalsteps = None):
         self._startup()
-        while True:
-            if (self._counter >= totalsteps):
-                msg = 'Run terminated after {:d} steps'.format(totalsteps)
-                print(msg)
-                return
-
-            try:
-                self._escape()
-                self._hoplog()
-                self._acc_rej_step()
-                self._n_visits = self._in_history_fp()
-            except KeyboardInterrupt:
-                print('The minima hopping simulation was interrupted exit now.')
-                quit()
-            except InterruptedError:
-                print('The minima hopping simulation was interrupted exit now.')
-                quit()
+        while (self._counter <= totalsteps):
+            print("START HOPPING STEP")
+            print("  Start escape loop")
+            print("  ---------------------------------------------------------------")
+            self._escape()
+            print("  ---------------------------------------------------------------")
+            print("  New minimum found!")
+            self._acc_rej_step()
+            self._hoplog()
+            self._n_visits = self._in_history_fp()
+            log_msg = "  New minimum has been found {:d} time(s)".format(self._n_visits)
+            print(log_msg)
+            print("  Write restart files")
             self._adj_temperature()
             self._update_data()
             self._write_poslow()
             self._history_log()
             self._atoms = deepcopy(self._atoms_cur)
+            self._counter += 1
+            print("DONE")
+            print("=================================================================")
 
+            _elapsed_time = time.time() - self._time_in
 
+            if self._run_time is not "infinit":
+                if _elapsed_time > self._run_time_sec:
+                    msg = 'Simulation stopped because the given time is over\n'
+                    msg += 'Run terminated after {:d} steps'.format(self._counter)
+                    print(msg)
+                    print("=================================================================")
+                    return
+
+        _elapsed_time = time.time() - self._time_in
+        day = _elapsed_time // (24 * 3600)
+        _elapsed_time = _elapsed_time % (24 * 3600)
+        hour = _elapsed_time // 3600
+        _elapsed_time %= 3600
+        minutes = _elapsed_time // 60
+        _elapsed_time %= 60
+        seconds = _elapsed_time
+        msg = 'Run terminated after {:d} steps in {:d}D {:d}H {:d}M {:d}S'.format(totalsteps,
+                                                                                int(day),
+                                                                                int(hour),
+                                                                                int(minutes),
+                                                                                int(seconds))
+        print(msg)
 
     def _startup(self):
+        print("=================================================================")
+        print("MINIMAHOPPING SETUP START")
+
+        # Convert given time to seconds
+        if self._run_time is not "infinit":
+            self._run_time_sec = self._get_sec()
+        self._time_in = time.time()
+
         # Check if run is restarted
         self.all_minima = []
         self.all_minima_sorted = []
@@ -110,18 +142,24 @@ class Minimahopping:
         if not os.path.exists(self._outpath):
             os.mkdir(self._outpath)
 
+        self._minima_path = 'minima/'
+        if not os.path.exists(self._minima_path):
+            os.mkdir(self._minima_path)
+
         _is_acc_minima = os.path.exists(self._outpath + 'acc.extxyz')
         _is_unique_minima = os.path.exists(self._outpath + 'min.extxyz')
         _is_history = os.path.exists(self._outpath + 'history.dat')
         if _is_unique_minima and _is_history:
             _is_restart = True
+            if self._new_start:
+                _is_restart = False
         else:
             is_files = {_is_history, _is_unique_minima}
             assert len(is_files)==1, 'Some but not all files exist for a restart.'
             _is_restart = False
 
         if _is_restart:
-            msg = 'Restart of previous run'
+            msg = '  Restart of previous run'
             print(msg)
             calc = self._atoms.calc
 
@@ -180,7 +218,7 @@ class Minimahopping:
             self._Ediff = float(_last_line[3])
             _history_file.close()
         else:
-            msg = 'New MH run is started'
+            msg = '  New MH run is started'
             print(msg)
             _positions, _lattice = self._restart_opt(self._atoms)
             self._atoms.set_positions(_positions)
@@ -192,6 +230,8 @@ class Minimahopping:
         self._acc_rej = 'Initial'
         self._history_log()
 
+        print("DONE")
+        print("=================================================================")
 
 
 
@@ -206,7 +246,11 @@ class Minimahopping:
             _lattice = np.zeros((3,3))
         return _positions, _lattice
 
-
+    def _get_sec(self,):
+        """Get seconds from time."""
+        nd, d = self._run_time.split('-')
+        h, m, s = d.split(':')
+        return int(nd) * 86400 + int(h) * 3600 + int(m) * 60 + int(s)
 
 
     def _read_fp(self):
@@ -258,6 +302,8 @@ class Minimahopping:
                 self._acc_rej = 'Same'
                 self._history_log()
                 self._temperature *= _beta_s
+                log_msg = "    Same minimum found with fpd {:1.2e} {:d} time(s). Increase temperature to {:1.5f}".format(_escape, self._n_same, self._temperature)
+                print(log_msg)
 
             MaxwellBoltzmannDistribution(self._atoms, temperature_K=self._temperature)
 
@@ -271,29 +317,46 @@ class Minimahopping:
                 self._atoms.set_velocities(_velocities)
                 self._cell_atoms.velocities = _cell_velocities
 
+                print("    VCS MD Start")
+
                 md = MD(atoms=self._atoms, outpath=self._outpath, cell_atoms=self._cell_atoms, dt=self._dt, n_max=self._mdmin, verbose=self._verbose)
-                _positions, _cell = md.run()
+                _positions, _cell , self._dt = md.run()
+
+                log_msg = "    VCS MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f}".format(md._i_steps, self._mdmin, self._dt)
+                print(log_msg)
                 self._atoms.set_positions(_positions)
                 self._atoms.set_cell(_cell)
-
                 lat_opt.reshape_cell2(self._atoms, 6)
+
+                print("    VCS OPT start")
 
                 opt = Opt(atoms=self._atoms, outpath=self._outpath, max_froce_threshold=self._fmax, verbose=self._verbose)
                 _positions, _lattice, self._noise = opt.run()
                 self._atoms.set_positions(_positions)
                 self._atoms.set_cell(_lattice)
 
+                log_msg = "    VCS OPT finished after {:d} steps".format(opt._i_step)
+                print(log_msg)
+
             else:
                 softening = Softening(self._atoms)
                 _velocities = softening.run(self._n_soft)
                 self._atoms.set_velocities(_velocities)
 
+                print("    MD Start")
+
                 md = MD(atoms=self._atoms, outpath=self._outpath, cell_atoms=None, dt=self._dt, n_max=self._mdmin, verbose=self._verbose)
-                _positions = md.run()
+                _positions , self._dt= md.run()
                 self._atoms.set_positions(_positions)
+
+                log_msg = "    MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f} ".format(md._i_steps, self._mdmin, self._dt)
+                print(log_msg)
+                print("    OPT start")
                 opt = Opt(atoms=self._atoms, outpath=self._outpath, max_froce_threshold=self._fmax, verbose=self._verbose)
                 _positions, self._noise = opt.run()
                 self._atoms.set_positions(_positions)
+                log_msg = "    VCS OPT finished after {:d} steps".format(opt._i_step)
+                print(log_msg)
 
             self._check_energy_threshold()
 
@@ -308,6 +371,9 @@ class Minimahopping:
             _i_steps += 1
             self._n_min += 1
 
+        log_msg = "    New minimum found with fpd {:1.2e} after looping {:d} time(s)".format(_escape, _i_steps)
+        print(log_msg)
+
         self.intermediate_minima.append(deepcopy(self._atoms))
         self._acc_rej = 'Inter'
         self._history_log()
@@ -317,8 +383,7 @@ class Minimahopping:
 
     def _hoplog(self):
         self._i_step += 1
-        log_msg = "LOG:  {:d}  Epot:  {:1.5f}   E_diff:  {:1.5f}    Temp:   {:1.5f} ".format(self._i_step,
-                                                                                             self._atoms.get_potential_energy(),
+        log_msg = "  Epot:  {:1.5f}   E_diff:  {:1.5f}    Temp:   {:1.5f} ".format(self._atoms.get_potential_energy(),
                                                                                              self._Ediff,
                                                                                              self._temperature)
         print(log_msg)
@@ -336,10 +401,20 @@ class Minimahopping:
                 self._atoms_cur = deepcopy(atom)
                 self._acc_rej = "Accepted"
                 self.intermediate_minima = []
+                ediff_acc = _e_pot - _e_pot_cur
             else:
                 self._Ediff *= self._alpha_r
                 self._acc_rej = "Rejected"
+                ediff_rej = _e_pot - _e_pot_cur
 
+        if self._acc_rej == "Accepted":
+            log_msg = "  Minimum was accepted:  Enew - Ecur = {:1.5f} < {:1.5f} = Ediff".format(ediff_acc,
+                                                                                                self._Ediff)
+            print(log_msg)
+        else:
+            log_msg = "  Minimum was rejected:  Enew - Ecur = {:1.5f} > {:1.5f} = Ediff".format(ediff_rej,
+                                                                                                self._Ediff)
+            print(log_msg)
 
     def _in_history_fp(self,):
         mini = Minimum(deepcopy(self._atoms),
@@ -459,9 +534,6 @@ class Minimahopping:
 
     def _write_poslow(self,):
         _i_poslow = 0
-        path = 'minima/'
-        if not os.path.exists(path):
-            os.mkdir(path)
         for s in self.all_minima_sorted:
             if s.n_visit == 1:
                 filename = 'min'+str(_i_poslow).zfill(6)
@@ -469,7 +541,7 @@ class Minimahopping:
                     filename += '.ascii'
                 else:
                     filename += '.xyz'
-                filename = path + filename
+                filename = self._minima_path + filename
                 write(filename,s.atoms)
                 _i_poslow += 1
             if _i_poslow-1 > self._n_poslow:

@@ -9,12 +9,13 @@ from optim import Opt
 from OverlapMatrixFingerprint import OverlapMatrixFingerprint as OMFP
 from cell_atom import Cell_atom
 from copy import deepcopy
+from bazant_calc import BazantCalculator
 
 
 
 
 class adjust_fp():
-    def __init__(self, atoms, fmax,iterations=10, temperature=500, dt=0.1, md_min=1, s=1, p=1, width_cutoff=1.5, exclude=[]):
+    def __init__(self, atoms, fmax,iterations=100, temperature=500, dt=0.1, md_min=1, s=1, p=1, width_cutoff=3.5, exclude=[]):
         self._atoms = deepcopy(atoms)
         self.n_steps = iterations
         self._temperature = temperature
@@ -55,7 +56,7 @@ class adjust_fp():
         self._cell_atoms = Cell_atom(mass=_mass, positions=self._atoms.get_cell())
         self._cell_atoms.set_velocities_boltzmann(temperature=self._temperature)
         md = MD(atoms=self._atoms,outpath='./', cell_atoms=self._cell_atoms, dt=self._dt, n_max=self._mdmin, verbose=self._verbose)
-        _positions, _cell = md.run()
+        _positions, _cell, self._dtt = md.run()
         self._atoms.set_positions(_positions)
         self._atoms.set_cell(_cell)
 
@@ -239,17 +240,18 @@ class adjust_fp():
 
 
 def main():
-    filename = "../../data/Na55.xyz"
+    filename = "../../data/SiC_in.extxyz"
     atoms = read(filename)
-    calculator = EAM(potential="Na_v2.eam.fs")
     # calculator = LennardJones()
     # calculator.parameters.epsilon = 1.0
     # calculator.parameters.sigma = 1.0
     # calculator.parameters.rc = 6.0
+    #calculator = EAM(potential="Na_v2.eam.fs")
+    calculator = BazantCalculator()
     atoms.calc = calculator
 
 
-    fnrm =  0.001
+    fnrm =  0.000005
     adjust = adjust_fp(atoms, fnrm,)
     fp_max, fp_mean, fp_std = adjust.run()
     msg = 'Maximal fingerprint distance between the same local minima:\n' + str(fp_max)
