@@ -13,7 +13,7 @@ from md import MD
 from optim import Opt
 from minimum import Minimum
 from cell_atom import Cell_atom
-
+import time
 
 
 """
@@ -51,6 +51,7 @@ class Minimahopping:
         'start_lowest': False, # If True the run is restarted with the lowest alredy known minimum
         'verbose' : True, # If True MD and optim. steps are written to the output (bool)
         'new_start': False, # If True the Run is restarted and written to different output folders
+        'run_time': "infinit" # String in the format D-HH:MM:SS, if infinit set run_time to infinit
     }
 
     def __init__(self, atoms, **kwargs):
@@ -92,12 +93,31 @@ class Minimahopping:
             self._write_poslow()
             self._history_log()
             self._atoms = deepcopy(self._atoms_cur)
+            self._counter += 1
             print("DONE")
             print("=================================================================")
+
+            _elapsed_time = time.time() - self._time_in
+
+            if self._run_time is not "infinit":
+                if _elapsed_time > self._run_time_sec:
+                    msg = 'Simulation stopped because the given time is over\n'
+                    msg += 'Run terminated after {:d} steps'.format(self._counter)
+                    print(msg)
+                    print("=================================================================")
+                    return
+
+
 
     def _startup(self):
         print("=================================================================")
         print("MINIMAHOPPING SETUP START")
+
+        # Convert given time to seconds
+        if self._run_time is not "infinit":
+            self._run_time_sec = self._get_sec()
+        self._time_in = time.time()
+
         # Check if run is restarted
         self.all_minima = []
         self.all_minima_sorted = []
@@ -219,7 +239,11 @@ class Minimahopping:
             _lattice = np.zeros((3,3))
         return _positions, _lattice
 
-
+    def _get_sec(self,):
+        """Get seconds from time."""
+        nd, d = self._run_time.split('-')
+        h, m, s = d.split(':')
+        return int(nd) * 86400 + int(h) * 3600 + int(m) * 60 + int(s)
 
 
     def _read_fp(self):
