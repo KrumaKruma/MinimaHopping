@@ -4,7 +4,7 @@ import lattice_operations as lat_opt
 import warnings
 from ase.io import read, write
 
-
+#todo: adjust dt automatically
 class MD():
     '''
     Velocity Verlet MD which visits n_max maxima for clusters and variable cell shape velocity Verlet MD for bulk
@@ -20,6 +20,9 @@ class MD():
             self._cell_atoms = deepcopy(cell_atoms)
         else:
             self._cell_atoms = cell_atoms
+
+        f = open(self._outpath+"MD_log.dat", "w")
+        f.close()
 
 
     def run(self):
@@ -104,11 +107,14 @@ class MD():
             _e_kin = _e_kin + 0.5 * np.sum(self._cell_masses * self._cell_atoms.velocities * self._cell_atoms.velocities)
         _e_pot = self._e_pot
         _i = self._i_steps
-        md_msg = "MD STEP:  {:d}   e_pot: {:1.5f}  e_kin:  {:1.5f}   e_tot:  {:1.5f}".format(_i,
+        md_msg = "MD STEP:  {:d}   e_pot: {:1.5f}  e_kin:  {:1.5f}   e_tot:  {:1.5f}\n".format(_i,
                                                                                              _e_pot,
                                                                                              _e_kin,
                                                                                              _e_pot + _e_kin)
-        print(md_msg)
+
+        f = open(self._outpath+"MD_log.dat", "a")
+        f.write(md_msg)
+        f.close()
         write(self._outpath + "MD.extxyz", self._atoms, append=True)
 
 

@@ -26,6 +26,9 @@ class Opt():
         self._nat = self._atoms.get_positions().shape[0]
         self._i_step = 0
 
+        f = open(self._outpath+"OPT_log.dat", "w")
+        f.close()
+
 
     def run(self):
         '''
@@ -147,12 +150,14 @@ class Opt():
         printed
         '''
         _energy = self._atoms.get_potential_energy()
-        opt_msg = "OPT Step: {:d}   energy: {:1.8f}  max_force_comp:  {:1.5e}   gain ratio:   {:1.5e}   stepsize:   {:1.5e}".format(self._i_step,
+        opt_msg = "OPT Step: {:d}   energy: {:1.8f}  max_force_comp:  {:1.5e}   gain ratio:   {:1.5e}   stepsize:   {:1.5e}\n".format(self._i_step,
                                                                                                                                     _energy,
                                                                                                                                     self._max_force_comp,
                                                                                                                                     self._optim.optimizer.gainratio,
                                                                                                                                     self._optim.optimizer.alpha)
-        print(opt_msg)
+        f = open(self._outpath+"OPT_log.dat", "a")
+        f.write(opt_msg)
+        f.close()
         write(self._outpath + "OPT.extxyz", self._atoms, append=True)
 
 
