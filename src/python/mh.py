@@ -46,7 +46,7 @@ class Minimahopping:
         'enhanced_feedback' : False, # Enhanced feedback to adjust the temperature (bool)
         'energy_threshold' : 0.00005, # Energy threshold at which a OMFP distance calculation is performed (float)
         'n_poslow' : 30, # Number of posmin files which are written in sorted order (int)
-        'minima_threshold' : 5.e-5, # Fingerprint difference for identifying identical configurations (float)
+        'minima_threshold' : 1.e-2, # Fingerprint difference for identifying identical configurations (float)
         'restart_optim' : False, # Reoptimizes all the proviously found minima which are read (bool)
         'start_lowest': False, # If True the run is restarted with the lowest alredy known minimum
         'verbose' : True, # If True MD and optim. steps are written to the output (bool)
@@ -289,13 +289,12 @@ class Minimahopping:
                 print("    VCS MD Start")
 
                 md = MD(atoms=self._atoms, outpath=self._outpath, cell_atoms=self._cell_atoms, dt=self._dt, n_max=self._mdmin, verbose=self._verbose)
-                _positions, _cell = md.run()
+                _positions, _cell , self._dt = md.run()
 
-                log_msg = "    VCS MD finished after {:d} steps visiting {:d} maxima".format(md._i_steps, self._mdmin)
+                log_msg = "    VCS MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f}".format(md._i_steps, self._mdmin, self._dt)
                 print(log_msg)
                 self._atoms.set_positions(_positions)
                 self._atoms.set_cell(_cell)
-
                 lat_opt.reshape_cell2(self._atoms, 6)
 
                 print("    VCS OPT start")
@@ -316,10 +315,10 @@ class Minimahopping:
                 print("    MD Start")
 
                 md = MD(atoms=self._atoms, outpath=self._outpath, cell_atoms=None, dt=self._dt, n_max=self._mdmin, verbose=self._verbose)
-                _positions = md.run()
+                _positions , self._dt= md.run()
                 self._atoms.set_positions(_positions)
 
-                log_msg = "    MD finished after {:d} steps visiting {:d} maxima".format(md._i_steps, self._mdmin)
+                log_msg = "    MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f} ".format(md._i_steps, self._mdmin, self._dt)
                 print(log_msg)
                 print("    OPT start")
                 opt = Opt(atoms=self._atoms, outpath=self._outpath, max_froce_threshold=self._fmax, verbose=self._verbose)

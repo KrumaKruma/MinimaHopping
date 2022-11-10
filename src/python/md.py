@@ -18,11 +18,11 @@ class MD():
         self._outpath = outpath
         if cell_atoms is not None:
             self._cell_atoms = deepcopy(cell_atoms)
+            self._nat = len(self._atoms) + 3
         else:
             self._cell_atoms = cell_atoms
+            self._nat = len(self._atoms)
 
-        f = open(self._outpath+"MD_log.dat", "w")
-        f.close()
 
 
     def run(self):
@@ -34,13 +34,14 @@ class MD():
             self._verlet_step()
             self._i_steps += 1
             self._check()
+            self._calc_etot_and_ekin()
             if self._verbose:
                 self._write()
-
+        self._adjust_dt()
         if self._cell_atoms is not None:
-            return self._atoms.get_positions(), self._atoms.get_cell()
+            return self._atoms.get_positions(), self._atoms.get_cell(), self._dt
         else:
-            return self._atoms.get_positions()
+            return self._atoms.get_positions(), self._dt
 
 
     def _initialize(self,):
@@ -49,6 +50,8 @@ class MD():
         '''
         if self._verbose:
             write(self._outpath + "MD.extxyz", self._atoms)
+            f = open(self._outpath + "MD_log.dat", "w")
+            f.close()
         self._masses = self._atoms.get_masses()[:, np.newaxis]/ self._atoms.get_masses()[:, np.newaxis]  # for the moment no masses
         self._forces = self._atoms.get_forces()
         self._e_pot = self._atoms.get_potential_energy()
@@ -60,6 +63,10 @@ class MD():
             _stress_tensor = self._atoms.get_stress(voigt=False,apply_constraint=False)
             _lattice = self._atoms.get_cell()
             self._lattice_force = lat_opt.lattice_derivative(_stress_tensor, _lattice)
+        self._etot_max = -1e10
+        self._etot_min = 1e10
+        self._calc_etot_and_ekin()
+        self._target_e_kin = self._e_kin
 
 
     def _verlet_step(self):
@@ -97,20 +104,41 @@ class MD():
                 self._n_change += 1
             self._e_pot = _e_pot_new
 
+
+    def _calc_etot_and_ekin(self):
+        _e_kin = 0.5 * np.sum(self._masses * self._atoms.get_velocities() * self._atoms.get_velocities())
+        if self._cell_atoms is not None:
+            _e_kin = _e_kin + 0.5 * np.sum(self._cell_masses * self._cell_atoms.velocities * self._cell_atoms.velocities)
+        self._e_kin = _e_kin
+        self._e_tot = self._e_kin + self._e_pot
+
+        if self._e_tot > self._etot_max:
+            self._etot_max = self._e_tot
+
+        if self._e_tot < self._etot_min:
+            self._etot_min = self._e_tot
+
+
+    def _adjust_dt(self):
+        _defcon = (self._etot_max - self._etot_min)/(3 * self._nat)
+
+        if (_defcon/self._target_e_kin) < 3e-2:
+            self._dt *= 1.05
+        else:
+            self._dt *= 1./1.05
+
+
     def _write(self):
         '''
         Write each MD step into a file and print epot, ekin and etot. The file is overwritten each time the MD is
         started
         '''
-        _e_kin = 0.5 * np.sum(self._masses * self._atoms.get_velocities() * self._atoms.get_velocities())
-        if self._cell_atoms is not None:
-            _e_kin = _e_kin + 0.5 * np.sum(self._cell_masses * self._cell_atoms.velocities * self._cell_atoms.velocities)
-        _e_pot = self._e_pot
         _i = self._i_steps
-        md_msg = "MD STEP:  {:d}   e_pot: {:1.5f}  e_kin:  {:1.5f}   e_tot:  {:1.5f}\n".format(_i,
-                                                                                             _e_pot,
-                                                                                             _e_kin,
-                                                                                             _e_pot + _e_kin)
+        md_msg = "MD STEP:  {:d}   e_pot: {:1.5f}  e_kin:  {:1.5f}   e_tot:  {:1.5f}  dt:  {:1.5f}\n".format(_i,
+                                                                                             self._e_pot,
+                                                                                             self._e_kin,
+                                                                                             self._e_tot,
+                                                                                             self._dt)
 
         f = open(self._outpath+"MD_log.dat", "a")
         f.write(md_msg)
