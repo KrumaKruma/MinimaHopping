@@ -27,6 +27,7 @@ Parts of the software were originally developped (some in Fortran) from other pe
 
 
 class Minimahopping:
+    #todo: time the software to return after given time
     _default_settings = {
         'T0' : 2000.,  # Initital temperature in Kelvin (float)
         'beta_decrease': 1. / 1.1,  # temperature adjustment parameter (float)
@@ -49,6 +50,7 @@ class Minimahopping:
         'restart_optim' : False, # Reoptimizes all the proviously found minima which are read (bool)
         'start_lowest': False, # If True the run is restarted with the lowest alredy known minimum
         'verbose' : True, # If True MD and optim. steps are written to the output (bool)
+        'new_start': False, # If True the Run is restarted and written to different output folders
     }
 
     def __init__(self, atoms, **kwargs):
@@ -67,6 +69,7 @@ class Minimahopping:
 
     def __call__(self, totalsteps = None):
         self._startup()
+        #todo: better coding convertion with the while true loop
         while True:
             if (self._counter >= totalsteps):
                 msg = 'Run terminated after {:d} steps'.format(totalsteps)
@@ -103,11 +106,17 @@ class Minimahopping:
         if not os.path.exists(self._outpath):
             os.mkdir(self._outpath)
 
+        self._minima_path = 'minima/'
+        if not os.path.exists(self._minima_path):
+            os.mkdir(self._minima_path)
+
         _is_acc_minima = os.path.exists(self._outpath + 'acc.extxyz')
         _is_unique_minima = os.path.exists(self._outpath + 'min.extxyz')
         _is_history = os.path.exists(self._outpath + 'history.dat')
         if _is_unique_minima and _is_history:
             _is_restart = True
+            if self._new_start:
+                _is_restart = False
         else:
             is_files = {_is_history, _is_unique_minima}
             assert len(is_files)==1, 'Some but not all files exist for a restart.'
@@ -452,9 +461,6 @@ class Minimahopping:
 
     def _write_poslow(self,):
         _i_poslow = 0
-        path = 'minima/'
-        if not os.path.exists(path):
-            os.mkdir(path)
         for s in self.all_minima_sorted:
             if s.n_visit == 1:
                 filename = 'min'+str(_i_poslow).zfill(6)
@@ -462,7 +468,7 @@ class Minimahopping:
                     filename += '.ascii'
                 else:
                     filename += '.xyz'
-                filename = path + filename
+                filename = self._minima_path + filename
                 write(filename,s.atoms)
                 _i_poslow += 1
             if _i_poslow-1 > self._n_poslow:
