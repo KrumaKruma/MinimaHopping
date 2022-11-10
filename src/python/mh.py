@@ -27,7 +27,6 @@ Parts of the software were originally developped (some in Fortran) from other pe
 
 
 class Minimahopping:
-    #todo: time the software to return after given time
     _default_settings = {
         'T0' : 2000.,  # Initital temperature in Kelvin (float)
         'beta_decrease': 1. / 1.1,  # temperature adjustment parameter (float)
@@ -70,13 +69,8 @@ class Minimahopping:
 
     def __call__(self, totalsteps = None):
         self._startup()
-        #todo: better coding convertion with the while true loop
-        while True:
+        while (self._counter <= totalsteps):
             print("START HOPPING STEP")
-            if (self._counter >= totalsteps):
-                msg = 'Run terminated after {:d} steps'.format(totalsteps)
-                print(msg)
-                return
             print("  Start escape loop")
             print("  ---------------------------------------------------------------")
             self._escape()
@@ -107,7 +101,20 @@ class Minimahopping:
                     print("=================================================================")
                     return
 
-
+        _elapsed_time = time.time() - self._time_in
+        day = _elapsed_time // (24 * 3600)
+        _elapsed_time = _elapsed_time % (24 * 3600)
+        hour = _elapsed_time // 3600
+        _elapsed_time %= 3600
+        minutes = _elapsed_time // 60
+        _elapsed_time %= 60
+        seconds = _elapsed_time
+        msg = 'Run terminated after {:d} steps in {:d}D {:d}H {:d}M {:d}S'.format(totalsteps,
+                                                                                int(day),
+                                                                                int(hour),
+                                                                                int(minutes),
+                                                                                int(seconds))
+        print(msg)
 
     def _startup(self):
         print("=================================================================")
