@@ -69,7 +69,7 @@ class Minimahopping:
 
     def __call__(self, totalsteps = None):
         atoms = deepcopy(self._atoms)
-        atoms = self._startup(atoms,)
+        atoms, atoms_cur= self._startup(atoms,)
         while (self._counter <= totalsteps):
             print("START HOPPING STEP")
             print("  Start escape loop")
@@ -77,7 +77,7 @@ class Minimahopping:
             atoms = self._escape(atoms,)
             print("  ---------------------------------------------------------------")
             print("  New minimum found!")
-            self._acc_rej_step()
+            atoms_cur = self._acc_rej_step(atoms_cur)
             self._hoplog(atoms)
             self._n_visits = self._in_history_fp(atoms)
             log_msg = "  New minimum has been found {:d} time(s)".format(self._n_visits)
@@ -87,7 +87,7 @@ class Minimahopping:
             self._update_data(atoms)
             self._write_poslow()
             self._history_log(atoms)
-            atoms = deepcopy(self._atoms_cur)
+            atoms = deepcopy(atoms_cur)
             self._counter += 1
             print("DONE")
             print("=================================================================")
@@ -174,7 +174,7 @@ class Minimahopping:
                 atoms = unique_minima[-1]
 
             if os.path.exists(self._outpath + 'fp.dat') and not self._restart_optim:
-                fps = self._read_fp()
+                fps = self._read_fp(atoms)
                 assert len(fps) == len(unique_minima), 'FP and minima file have not the same length, delete fp file for fp recalculation'
 
                 for fp, atom in zip(fps, unique_minima):
@@ -200,7 +200,7 @@ class Minimahopping:
 
 
             if self._restart_optim:
-                _positions, _lattice = self._restart_opt(self._atoms)
+                _positions, _lattice = self._restart_opt(atoms)
                 atoms.set_positions(_positions)
                 atoms.set_cell(_lattice)
 
@@ -221,26 +221,26 @@ class Minimahopping:
         else:
             msg = '  New MH run is started'
             print(msg)
-            _positions, _lattice = self._restart_opt(self._atoms)
+            _positions, _lattice = self._restart_opt(atoms)
             atoms.set_positions(_positions)
             atoms.set_cell(_lattice)
-            write(self._outpath + "acc.extxyz", self._atoms, append=True)
+            write(self._outpath + "acc.extxyz", atoms, append=True)
 
-        self._atoms_cur = deepcopy(atoms)
+        atoms_cur = deepcopy(atoms)
         self._n_visits = 1
         self._acc_rej = 'Initial'
-        self._history_log(self._atoms_cur)
+        self._history_log(atoms_cur)
 
         print("DONE")
         print("=================================================================")
-        return deepcopy(atoms)
+        return deepcopy(atoms), deepcopy(atoms_cur)
 
 
 
     def _restart_opt(self, atoms,):
         _atoms = deepcopy(atoms)
         opt = Opt(atoms=_atoms, outpath=self._outpath,max_froce_threshold=self._fmax, verbose=self._verbose)
-        if True in self._atoms.pbc:
+        if True in atoms.pbc:
             _positions, _lattice, _noise = opt.run()
         else:
             _positions, _noise = opt.run()
@@ -254,12 +254,12 @@ class Minimahopping:
         return int(nd) * 86400 + int(h) * 3600 + int(m) * 60 + int(s)
 
 
-    def _read_fp(self):
+    def _read_fp(self, atoms,):
         fp_file = open(self._outpath + 'fp.dat', 'r')
         fps = []
-        if True in self._atoms.pbc:
+        if True in atoms.pbc:
             fp_array = []
-            nat = len(self._atoms)
+            nat = len(atoms)
             for i, line in enumerate(fp_file):
                 fp_vector = []
                 vector = line.split()
@@ -292,7 +292,7 @@ class Minimahopping:
         _escape = 0.0
         _escape_energy = 0.0
         _fp_in = self._get_OMFP(atoms,s=self._ns_orb, p=self._np_orb, width_cutoff=self._width_cutoff)
-        _energy_in = self._atoms.get_potential_energy()
+        _energy_in = atoms.get_potential_energy()
         _beta_s = 1.05
         _temperature_in = self._temperature
         _i_steps = 0
@@ -308,7 +308,7 @@ class Minimahopping:
 
             MaxwellBoltzmannDistribution(atoms, temperature_K=self._temperature)
 
-            if True in self._atoms.pbc:
+            if True in atoms.pbc:
                 _mass = .75 * np.sum(atoms.get_masses()) / 10.
                 self._cell_atoms = Cell_atom(mass=_mass, positions=atoms.get_cell())
                 self._cell_atoms.set_velocities_boltzmann(temperature=self._temperature)
@@ -343,7 +343,7 @@ class Minimahopping:
             else:
                 softening = Softening(atoms)
                 _velocities = softening.run(self._n_soft)
-                self._atoms.set_velocities(_velocities)
+                atoms.set_velocities(_velocities)
 
                 print("    MD Start")
 
@@ -392,15 +392,15 @@ class Minimahopping:
 
 
 
-    def _acc_rej_step(self,):
-        _e_pot_cur = self._atoms_cur.get_potential_energy()
+    def _acc_rej_step(self, atoms_cur):
+        _e_pot_cur = atoms_cur.get_potential_energy()
         idebug = 0
         for atom in self.intermediate_minima:
             _e_pot = atom.get_potential_energy()
             idebug += 1
             if _e_pot - _e_pot_cur < self._Ediff:
                 self._Ediff *= self._alpha_a
-                self._atoms_cur = deepcopy(atom)
+                atoms_cur = deepcopy(atom)
                 self._acc_rej = "Accepted"
                 self.intermediate_minima = []
                 ediff_acc = _e_pot - _e_pot_cur
@@ -417,6 +417,7 @@ class Minimahopping:
             log_msg = "  Minimum was rejected:  Enew - Ecur = {:1.5f} > {:1.5f} = Ediff".format(ediff_rej,
                                                                                                 self._Ediff)
             print(log_msg)
+        return atoms_cur
 
     def _in_history_fp(self,atoms):
         mini = Minimum(deepcopy(atoms),
@@ -473,12 +474,12 @@ class Minimahopping:
             self._temperature = self._temperature * self._beta_decrease
             self.unique_minima.append(deepcopy(atoms))
             write(self._outpath + "min.extxyz", self.unique_minima[-1],  append=True)
-            self._write_fp()
+            self._write_fp(atoms)
 
 
-    def _write_fp(self):
+    def _write_fp(self, atoms):
         fp_file = open(self._outpath + 'fp.dat', 'a')
-        if True in self._atoms.pbc:
+        if True in atoms.pbc:
             for env in self._fp:
                 for num in env:
                     fp_w = str(num) + '  '
