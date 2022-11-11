@@ -68,25 +68,26 @@ class Minimahopping:
         self._counter = 0
 
     def __call__(self, totalsteps = None):
-        self._startup()
+        atoms = deepcopy(self._atoms)
+        atoms = self._startup(atoms,)
         while (self._counter <= totalsteps):
             print("START HOPPING STEP")
             print("  Start escape loop")
             print("  ---------------------------------------------------------------")
-            self._escape()
+            atoms = self._escape(atoms,)
             print("  ---------------------------------------------------------------")
             print("  New minimum found!")
             self._acc_rej_step()
-            self._hoplog()
-            self._n_visits = self._in_history_fp()
+            self._hoplog(atoms)
+            self._n_visits = self._in_history_fp(atoms)
             log_msg = "  New minimum has been found {:d} time(s)".format(self._n_visits)
             print(log_msg)
             print("  Write restart files")
-            self._adj_temperature()
-            self._update_data()
+            self._adj_temperature(atoms)
+            self._update_data(atoms)
             self._write_poslow()
-            self._history_log()
-            self._atoms = deepcopy(self._atoms_cur)
+            self._history_log(atoms)
+            atoms = deepcopy(self._atoms_cur)
             self._counter += 1
             print("DONE")
             print("=================================================================")
@@ -116,7 +117,7 @@ class Minimahopping:
                                                                                 int(seconds))
         print(msg)
 
-    def _startup(self):
+    def _startup(self, atoms):
         print("=================================================================")
         print("MINIMAHOPPING SETUP START")
 
@@ -161,16 +162,16 @@ class Minimahopping:
         if _is_restart:
             msg = '  Restart of previous run'
             print(msg)
-            calc = self._atoms.calc
+            calc = atoms.calc
 
             unique_minima = read(self._outpath + "min.extxyz", index=':')
             if _is_acc_minima:
                 accepted_minima = read(self._outpath + "acc.extxyz", index=':')
-                self._atoms = accepted_minima[-1]
+                atoms = accepted_minima[-1]
             else:
                 warn_msg = 'No previous accepted minima detected restart at last found minimum'
                 warnings.warn(warn_msg, UserWarning)
-                self._atoms = unique_minima[-1]
+                atoms = unique_minima[-1]
 
             if os.path.exists(self._outpath + 'fp.dat') and not self._restart_optim:
                 fps = self._read_fp()
@@ -200,14 +201,14 @@ class Minimahopping:
 
             if self._restart_optim:
                 _positions, _lattice = self._restart_opt(self._atoms)
-                self._atoms.set_positions(_positions)
-                self._atoms.set_cell(_lattice)
+                atoms.set_positions(_positions)
+                atoms.set_cell(_lattice)
 
             self.all_minima_sorted.sort()
             if self._start_lowest:
-                self._atoms = self.all_minima_sorted[0].atoms
+                atoms = self.all_minima_sorted[0].atoms
 
-            self._atoms.calc = calc
+            atoms.calc = calc
 
             _history_file = open(self._outpath + 'history.dat', 'r')
             self.history = []
@@ -221,22 +222,22 @@ class Minimahopping:
             msg = '  New MH run is started'
             print(msg)
             _positions, _lattice = self._restart_opt(self._atoms)
-            self._atoms.set_positions(_positions)
-            self._atoms.set_cell(_lattice)
+            atoms.set_positions(_positions)
+            atoms.set_cell(_lattice)
             write(self._outpath + "acc.extxyz", self._atoms, append=True)
 
-        self._atoms_cur = deepcopy(self._atoms)
+        self._atoms_cur = deepcopy(atoms)
         self._n_visits = 1
         self._acc_rej = 'Initial'
-        self._history_log()
+        self._history_log(self._atoms_cur)
 
         print("DONE")
         print("=================================================================")
+        return deepcopy(atoms)
 
 
 
-
-    def _restart_opt(self, atoms, ):
+    def _restart_opt(self, atoms,):
         _atoms = deepcopy(atoms)
         opt = Opt(atoms=_atoms, outpath=self._outpath,max_froce_threshold=self._fmax, verbose=self._verbose)
         if True in self._atoms.pbc:
@@ -284,13 +285,13 @@ class Minimahopping:
 
 
 
-    def _escape(self):
+    def _escape(self, atoms):
         """
         Escape loop to find a new minimum
         """
         _escape = 0.0
         _escape_energy = 0.0
-        _fp_in = self._get_OMFP(self._atoms,s=self._ns_orb, p=self._np_orb, width_cutoff=self._width_cutoff)
+        _fp_in = self._get_OMFP(atoms,s=self._ns_orb, p=self._np_orb, width_cutoff=self._width_cutoff)
         _energy_in = self._atoms.get_potential_energy()
         _beta_s = 1.05
         _temperature_in = self._temperature
@@ -300,73 +301,74 @@ class Minimahopping:
             if _i_steps > 0:
                 self._n_same += 1
                 self._acc_rej = 'Same'
-                self._history_log()
+                self._history_log(atoms)
                 self._temperature *= _beta_s
                 log_msg = "    Same minimum found with fpd {:1.2e} {:d} time(s). Increase temperature to {:1.5f}".format(_escape, self._n_same, self._temperature)
                 print(log_msg)
 
-            MaxwellBoltzmannDistribution(self._atoms, temperature_K=self._temperature)
+            MaxwellBoltzmannDistribution(atoms, temperature_K=self._temperature)
 
             if True in self._atoms.pbc:
-                _mass = .75 * np.sum(self._atoms.get_masses()) / 10.
-                self._cell_atoms = Cell_atom(mass=_mass, positions=self._atoms.get_cell())
+                _mass = .75 * np.sum(atoms.get_masses()) / 10.
+                self._cell_atoms = Cell_atom(mass=_mass, positions=atoms.get_cell())
                 self._cell_atoms.set_velocities_boltzmann(temperature=self._temperature)
 
-                softening = Softening(self._atoms, self._cell_atoms)
+                softening = Softening(atoms, self._cell_atoms)
                 _velocities, _cell_velocities = softening.run(self._n_soft)
-                self._atoms.set_velocities(_velocities)
+                atoms.set_velocities(_velocities)
                 self._cell_atoms.velocities = _cell_velocities
 
                 print("    VCS MD Start")
 
-                md = MD(atoms=self._atoms, outpath=self._outpath, cell_atoms=self._cell_atoms, dt=self._dt, n_max=self._mdmin, verbose=self._verbose)
+                md = MD(atoms=atoms, outpath=self._outpath, cell_atoms=self._cell_atoms, dt=self._dt, n_max=self._mdmin, verbose=self._verbose)
                 _positions, _cell , self._dt = md.run()
 
                 log_msg = "    VCS MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f}".format(md._i_steps, self._mdmin, self._dt)
                 print(log_msg)
-                self._atoms.set_positions(_positions)
-                self._atoms.set_cell(_cell)
-                lat_opt.reshape_cell2(self._atoms, 6)
+                atoms.set_positions(_positions)
+                atoms.set_cell(_cell)
+                #todo: nicer reshape cell with deepcopy and so on...
+                lat_opt.reshape_cell2(atoms, 6)
 
                 print("    VCS OPT start")
 
-                opt = Opt(atoms=self._atoms, outpath=self._outpath, max_froce_threshold=self._fmax, verbose=self._verbose)
+                opt = Opt(atoms=atoms, outpath=self._outpath, max_froce_threshold=self._fmax, verbose=self._verbose)
                 _positions, _lattice, self._noise = opt.run()
-                self._atoms.set_positions(_positions)
-                self._atoms.set_cell(_lattice)
+                atoms.set_positions(_positions)
+                atoms.set_cell(_lattice)
 
                 log_msg = "    VCS OPT finished after {:d} steps".format(opt._i_step)
                 print(log_msg)
 
             else:
-                softening = Softening(self._atoms)
+                softening = Softening(atoms)
                 _velocities = softening.run(self._n_soft)
                 self._atoms.set_velocities(_velocities)
 
                 print("    MD Start")
 
-                md = MD(atoms=self._atoms, outpath=self._outpath, cell_atoms=None, dt=self._dt, n_max=self._mdmin, verbose=self._verbose)
+                md = MD(atoms=atoms, outpath=self._outpath, cell_atoms=None, dt=self._dt, n_max=self._mdmin, verbose=self._verbose)
                 _positions , self._dt= md.run()
-                self._atoms.set_positions(_positions)
+                atoms.set_positions(_positions)
 
                 log_msg = "    MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f} ".format(md._i_steps, self._mdmin, self._dt)
                 print(log_msg)
                 print("    OPT start")
-                opt = Opt(atoms=self._atoms, outpath=self._outpath, max_froce_threshold=self._fmax, verbose=self._verbose)
+                opt = Opt(atoms=atoms, outpath=self._outpath, max_froce_threshold=self._fmax, verbose=self._verbose)
                 _positions, self._noise = opt.run()
-                self._atoms.set_positions(_positions)
+                atoms.set_positions(_positions)
                 log_msg = "    VCS OPT finished after {:d} steps".format(opt._i_step)
                 print(log_msg)
 
             self._check_energy_threshold()
 
-            _fp_out = self._get_OMFP(self._atoms, s=self._ns_orb, p=self._np_orb, width_cutoff=self._width_cutoff)
-            _energy_out = self._atoms.get_potential_energy()
+            _fp_out = self._get_OMFP(atoms, s=self._ns_orb, p=self._np_orb, width_cutoff=self._width_cutoff)
+            _energy_out = atoms.get_potential_energy()
             self._fp = _fp_out
             _escape = self.fp_distance(_fp_in, _fp_out) / _fp_out.shape[0]
             _escape_energy = abs(_energy_in - _energy_out)
 
-            write(self._outpath + 'locm.extxyz', self._atoms, append=True)
+            write(self._outpath + 'locm.extxyz', atoms, append=True)
 
             _i_steps += 1
             self._n_min += 1
@@ -374,16 +376,16 @@ class Minimahopping:
         log_msg = "    New minimum found with fpd {:1.2e} after looping {:d} time(s)".format(_escape, _i_steps)
         print(log_msg)
 
-        self.intermediate_minima.append(deepcopy(self._atoms))
+        self.intermediate_minima.append(deepcopy(atoms))
         self._acc_rej = 'Inter'
-        self._history_log()
+        self._history_log(atoms)
 
-        #self._temperature = _temperature_in
+        return deepcopy(atoms)
 
 
-    def _hoplog(self):
+    def _hoplog(self, atoms):
         self._i_step += 1
-        log_msg = "  Epot:  {:1.5f}   E_diff:  {:1.5f}    Temp:   {:1.5f} ".format(self._atoms.get_potential_energy(),
+        log_msg = "  Epot:  {:1.5f}   E_diff:  {:1.5f}    Temp:   {:1.5f} ".format(atoms.get_potential_energy(),
                                                                                              self._Ediff,
                                                                                              self._temperature)
         print(log_msg)
@@ -396,7 +398,7 @@ class Minimahopping:
         for atom in self.intermediate_minima:
             _e_pot = atom.get_potential_energy()
             idebug += 1
-            if  _e_pot - _e_pot_cur < self._Ediff:
+            if _e_pot - _e_pot_cur < self._Ediff:
                 self._Ediff *= self._alpha_a
                 self._atoms_cur = deepcopy(atom)
                 self._acc_rej = "Accepted"
@@ -416,15 +418,15 @@ class Minimahopping:
                                                                                                 self._Ediff)
             print(log_msg)
 
-    def _in_history_fp(self,):
-        mini = Minimum(deepcopy(self._atoms),
+    def _in_history_fp(self,atoms):
+        mini = Minimum(deepcopy(atoms),
                        n_visit=-1,
                        fingerprint=self._fp,
                        T=self._temperature,
                        ediff=self._Ediff,
                        acc_rej=self._acc_rej)
         _i_start = bisect.bisect(self.all_minima_sorted, mini)
-        _epot = self._atoms.get_potential_energy()
+        _epot = atoms.get_potential_energy()
         _fp1 = self._fp
         i = 1
 
@@ -459,7 +461,7 @@ class Minimahopping:
                     i += 1
         return i
 
-    def _adj_temperature(self,):
+    def _adj_temperature(self,atoms):
         if self._n_visits > 1:
             self._n_notunique += 1
             if self._enhanced_feedback:
@@ -469,7 +471,7 @@ class Minimahopping:
         else:
             self._n_unique += 1
             self._temperature = self._temperature * self._beta_decrease
-            self.unique_minima.append(deepcopy(self._atoms))
+            self.unique_minima.append(deepcopy(atoms))
             write(self._outpath + "min.extxyz", self.unique_minima[-1],  append=True)
             self._write_fp()
 
@@ -492,12 +494,12 @@ class Minimahopping:
 
 
 
-    def _update_data(self):
+    def _update_data(self, atoms):
         if self._acc_rej == "Accepted":
-            self.accepted_minima.append(deepcopy(self._atoms))
+            self.accepted_minima.append(deepcopy(atoms))
             write(self._outpath + "acc.extxyz", self.accepted_minima[-1], append=True)
 
-        mini = Minimum(deepcopy(self._atoms),
+        mini = Minimum(deepcopy(atoms),
                                        n_visit=self._n_visits,
                                        fingerprint=self._fp,
                                        T=self._temperature,
@@ -506,12 +508,12 @@ class Minimahopping:
         self.all_minima.append(mini)
         bisect.insort(self.all_minima_sorted, mini)
 
-    def _history_log(self):
+    def _history_log(self, atoms):
         _notunique_frac = float(self._n_notunique)/float(self._n_min)
         _same_frac = float(self._n_same)/float(self._n_min)
         _unique_frac = 1. - (_notunique_frac+_same_frac)
 
-        history_msg = "{:1.9f}  {:d}  {:1.5f}  {:1.5f}  {:1.2f}  {:1.2f}  {:1.2f} {:s} \n".format(self._atoms.get_potential_energy(),
+        history_msg = "{:1.9f}  {:d}  {:1.5f}  {:1.5f}  {:1.2f}  {:1.2f}  {:1.2f} {:s} \n".format(atoms.get_potential_energy(),
                                                                         self._n_visits,
                                                                         self._temperature,
                                                                         self._Ediff,
