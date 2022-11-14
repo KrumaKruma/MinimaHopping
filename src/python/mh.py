@@ -329,8 +329,8 @@ class Minimahopping:
                 print(log_msg)
                 atoms.set_positions(_positions)
                 atoms.set_cell(_cell)
-                #todo: nicer reshape cell with deepcopy and so on...
-                lat_opt.reshape_cell2(atoms, 6)
+
+                atoms = lat_opt.reshape_cell2(atoms, 6)
 
                 print("    VCS OPT start")
 

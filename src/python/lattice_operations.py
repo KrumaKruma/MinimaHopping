@@ -1,5 +1,5 @@
 import numpy as np
-
+from copy import deepcopy
 
 
 def lattice_derivative(stress_tensor, cell):
@@ -73,7 +73,7 @@ def frac2cart(reduced_positions, cell):
     return positions
 
 
-def reshape_cell2(atoms, imax):
+def reshape_cell2(atoms_in, imax):
     """
     Function that reshapes the cell so that the cell is as cubic as possible
     Input:
@@ -84,6 +84,7 @@ def reshape_cell2(atoms, imax):
     Return:
         atoms object with the changed cell
     """
+    atoms = deepcopy(atoms_in)
     lattice_in = atoms.get_cell().T
     positions_in = atoms.get_positions().T
     nat = atoms.get_global_number_of_atoms()
@@ -133,7 +134,7 @@ def reshape_cell2(atoms, imax):
     atoms.set_positions(positions.T)
     atoms.set_cell(lattice.T, scale_atoms=False, apply_constraint=False)
 
-    return None
+    return deepcopy(atoms)
 
 
 def reshape_cell_ascii(lattice_in, imax):
