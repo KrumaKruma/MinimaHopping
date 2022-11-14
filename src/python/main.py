@@ -15,7 +15,7 @@ def main():
     atoms.calc = calculator
 
     mh = Minimahopping(atoms, verbose=True)
-    mh(totalsteps=30)
+    mh(totalsteps=1000)
 
 
 
