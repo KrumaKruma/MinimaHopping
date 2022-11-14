@@ -74,8 +74,7 @@ class Minimahopping:
             print("START HOPPING STEP")
             print("  Start escape loop")
             print("  ---------------------------------------------------------------")
-            #todo: max_epot from md in escape / trajectory of md and geopt (0.2 coordinate shift)
-            atoms = self._escape(atoms,)
+            atoms, epot_max, md_trajectory, opt_trajectory = self._escape(atoms,)
             print("  ---------------------------------------------------------------")
             print("  New minimum found!")
             atoms_cur = self._acc_rej_step(atoms_cur)
@@ -336,7 +335,7 @@ class Minimahopping:
                 print("    VCS OPT start")
 
                 opt = Opt(atoms=atoms, outpath=self._outpath, max_froce_threshold=self._fmax, verbose=self._verbose)
-                _positions, _lattice, self._noise, _opt_trajectory = opt.run()
+                _positions, _lattice, self._noise, _opt_trajectory, _epot_max = opt.run()
                 atoms.set_positions(_positions)
                 atoms.set_cell(_lattice)
 
@@ -351,7 +350,7 @@ class Minimahopping:
                 print("    MD Start")
 
                 md = MD(atoms=atoms, outpath=self._outpath, cell_atoms=None, dt=self._dt, n_max=self._mdmin, verbose=self._verbose)
-                _positions , self._dt, _md_trajectory = md.run()
+                _positions , self._dt, _md_trajectory, _epot_max = md.run()
                 atoms.set_positions(_positions)
 
                 log_msg = "    MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f}".format(md._i_steps, self._mdmin, self._dt)
@@ -382,7 +381,7 @@ class Minimahopping:
         self._acc_rej = 'Inter'
         self._history_log(atoms)
 
-        return deepcopy(atoms)
+        return deepcopy(atoms), _epot_max, _md_trajectory, _opt_trajectory
 
 
     def _hoplog(self, atoms):

@@ -41,9 +41,9 @@ class MD():
         self._adjust_dt()
         self._trajectory.append(deepcopy(self._atoms))
         if self._cell_atoms is not None:
-            return self._atoms.get_positions(), self._atoms.get_cell(), self._dt, self._trajectory
+            return self._atoms.get_positions(), self._atoms.get_cell(), self._dt, self._trajectory, self._epot_max
         else:
-            return self._atoms.get_positions(), self._dt, self._trajectory
+            return self._atoms.get_positions(), self._dt, self._trajectory, self._epot_max
 
 
     def _initialize(self,):
@@ -67,6 +67,7 @@ class MD():
             _lattice = self._atoms.get_cell()
             self._lattice_force = lat_opt.lattice_derivative(_stress_tensor, _lattice)
         self._etot_max = -1e10
+        self._epot_max = -1e10
         self._etot_min = 1e10
         self._calc_etot_and_ekin()
         self._target_e_kin = self._e_kin
@@ -92,6 +93,10 @@ class MD():
 
         if self._check_coordinate_shift():
             self._trajectory.append(deepcopy(self._atoms))
+
+        _e_pot = self._atoms.get_potential_energy()
+        if _e_pot > self._epot_max:
+            self._epot_max = _e_pot
 
 
     def _check(self):
