@@ -1,12 +1,13 @@
 
 class Minimum():
-    def __init__(self, atoms, n_visit, fingerprint, T, ediff, acc_rej):
+    def __init__(self, atoms, n_visit, fingerprint, T, ediff, acc_rej, label):
         self.atoms = atoms
         self.fingerprint = fingerprint
         self.temperature = T
         self.ediff = ediff
         self.acc_rej = acc_rej
         self.n_visit = n_visit
+        self.label = label
 
     def __lt__(self, other):
         return self.atoms.get_potential_energy() < other.atoms.get_potential_energy()
