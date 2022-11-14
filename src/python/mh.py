@@ -324,9 +324,9 @@ class Minimahopping:
                 print("    VCS MD Start")
 
                 md = MD(atoms=atoms, outpath=self._outpath, cell_atoms=self._cell_atoms, dt=self._dt, n_max=self._mdmin, verbose=self._verbose)
-                _positions, _cell , self._dt, _trajectory = md.run()
+                _positions, _cell , self._dt, _md_trajectory = md.run()
 
-                log_msg = "    VCS MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f}        {:d}".format(md._i_steps, self._mdmin, self._dt, len(_trajectory))
+                log_msg = "    VCS MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f}".format(md._i_steps, self._mdmin, self._dt)
                 print(log_msg)
                 atoms.set_positions(_positions)
                 atoms.set_cell(_cell)
@@ -336,11 +336,11 @@ class Minimahopping:
                 print("    VCS OPT start")
 
                 opt = Opt(atoms=atoms, outpath=self._outpath, max_froce_threshold=self._fmax, verbose=self._verbose)
-                _positions, _lattice, self._noise = opt.run()
+                _positions, _lattice, self._noise, _opt_trajectory = opt.run()
                 atoms.set_positions(_positions)
                 atoms.set_cell(_lattice)
 
-                log_msg = "    VCS OPT finished after {:d} steps".format(opt._i_step)
+                log_msg = "    VCS OPT finished after {:d} steps         {:d}".format(opt._i_step, len(_opt_trajectory))
                 print(log_msg)
 
             else:
@@ -351,16 +351,16 @@ class Minimahopping:
                 print("    MD Start")
 
                 md = MD(atoms=atoms, outpath=self._outpath, cell_atoms=None, dt=self._dt, n_max=self._mdmin, verbose=self._verbose)
-                _positions , self._dt, _trajectory = md.run()
+                _positions , self._dt, _md_trajectory = md.run()
                 atoms.set_positions(_positions)
 
-                log_msg = "    MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f}      {:d}".format(md._i_steps, self._mdmin, self._dt, len(_trajectory))
+                log_msg = "    MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f}".format(md._i_steps, self._mdmin, self._dt)
                 print(log_msg)
                 print("    OPT start")
                 opt = Opt(atoms=atoms, outpath=self._outpath, max_froce_threshold=self._fmax, verbose=self._verbose)
-                _positions, self._noise = opt.run()
+                _positions, self._noise, _opt_trajectory = opt.run()
                 atoms.set_positions(_positions)
-                log_msg = "    VCS OPT finished after {:d} steps".format(opt._i_step)
+                log_msg = "    VCS OPT finished after {:d} steps".format(opt._i_step, len(_opt_trajectory))
                 print(log_msg)
 
             self._check_energy_threshold()
