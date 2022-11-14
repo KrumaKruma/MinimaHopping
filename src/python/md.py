@@ -4,7 +4,6 @@ import lattice_operations as lat_opt
 import warnings
 from ase.io import read, write
 
-#todo: adjust dt automatically
 class MD():
     '''
     Velocity Verlet MD which visits n_max maxima for clusters and variable cell shape velocity Verlet MD for bulk
@@ -69,6 +68,7 @@ class MD():
         self._etot_max = -1e10
         self._epot_max = -1e10
         self._etot_min = 1e10
+        self._epot_min = 1e10
         self._calc_etot_and_ekin()
         self._target_e_kin = self._e_kin
 
@@ -97,6 +97,8 @@ class MD():
         _e_pot = self._atoms.get_potential_energy()
         if _e_pot > self._epot_max:
             self._epot_max = _e_pot
+        if _e_pot < self._epot_min:
+            self._epot_min = _e_pot
 
 
     def _check(self):
@@ -131,9 +133,9 @@ class MD():
 
 
     def _adjust_dt(self):
-        _defcon = (self._etot_max - self._etot_min)/(3 * self._nat)
-
-        if (_defcon/self._target_e_kin) < 3e-2:
+        _defcon = (self._etot_max - self._etot_min)#/(3 * self._nat)
+        #print("DEBUGG:   ", (_defcon / (self._epot_max-self._epot_min)), self._etot_max, self._etot_min,  self._epot_max, self._epot_min, self._dt)
+        if (_defcon / (self._epot_max-self._epot_min)) < 1e-2:
             self._dt *= 1.05
         else:
             self._dt *= 1./1.05
@@ -145,7 +147,7 @@ class MD():
         started
         '''
         _i = self._i_steps
-        md_msg = "MD STEP:  {:d}   e_pot: {:1.5f}  e_kin:  {:1.5f}   e_tot:  {:1.5f}  dt:  {:1.5f}\n".format(_i,
+        md_msg = "MD STEP:  {:d}   e_pot: {:1.5f}  e_kin:  {:1.5f}   e_tot:  {:1.8f}  dt:  {:1.5f}\n".format(_i,
                                                                                              self._e_pot,
                                                                                              self._e_kin,
                                                                                              self._e_tot,

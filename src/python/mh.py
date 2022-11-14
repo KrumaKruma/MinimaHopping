@@ -39,8 +39,8 @@ class Minimahopping:
         'np_orb' : 1, # number of p orbitals in OMFP fingerprint
         'width_cutoff' : 3.5, # with cutoff for OMFP fingerprint
         'exclude': [], # Elements which are to be excluded from the OMFP (list of str)
-        'dt' : 0.05, # timestep for the MD part (float)
-        'mdmin' : 2, # criteria to stop the MD trajectory (no. of minima) (int)
+        'dt' : 0.1, # timestep for the MD part (float)
+        'mdmin' : 3, # criteria to stop the MD trajectory (no. of minima) (int)
         'fmax' : 0.000005, # max force component for the local geometry optimization
         'enhanced_feedback' : False, # Enhanced feedback to adjust the temperature (bool)
         'energy_threshold' : 0.00005, # Energy threshold at which a OMFP distance calculation is performed (float)
