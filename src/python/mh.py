@@ -45,7 +45,7 @@ class Minimahopping:
         'enhanced_feedback' : False, # Enhanced feedback to adjust the temperature (bool)
         'energy_threshold' : 0.00005, # Energy threshold at which a OMFP distance calculation is performed (float)
         'n_poslow' : 30, # Number of posmin files which are written in sorted order (int)
-        'minima_threshold' : 1.e-3, # Fingerprint difference for identifying identical configurations (float)
+        'minima_threshold' : 1.e-2, # Fingerprint difference for identifying identical configurations (float)
         'restart_optim' : False, # Reoptimizes all the proviously found minima which are read (bool)
         'start_lowest': False, # If True the run is restarted with the lowest alredy known minimum
         'verbose' : True, # If True MD and optim. steps are written to the output (bool)
@@ -177,7 +177,6 @@ class Minimahopping:
                 fps = self._read_fp(atoms)
                 assert len(fps) == len(unique_minima), 'FP and minima file have not the same length, delete fp file for fp recalculation'
                 k = 0
-                # todo: read right label while restart
                 for fp, atom in zip(fps, unique_minima):
                     self.all_minima.append(
                         Minimum(deepcopy(atom), n_visit=1, fingerprint=fp, T=-100.0, ediff=-10., acc_rej='NA', label=k))
@@ -243,9 +242,9 @@ class Minimahopping:
         _atoms = deepcopy(atoms)
         opt = Opt(atoms=_atoms, outpath=self._outpath,max_froce_threshold=self._fmax, verbose=self._verbose)
         if True in atoms.pbc:
-            _positions, _lattice, _noise = opt.run()
+            _positions, _lattice, _noise, _opt_trajectory = opt.run()
         else:
-            _positions, _noise = opt.run()
+            _positions, _noise, _opt_trajectory = opt.run()
             _lattice = np.zeros((3,3))
         return _positions, _lattice
 
@@ -323,7 +322,7 @@ class Minimahopping:
                 print("    VCS MD Start")
 
                 md = MD(atoms=atoms, outpath=self._outpath, cell_atoms=self._cell_atoms, dt=self._dt, n_max=self._mdmin, verbose=self._verbose)
-                _positions, _cell , self._dt, _md_trajectory = md.run()
+                _positions, _cell , self._dt, _md_trajectory, _epot_max = md.run()
 
                 log_msg = "    VCS MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f}".format(md._i_steps, self._mdmin, self._dt)
                 print(log_msg)
@@ -335,7 +334,7 @@ class Minimahopping:
                 print("    VCS OPT start")
 
                 opt = Opt(atoms=atoms, outpath=self._outpath, max_froce_threshold=self._fmax, verbose=self._verbose)
-                _positions, _lattice, self._noise, _opt_trajectory, _epot_max = opt.run()
+                _positions, _lattice, self._noise, _opt_trajectory = opt.run()
                 atoms.set_positions(_positions)
                 atoms.set_cell(_lattice)
 
