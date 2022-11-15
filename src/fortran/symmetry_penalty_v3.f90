@@ -1,130 +1,130 @@
 
-program testf2p
-  implicit none
-  integer, parameter :: nat = 16
-  integer, parameter:: natx_sphere=40! = 35  ! maximum number of atoms in the sphere
-  integer, parameter :: ns =1, np=1 !  = 1 = 1
-  integer :: num_cat=1 !Number of atom enviroments per chemical element (e.g. two different enviroments for C atoms)
-  integer :: nex_cutoff=2
-  character(len=2):: atomnames(nat)
-  real*8, dimension(3, nat) :: rxyz !atomic input positions (unchange on output)
-  real*8, dimension(3, 3) :: alat ! three column vectors specifying the cell vectors
-  real*8 :: width_cutoff =4.0d0
-  integer :: lengthfp = 160
-  integer :: nat_sphere_current_max
-
-  real*8:: penalty
-  real*8, dimension(3, nat) :: dpenaldr ! derivative of penalty function with respect to all atomic positions
-  real*8 :: dpenaldalat(3,3)
-
-  character(len=150) :: PosFile
-
-  real*8 :: Bohr_Ang=0.529177d0  ! Conversion factor Bohr to angstroem
-
-  ! if (file_format_ascii_logical) then !.ascii case
-  PosFile = 'poscur.ascii'
-  ! else !.xyz type
-  !   PosFile = 'poscur.xyz'
-  ! end if
-
-  call read_ascii_extern(PosFile, rxyz, alat, nat, atomnames)
-
-  ! rxyz = rxyz / Bohr_Ang
-  ! alat = alat / Bohr_Ang
-
-
-  call SymmetryPenalty_v3(nat, alat, rxyz, atomnames, natx_sphere, ns, np, width_cutoff, num_cat, nex_cutoff, &
-                             lengthfp, nat_sphere_current_max, dpenaldr, penalty, dpenaldalat)
-
-  write(*,*) penalty, 'penalty'
-  write(*,*) 'dpenaldr'
-  write(*,*) dpenaldr
-  write(*,*) 'dpenaldalat'
-  write(*,*) dpenaldalat
-
-end program testf2p
-
-
-subroutine read_ascii_extern(filename, rxyz, alat, nat, atomnames)
-  implicit none
-  !! reads an ascii file with the specified filename units are assumed to be angstroem.
-  !! units are convertet to hartree units before they are returned
-  character(len=*), intent(in) :: filename
-  !! filename of the file which is created
-  integer, intent(in) :: nat
-  !! number of atoms
-  real*8, dimension(3, nat) :: rxyz
-  !! atom positions
-  real*8, dimension(3, 3) :: alat
-  !! lattice vectors
-  character(len=2) :: atomnames(nat)
-  !! String containing the chemical symbol of each atom.
-  integer :: i, io, ios
-  character(len=150) :: all_line
-  real*8 :: alat_temp(2, 3)
-  real*8 :: Bohr_Ang = 0.529177249d0
-
-  open (newunit=io, file=trim(adjustl(filename)), iostat=ios, status="old")
-  if (ios /= 0) then
-    print *, "error opening ascii file: "//filename
-    stop
-  end if
-  read (io, *, iostat=ios) all_line
-  if (ios /= 0) then
-    print *, trim(adjustl(filename)), ios
-    stop "error reading file "
-  end if
-  read (io, *, iostat=ios) alat_temp(1, 1), alat_temp(1, 2), alat_temp(1, 3)
-  read (io, *, iostat=ios) alat_temp(2, 1), alat_temp(2, 2), alat_temp(2, 3)
-  if (ios /= 0) stop "reading lattice vectors"
-  alat = 0.0
-  alat(1, 1) = alat_temp(1, 1)
-  alat(1, 2) = alat_temp(1, 2)
-  alat(2, 2) = alat_temp(1, 3)
-  alat(1, 3) = alat_temp(2, 1)
-  alat(2, 3) = alat_temp(2, 2)
-  alat(3, 3) = alat_temp(2, 3)
-  i = 1
-  do while (i <= nat)
-    read (io, *, iostat=ios) rxyz(1, i), rxyz(2, i), rxyz(3, i), atomnames(i)
-    if (ios > 0) then
-      print *, rxyz(:, i), atomnames(i)
-      cycle
-    end if
-    if (ios < 0) then
-      print *, "end of file in read ascii, file: "//filename
-      stop
-    end if
-    i = i + 1
-  end do
-  close (io)
-  alat = alat/Bohr_Ang
-  rxyz = rxyz/Bohr_Ang
-end subroutine read_ascii_extern
+! program testf2p
+!   implicit none
+!   integer, parameter :: nat = 16
+!   integer, parameter:: natx_sphere=40! = 35  ! maximum number of atoms in the sphere
+!   integer, parameter :: ns =1, np=1 !  = 1 = 1
+!   integer :: num_cat=1 !Number of atom enviroments per chemical element (e.g. two different enviroments for C atoms)
+!   integer :: nex_cutoff=2
+!   character(len=2):: atomnames(nat)
+!   real*8, dimension(3, nat) :: rxyz !atomic input positions (unchange on output)
+!   real*8, dimension(3, 3) :: alat ! three column vectors specifying the cell vectors
+!   real*8 :: width_cutoff =4.0d0
+!   integer :: lengthfp = 160
+!   integer :: nat_sphere_current_max
+!
+!   real*8:: penalty
+!   real*8, dimension(3, nat) :: dpenaldr ! derivative of penalty function with respect to all atomic positions
+!   real*8 :: dpenaldalat(3,3)
+!
+!   character(len=150) :: PosFile
+!
+!   real*8 :: Bohr_Ang=0.529177d0  ! Conversion factor Bohr to angstroem
+!
+!   ! if (file_format_ascii_logical) then !.ascii case
+!   PosFile = 'poscur.ascii'
+!   ! else !.xyz type
+!   !   PosFile = 'poscur.xyz'
+!   ! end if
+!
+!   call read_ascii_extern(PosFile, rxyz, alat, nat, atomnames)
+!
+!   ! rxyz = rxyz / Bohr_Ang
+!   ! alat = alat / Bohr_Ang
+!
+!
+!   call SymmetryPenalty_v3(nat, alat, rxyz, atomnames, natx_sphere, ns, np, width_cutoff, num_cat, nex_cutoff, &
+!                              lengthfp, nat_sphere_current_max, dpenaldr, penalty, dpenaldalat)
+!
+!   write(*,*) penalty, 'penalty'
+!   write(*,*) 'dpenaldr'
+!   write(*,*) dpenaldr
+!   write(*,*) 'dpenaldalat'
+!   write(*,*) dpenaldalat
+!
+! end program testf2p
+!
+!
+! subroutine read_ascii_extern(filename, rxyz, alat, nat, atomnames)
+!   implicit none
+!   !! reads an ascii file with the specified filename units are assumed to be angstroem.
+!   !! units are convertet to hartree units before they are returned
+!   character(len=*), intent(in) :: filename
+!   !! filename of the file which is created
+!   integer, intent(in) :: nat
+!   !! number of atoms
+!   real*8, dimension(3, nat) :: rxyz
+!   !! atom positions
+!   real*8, dimension(3, 3) :: alat
+!   !! lattice vectors
+!   character(len=2) :: atomnames(nat)
+!   !! String containing the chemical symbol of each atom.
+!   integer :: i, io, ios
+!   character(len=150) :: all_line
+!   real*8 :: alat_temp(2, 3)
+!   real*8 :: Bohr_Ang = 0.529177249d0
+!
+!   open (newunit=io, file=trim(adjustl(filename)), iostat=ios, status="old")
+!   if (ios /= 0) then
+!     print *, "error opening ascii file: "//filename
+!     stop
+!   end if
+!   read (io, *, iostat=ios) all_line
+!   if (ios /= 0) then
+!     print *, trim(adjustl(filename)), ios
+!     stop "error reading file "
+!   end if
+!   read (io, *, iostat=ios) alat_temp(1, 1), alat_temp(1, 2), alat_temp(1, 3)
+!   read (io, *, iostat=ios) alat_temp(2, 1), alat_temp(2, 2), alat_temp(2, 3)
+!   if (ios /= 0) stop "reading lattice vectors"
+!   alat = 0.0
+!   alat(1, 1) = alat_temp(1, 1)
+!   alat(1, 2) = alat_temp(1, 2)
+!   alat(2, 2) = alat_temp(1, 3)
+!   alat(1, 3) = alat_temp(2, 1)
+!   alat(2, 3) = alat_temp(2, 2)
+!   alat(3, 3) = alat_temp(2, 3)
+!   i = 1
+!   do while (i <= nat)
+!     read (io, *, iostat=ios) rxyz(1, i), rxyz(2, i), rxyz(3, i), atomnames(i)
+!     if (ios > 0) then
+!       print *, rxyz(:, i), atomnames(i)
+!       cycle
+!     end if
+!     if (ios < 0) then
+!       print *, "end of file in read ascii, file: "//filename
+!       stop
+!     end if
+!     i = i + 1
+!   end do
+!   close (io)
+!   alat = alat/Bohr_Ang
+!   rxyz = rxyz/Bohr_Ang
+! end subroutine read_ascii_extern
 
 
 ! module symmetry_penalty
 !   IMPLICIT NONE
 ! CONTAINS
 
-subroutine atomnames_test(nat, atom_element_number_array)
-implicit none
-integer, intent(in) :: nat
-integer, dimension(nat), intent(in) :: atom_element_number_array
-character(len=2) :: atomnames(nat)
-integer :: iat
-
-print*, nat ,'nat'
-print*, 'atom_element_number_array'
-print*, atom_element_number_array
-
-do iat = 1, nat
-  call element_number_2_atomname(atom_element_number_array(iat), atomnames(iat))
-end do
-
-! print*, atomnames
-
-end subroutine atomnames_test
+! subroutine atomnames_test(nat, atom_element_number_array)
+! implicit none
+! integer, intent(in) :: nat
+! integer, dimension(nat), intent(in) :: atom_element_number_array
+! character(len=2) :: atomnames(nat)
+! integer :: iat
+!
+! print*, nat ,'nat'
+! print*, 'atom_element_number_array'
+! print*, atom_element_number_array
+!
+! do iat = 1, nat
+!   call element_number_2_atomname(atom_element_number_array(iat), atomnames(iat))
+! end do
+!
+! ! print*, atomnames
+!
+! end subroutine atomnames_test
 
 
 subroutine sympen_f2py_interface(nat, alat_in, rxyz_in, atom_element_number_array, natx_sphere, ns, np, width_cutoff, &
@@ -377,14 +377,13 @@ fp = 0.d0
 dfpdr0 = 0.d0
 dfpdr = 0.d0
 
-call cpu_time(t1)
-
+!call cpu_time(t1)
 
   !Calculate "classic" overlap-fp and derivatives
   call atomic_fp(nat, alat, rxyz, atomnames, natx_sphere, ns, np, width_cutoff, nex_cutoff, &
                         ixyzmax, rcov, lengthfp, nat_sphere_current_max, fp, dFPdrAll, dFPdalatAll)
-
-
+! call cpu_time(t2)
+! print '("Time (For atomic_fp total)= ",f16.3," seconds.")',t2-t1
 !write(*,*) "nat_sphere_current_max",nat_sphere_current_max,natx_sphere
 
 penalty = 0.d0
@@ -400,6 +399,7 @@ do iele = 1, num_diff_ele
    cycle
   end if
   !allocate run spezific multi_ele variables:
+
   allocate (fpall_ele((ns + 3*np)*natx_sphere, nat_e_cur))
   allocate (dFPdrAll_ele(nat_e_cur, 3, nat, natx_sphere*(ns + np*3)))
   allocate (DimMatrix_ele(nat_e_cur, nat_e_cur))
@@ -410,6 +410,7 @@ do iele = 1, num_diff_ele
   allocate (dFPdalatAll_ele(nat_e_cur, 3, 3, natx_sphere*(ns + np*3)))
   allocate (dDimMdalat_ele(nat_e_cur, 3, 3, nat_e_cur))
   allocate (dlamdadalat_e(3, 3, nat_e_cur))
+
 
   fpall_ele = 0.d0
   dFPdrAll_ele = 0.d0
@@ -444,7 +445,7 @@ do iele = 1, num_diff_ele
    end do
   end do
 
-  call cpu_time(t2)
+  !call cpu_time(t2)
   !!$  omp_t2 = omp_get_wtime()
 
   !write(*,*)"fp_timing:", omp_t2-omp_t1
@@ -529,7 +530,7 @@ do iele = 1, num_diff_ele
 
 
 
-  call cpu_time(t3)
+  !call cpu_time(t3)
   !!$  omp_t3 = omp_get_wtime()
 
   ! write(*,'(3(A,e10.3))')"OMP: T1: ",omp_t2-omp_t1,"      T2: ",omp_t3-omp_t2, "      Tall ",omp_t3-omp_t1, &
@@ -610,7 +611,6 @@ subroutine atomic_fp(nat, alat, rxyz, atomnames, natx_sphere, ns, np, width_cuto
 
   if (natx_sphere*(ns + np*3) .gt. lengthfp) stop 'increase lengthfp'
 
-
   allocate (rxyz_sphere(3, natx_sphere), rcov_sphere(natx_sphere))
   allocate (amplitude(natx_sphere), deramplitude(natx_sphere))
   allocate (fp_tmp(natx_sphere*(ns + np*3)), dfpdr(3, natx_sphere, natx_sphere*(ns + np*3)))
@@ -663,7 +663,6 @@ subroutine atomic_fp(nat, alat, rxyz, atomnames, natx_sphere, ns, np, width_cuto
      rxyz_sphere_reduced=0.d0
      rxyz_sphere = 0.d0
      nat_sphere = 0
-
      !Calc atoms in sphere
      call atoms_sphere(width_cutoff, nex_cutoff, lat, llat, ixyzmax, nat, natx_sphere, nat_sphere, alat, rxyz, rxyz_sphere, &
                        rcov, rcov_sphere, indat, amplitude, deramplitude)
@@ -694,8 +693,11 @@ subroutine atomic_fp(nat, alat, rxyz, atomnames, natx_sphere, ns, np, width_cuto
      yl = rxyz(2, lat)
      zl = rxyz(3, lat)
      !Calculate FP + derivative FP with respect to R
-     !Neue Subroutine Marco!!
+     call cpu_time(t1)
      call xyz2devaldr(nat_sphere, rxyz_sphere, rcov_sphere, amplitude, deramplitude, llat, xl, yl, zl, ns, np, fp_tmp, dfpdr0)
+     call cpu_time(t2)
+     print '("Time (For xyz2devaldr total)= ",f16.7," seconds.")',t2-t1
+     !stop 'stoppp123'
      call reformat_devaldr(natx_sphere, nat_sphere, ns, np, dfpdr0, dfpdr)
 
      !Save fp_tmp into all fp_array (fp)
@@ -1703,7 +1705,7 @@ subroutine xyz2devaldr(nat, rxyz, rcov, amplitude, deramplitude, lat, xl, yl, zl
   call dsyev('V', 'L', norb, evecn, norb, eval, work, lwork, info)
   if (info /= 0) stop ' ERROR in dsyev'
   call cpu_time(finish)
-  ! print '("Time = ",f16.3," seconds.")',finish-start
+  print '("Time (For in xyz2devaldr: dsyev)= ",f16.7," seconds.")',finish-start
   ! eigenvalues in decreasing order
   do i = 1, norb/2
     t1 = eval(i)
