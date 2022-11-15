@@ -30,7 +30,7 @@ class MD():
         Running the MD over n_max maxima. If this is not reached after 10'000 steps the MD stops
         '''
         self._initialize()
-        while self._n_change < self._n_max:
+        while self._i_max < self._n_max:
             self._verlet_step()
             self._i_steps += 1
             self._check()
@@ -69,6 +69,7 @@ class MD():
         self._epot_max = -1e10
         self._etot_min = 1e10
         self._epot_min = 1e10
+        self._i_max = 0
         self._calc_etot_and_ekin()
         self._target_e_kin = self._e_kin
 
@@ -115,6 +116,8 @@ class MD():
             if self._sign_old != sign:
                 self._sign_old = sign
                 self._n_change += 1
+                if self._n_change%2 == 1:
+                    self._i_max += 1
             self._e_pot = _e_pot_new
 
 
