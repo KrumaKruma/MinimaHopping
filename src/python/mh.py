@@ -39,9 +39,9 @@ class Minimahopping:
         'np_orb' : 1, # number of p orbitals in OMFP fingerprint
         'width_cutoff' : 3.5, # with cutoff for OMFP fingerprint
         'exclude': [], # Elements which are to be excluded from the OMFP (list of str)
-        'dt' : 0.05, # timestep for the MD part (float)
-        'mdmin' : 2, # criteria to stop the MD trajectory (no. of minima) (int)
-        'fmax' : 0.000005, # max force component for the local geometry optimization
+        'dt' : 0.1, # timestep for the MD part (float)
+        'mdmin' : 5, # criteria to stop the MD trajectory (no. of minima) (int)
+        'fmax' : 0.0001, # max force component for the local geometry optimization
         'enhanced_feedback' : False, # Enhanced feedback to adjust the temperature (bool)
         'energy_threshold' : 0.00005, # Energy threshold at which a OMFP distance calculation is performed (float)
         'n_poslow' : 30, # Number of posmin files which are written in sorted order (int)
@@ -70,52 +70,65 @@ class Minimahopping:
     def __call__(self, totalsteps = None):
         atoms = deepcopy(self._atoms)
         atoms, atoms_cur = self._startup(atoms,)
-        while (self._counter <= totalsteps):
-            print("START HOPPING STEP")
-            print("  Start escape loop")
-            print("  ---------------------------------------------------------------")
-            atoms, epot_max, md_trajectory, opt_trajectory = self._escape(atoms,)
-            print("  ---------------------------------------------------------------")
-            print("  New minimum found!")
-            atoms_cur = self._acc_rej_step(atoms_cur)
-            self._hoplog(atoms)
-            self._n_visits = self._in_history_fp(atoms)
-            log_msg = "  New minimum has been found {:d} time(s)".format(self._n_visits)
-            print(log_msg)
-            print("  Write restart files")
-            self._adj_temperature(atoms)
-            self._update_data(atoms)
-            self._write_poslow()
-            self._history_log(atoms)
-            atoms = deepcopy(atoms_cur)
-            self._counter += 1
-            print("DONE")
-            print("=================================================================")
+        import graph
+        old_label = 0
+        with graph.MinimaHoppingGraph('graph.dat', 'trajectories.dat', self._is_restart) as g:
+            while (self._counter <= totalsteps):
+                print("START HOPPING STEP")
+                print("  Start escape loop")
+                print("  ---------------------------------------------------------------")
+                atoms, epot_max, md_trajectory, opt_trajectory = self._escape(atoms,)
+                print("  ---------------------------------------------------------------")
+                print("  New minimum found!")
+                atoms_cur = self._acc_rej_step(atoms_cur)
+                self._hoplog(atoms)
+                self._n_visits, index = self._in_history_fp(atoms)
+                label = self.unique_minima_sorted[index].label
+
+                trajectory = md_trajectory + opt_trajectory
+                # print('trajectory', trajectory, md_trajectory, opt_trajectory)
+                #print(type(trajectory[0]))
+                g.addStructure(label, old_label, epot_max, trajectory)
+
+                old_label = label
+
+                log_msg = "  New minimum has been found {:d} time(s)".format(self._n_visits)
+                print(log_msg)
+                print("  Write restart files")
+                self._adj_temperature(atoms)
+                self._update_data(atoms)
+                self._write_poslow()
+                self._history_log(atoms)
+                atoms = deepcopy(atoms_cur)
+                self._counter += 1
+                print("DONE")
+                print("=================================================================")
+
+                _elapsed_time = time.time() - self._time_in
+
+                if self._run_time is not "infinit":
+                    if _elapsed_time > self._run_time_sec:
+                        msg = 'Simulation stopped because the given time is over\n'
+                        msg += 'Run terminated after {:d} steps'.format(self._counter)
+                        print(msg)
+                        print("=================================================================")
+                        return
+            g.draw()
 
             _elapsed_time = time.time() - self._time_in
-
-            if self._run_time is not "infinit":
-                if _elapsed_time > self._run_time_sec:
-                    msg = 'Simulation stopped because the given time is over\n'
-                    msg += 'Run terminated after {:d} steps'.format(self._counter)
-                    print(msg)
-                    print("=================================================================")
-                    return
-
-        _elapsed_time = time.time() - self._time_in
-        day = _elapsed_time // (24 * 3600)
-        _elapsed_time = _elapsed_time % (24 * 3600)
-        hour = _elapsed_time // 3600
-        _elapsed_time %= 3600
-        minutes = _elapsed_time // 60
-        _elapsed_time %= 60
-        seconds = _elapsed_time
-        msg = 'Run terminated after {:d} steps in {:d}D {:d}H {:d}M {:d}S'.format(totalsteps,
-                                                                                int(day),
-                                                                                int(hour),
-                                                                                int(minutes),
-                                                                                int(seconds))
-        print(msg)
+            day = _elapsed_time // (24 * 3600)
+            _elapsed_time = _elapsed_time % (24 * 3600)
+            hour = _elapsed_time // 3600
+            _elapsed_time %= 3600
+            minutes = _elapsed_time // 60
+            _elapsed_time %= 60
+            seconds = _elapsed_time
+            msg = 'Run terminated after {:d} steps in {:d}D {:d}H {:d}M {:d}S'.format(totalsteps,
+                                                                                    int(day),
+                                                                                    int(hour),
+                                                                                    int(minutes),
+                                                                                    int(seconds))
+            print(msg)
 
     def _startup(self, atoms):
         print("=================================================================")
@@ -151,15 +164,15 @@ class Minimahopping:
         _is_unique_minima = os.path.exists(self._outpath + 'min.extxyz')
         _is_history = os.path.exists(self._outpath + 'history.dat')
         if _is_unique_minima and _is_history:
-            _is_restart = True
+            self._is_restart = True
             if self._new_start:
-                _is_restart = False
+                self._is_restart = False
         else:
             is_files = {_is_history, _is_unique_minima}
             assert len(is_files)==1, 'Some but not all files exist for a restart.'
-            _is_restart = False
+            self._is_restart = False
 
-        if _is_restart:
+        if self._is_restart:
             msg = '  Restart of previous run'
             print(msg)
             calc = atoms.calc
@@ -431,8 +444,9 @@ class Minimahopping:
 
         if not self.unique_minima_sorted:
             self.unique_minima_sorted.append(mini)
-            itest = 1
-            return itest
+            _n_visits = 1
+            _index = 0
+            return _n_visits, _index 
 
         if _i_start >= len(self.unique_minima_sorted):
             _i_start -= 1
@@ -453,8 +467,8 @@ class Minimahopping:
                 _fp2 = s.fingerprint
                 _fp_dist = self.fp_distance(_fp1, _fp2) / _fp2.shape[0]
                 if _fp_dist < self._minima_threshold:
-                    if _energy_difference < min_dist:
-                        min_dist = _energy_difference
+                    if _fp_dist < min_dist:
+                        min_dist = _fp_dist
                         _index = _i_compare
                     _already_found = True
 
@@ -470,8 +484,8 @@ class Minimahopping:
                 _fp2 = s.fingerprint
                 _fp_dist = self.fp_distance(_fp1, _fp2) / _fp2.shape[0]
                 if _fp_dist < self._minima_threshold:
-                    if _energy_difference < min_dist:
-                        min_dist = _energy_difference
+                    if _fp_dist < min_dist:
+                        min_dist = _fp_dist
                         _index = _i_compare
                     _already_found = True
 
@@ -484,13 +498,14 @@ class Minimahopping:
                                        ediff=self._Ediff,
                                        acc_rej=self._acc_rej,
                                        label=label)
+            _index = bisect.bisect(self.unique_minima_sorted, mini)
             bisect.insort(self.unique_minima_sorted, mini)
         else:
             self.unique_minima_sorted[_index].n_visit += 1
             _n_visits = self.unique_minima_sorted[_index].n_visit
 
 
-        return _n_visits
+        return _n_visits, _index
 
     def _adj_temperature(self,atoms):
         if self._n_visits > 1:
