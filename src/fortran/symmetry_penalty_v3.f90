@@ -693,10 +693,10 @@ subroutine atomic_fp(nat, alat, rxyz, atomnames, natx_sphere, ns, np, width_cuto
      yl = rxyz(2, lat)
      zl = rxyz(3, lat)
      !Calculate FP + derivative FP with respect to R
-     call cpu_time(t1)
+     !call cpu_time(t1)
      call xyz2devaldr(nat_sphere, rxyz_sphere, rcov_sphere, amplitude, deramplitude, llat, xl, yl, zl, ns, np, fp_tmp, dfpdr0)
-     call cpu_time(t2)
-     print '("Time (For xyz2devaldr total)= ",f16.7," seconds.")',t2-t1
+     !call cpu_time(t2)
+     !print '("Time (For xyz2devaldr total)= ",f16.7," seconds.")',t2-t1
      !stop 'stoppp123'
      call reformat_devaldr(natx_sphere, nat_sphere, ns, np, dfpdr0, dfpdr)
 
@@ -1705,7 +1705,7 @@ subroutine xyz2devaldr(nat, rxyz, rcov, amplitude, deramplitude, lat, xl, yl, zl
   call dsyev('V', 'L', norb, evecn, norb, eval, work, lwork, info)
   if (info /= 0) stop ' ERROR in dsyev'
   call cpu_time(finish)
-  print '("Time (For in xyz2devaldr: dsyev)= ",f16.7," seconds.")',finish-start
+  !print '("Time (For in xyz2devaldr: dsyev)= ",f16.7," seconds.")',finish-start
   ! eigenvalues in decreasing order
   do i = 1, norb/2
     t1 = eval(i)

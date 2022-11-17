@@ -5,7 +5,7 @@ f2py -c --fcompiler=intelem --f90flags="-qopenmp" -lmkl symmetry_penalty_v3.f90 
 ml purge
 ml PyTorch
 f2py3 -c -lscalapack -lopenblas --f90flags="-fopenmp" -lgomp symmetry_penalty_v3.f90 -m sympenlib
-f2py3 -c -lscalapack -lopenblas --f90flags="-fopenmp -Ofast -ffast-math" -lgomp symmetry_penalty_v3.f90 -m sympenlib
+f2py3 -c -lscalapack -lopenblas --f90flags="-fopenmp -Ofast -ffast-math" -lgomp -lpthread symmetry_penalty_v3.f90 -m sympenlib
 f2py3 -c -lscalapack -lopenblas --f90flags="-fopenmp -Ofast -march=znver1 -mtune=znver1 -mfma -mavx2 -fomit-frame-pointer -ffast-math" -lgomp symmetry_penalty_v3.f90 -m sympenlib
 
 BLISS:::
@@ -23,7 +23,7 @@ f2py3 -c -llapack -lblas symmetry_penalty_v3.f90 -m sympenlib --fcompiler=gfortr
 
 
 Timings reiner Fortran Code:
-gfortran with -lopenblas -Ofast -march=native 
+gfortran with -lopenblas -Ofast -march=native
 same as ifort -mkl -Ofast
 
 Andris FLAGS:
