@@ -15,7 +15,7 @@ from minimum import Minimum
 from cell_atom import Cell_atom
 from database import Database
 import time
-
+import pickle
 
 """
 MH Software written by Marco Krummenacher (marco.krummenacher@unibas.ch)
@@ -28,8 +28,9 @@ Parts of the software were originally developped (some in Fortran) from other pe
 
 
 class Minimahopping:
+    #TODO: write settings to json file
     _default_settings = {
-        'T0' : 2000.,  # Initital temperature in Kelvin (float)
+        'T0' : 50000.,  # Initital temperature in Kelvin (float)
         'beta_decrease': 1. / 1.1,  # temperature adjustment parameter (float)
         'beta_increase': 1.1,  # temperature adjustment parameter (float)
         'Ediff0' : .01, # Initial energy aceptance threshold (float)
@@ -39,6 +40,7 @@ class Minimahopping:
         'ns_orb' : 1, # number of s orbitals in OMFP fingerprint
         'np_orb' : 1, # number of p orbitals in OMFP fingerprint
         'width_cutoff' : 3.5, # with cutoff for OMFP fingerprint
+        'maxnatsphere' : 100,
         'exclude': [], # Elements which are to be excluded from the OMFP (list of str)
         'dt' : 0.1, # timestep for the MD part (float)
         'mdmin' : 2, # criteria to stop the MD trajectory (no. of minima) (int)
@@ -69,75 +71,110 @@ class Minimahopping:
         self._counter = 0
 
     def __call__(self, totalsteps = None):
-        atoms = deepcopy(self._atoms)
-        atoms, atoms_cur = self._startup(atoms,)
-        while (self._counter <= totalsteps):
-            msg = "START HOPPING STEP NR.  {:d}".format(self._counter)
-            print(msg)
-            print("  Start escape loop")
-            print("  ---------------------------------------------------------------")
-            atoms, fp, epot_max, md_trajectory, opt_trajectory = self._escape(atoms,)
-            print("  ---------------------------------------------------------------")
-            print("  New minimum found!")
+        
+        self._is_restart = False
+        # initialize database
+        with Database(self._energy_threshold, self._minima_threshold, self._is_restart) as self.data:
+            # Start up minimahopping 
+            atoms = deepcopy(self._atoms)
+            struct = self._startup(atoms,)  # gets an atoms object and a minimum object is returned.
+            struct_cur = struct.__deepcopy__()
 
-            #TODO: clean up function
-            atoms_cur = self._acc_rej_step(atoms_cur)
+            # Initialization to hold back lowest intermediate structure
+            in_reject = True
+            first_reject = True
+            # Start hopping loop
+            while (self._counter <= totalsteps):
+                while in_reject:
+                msg = "START HOPPING STEP NR.  {:d}".format(self._counter)
+                print(msg)
+                print("  Start escape loop")
+                print("  ---------------------------------------------------------------")
+                struct_inter, n_visits, _epot_max, _md_trajectory, _opt_trajectory = self._escape(struct,) 
+                print("  ---------------------------------------------------------------")
+                print("  New minimum found!")
 
-            # construct minimum class of new minimum
-            mini = Minimum(atoms,
-                            n_visit=1,
-                            epot = atoms.get_potential_energy(),
-                            fingerprint=fp,
-                            T=self._temperature,
-                            ediff=self._Ediff,
-                            acc_rej=self._acc_rej,
-                            label=0)
+                # write the lowest n minima to files
+                self.data._write_poslow(self._n_poslow ,self._minima_path)
 
-            self._n_visits = self.data.addElement(struct = mini)
-            self.data._write_poslow(self._n_poslow ,self._minima_path)
+                # write output
+                self._hoplog(struct_inter)
+                status = 'Inter'
+                self._history_log(struct_inter, status, n_visits)
 
-            #TODO: clean up function
-            self._hoplog(atoms)
-            log_msg = "  New minimum has been found {:d} time(s)".format(self._n_visits)
-            print(log_msg)
-            print("  Write restart files")
-            #TODO: clean up function
-            self._adj_temperature(atoms)
-            #TODO: clean up function
-            self._history_log(atoms)
-            atoms = deepcopy(atoms_cur)
-            self._counter += 1
-            print("DONE")
-            print("=================================================================")
+                # check if previously found minimum was rejected
+                if in_reject:
+                    # check if new found minimum is lower in energy
+                    epot_prev = lowest_rej.e_pot
+                    epot_new = struct_inter.e_pot
+                    if epot_new < epot_prev:
+                        # if new found minimum is lower in energy that's the lowest rejected minimum 
+                        lowest_rej = struct_inter.__deepcopy__()
+                    struct_inter = lowest_rej.__deepcopy__()
+
+                # check if new proposed structure is accepted or rejected
+                struct_cur, is_accepted =  self._acc_rej_step(struct_cur, struct_inter)
+
+                # if structure is not accepted store the first rejected structre as currently lowest rejected structure
+                if not is_accepted :
+                    status = "Rejected"
+                    if first_reject:
+                        lowest_rej = struct_inter.__deepcopy__()
+                        first_reject = False
+                    in_reject = True 
+                else:
+                    status = "Accepted"
+                    in_reject = False
+                    first_reject = True
+                
+                
+                log_msg = "  New minimum has been found {:d} time(s)".format(n_visits)
+                print(log_msg)
+                # adjust the temperature according to the number of visits
+                self._adj_temperature(struct, n_visits)
+
+                # write to history output file
+                self._history_log(struct_inter, status)
+                struct = struct_cur.__deepcopy__()
+                self._counter += 1
+                print("DONE")
+                print("=================================================================")
+
+                _elapsed_time = time.time() - self._time_in
+
+                if self._run_time is not "infinit":
+                    if _elapsed_time > self._run_time_sec:
+                        msg = 'Simulation stopped because the given time is over\n'
+                        msg += 'Run terminated after {:d} steps'.format(self._counter)
+                        print(msg)
+                        print("=================================================================")
+                        return
 
             _elapsed_time = time.time() - self._time_in
+            day = _elapsed_time // (24 * 3600)
+            _elapsed_time = _elapsed_time % (24 * 3600)
+            hour = _elapsed_time // 3600
+            _elapsed_time %= 3600
+            minutes = _elapsed_time // 60
+            _elapsed_time %= 60
+            seconds = _elapsed_time
+            msg = 'Run terminated after {:d} steps in {:d}D {:d}H {:d}M {:d}S'.format(totalsteps,
+                                                                                    int(day),
+                                                                                    int(hour),
+                                                                                    int(minutes),
+                                                                                    int(seconds))
+            print(msg)
 
-            if self._run_time is not "infinit":
-                if _elapsed_time > self._run_time_sec:
-                    msg = 'Simulation stopped because the given time is over\n'
-                    msg += 'Run terminated after {:d} steps'.format(self._counter)
-                    print(msg)
-                    print("=================================================================")
-                    return
 
-        _elapsed_time = time.time() - self._time_in
-        day = _elapsed_time // (24 * 3600)
-        _elapsed_time = _elapsed_time % (24 * 3600)
-        hour = _elapsed_time // 3600
-        _elapsed_time %= 3600
-        minutes = _elapsed_time // 60
-        _elapsed_time %= 60
-        seconds = _elapsed_time
-        msg = 'Run terminated after {:d} steps in {:d}D {:d}H {:d}M {:d}S'.format(totalsteps,
-                                                                                int(day),
-                                                                                int(hour),
-                                                                                int(minutes),
-                                                                                int(seconds))
-        print(msg)
 
     def _startup(self, atoms):
         print("=================================================================")
         print("MINIMAHOPPING SETUP START")
+
+        # self._is_restart = False
+        # if not self._new_start:
+        #     if os.path.exists("databasename.pickle"):
+        #         self._is_restart = True
 
         # Convert given time to seconds
         if self._run_time is not "infinit":
@@ -146,10 +183,7 @@ class Minimahopping:
 
         # Check if run is restarted
         #TODO: write new restart mechanism for mh 
-        #TODO: no intermediate list, keep only lowest intermediate
-        self.intermediate_minima = []
         self._i_step = 0
-
         self._n_min = 1
         self._n_unique = 0
         self._n_notunique = 0
@@ -165,33 +199,35 @@ class Minimahopping:
 
         msg = '  New MH run is started'
         print(msg)
+
         _positions, _lattice = self._restart_opt(atoms)
         atoms.set_positions(_positions)
         atoms.set_cell(_lattice)
         write(self._outpath + "acc.extxyz", atoms, append=True)
 
-        atoms_cur = deepcopy(atoms)
         self._n_visits = 1
-        self._acc_rej = 'Initial'
-        self._history_log(atoms_cur)
 
-        fp = self._get_OMFP(atoms, s=self._ns_orb, p=self._np_orb, width_cutoff=self._width_cutoff)
         # add input structure to database after optimization
-        mini = Minimum(atoms,
-                            n_visit=1,
-                            epot = atoms.get_potential_energy(),
-                            fingerprint=fp,
-                            T=self._temperature,
-                            ediff=self._Ediff,
-                            acc_rej=self._acc_rej,
-                            label=0)
-        # initialize database
-        self.data = Database(mini, self._energy_threshold, self._minima_threshold)
 
+        struct_cur = Minimum(atoms,
+                        n_visit=1,
+                        s = self._ns_orb,
+                        p = self._np_orb, 
+                        width_cutoff = self._width_cutoff,
+                        maxnatsphere = self._maxnatsphere,
+                        epot = atoms.get_potential_energy(),
+                        T=self._temperature,
+                        ediff=self._Ediff,
+                        label=0)
+        
+        status = 'Initial'
+        self._history_log(struct_cur, status, n_visits=1)
+
+        self.data.addElement(struct_cur)
 
         print("DONE")
         print("=================================================================")
-        return deepcopy(atoms), deepcopy(atoms_cur)
+        return struct_cur
 
 
 
@@ -212,64 +248,46 @@ class Minimahopping:
         return int(nd) * 86400 + int(h) * 3600 + int(m) * 60 + int(s)
 
 
-    def _read_fp(self, atoms,):
-        fp_file = open(self._outpath + 'fp.dat', 'r')
-        fps = []
-        if True in atoms.pbc:
-            fp_array = []
-            nat = len(atoms)
-            for i, line in enumerate(fp_file):
-                fp_vector = []
-                vector = line.split()
-                for num in vector:
-                    fp_vector.append(float(num))
-                fp_vector = np.array(fp_vector)
-                fp_array.append(fp_vector)
-                if (i+1)%(nat) == 0:
-                    fp_array = np.array(fp_array)
-                    fps.append(fp_array)
-                    fp_array = []
-        else:
-            for line in fp_file:
-                fp_vector = []
-                vector = line.split()
-                for num in vector:
-                    fp_vector.append(float(num))
-                fp_vector = np.array(fp_vector)
-                fps.append(fp_vector)
-        fp_file.close()
-        return fps
+    def _get_which_intermediate(self, atoms_inter, prev_atoms_inter, prev_inter):
+        if prev_inter:
+            e_pot_new = atoms_inter.get_potential_energy()
+            e_pot_prev = prev_atoms_inter.get_potential_energy()
+            if e_pot_prev < e_pot_new:
+                atoms_inter = deepcopy(prev_atoms_inter)
+        return atoms_inter
 
 
-
-
-    def _escape(self, atoms):
+    def _escape(self, struct):
         """
         Escape loop to find a new minimum
         """
         _escape = 0.0
         _escape_energy = 0.0
-        _fp_in = self._get_OMFP(atoms,s=self._ns_orb, p=self._np_orb, width_cutoff=self._width_cutoff)
-        _energy_in = atoms.get_potential_energy()
+        atoms = deepcopy(struct.atoms)
         _beta_s = 1.05
         _i_steps = 0
         while _escape < self._minima_threshold or _escape_energy < self._energy_threshold:
-
+            # if the loop not escaped (no new minimum found) rise temperature
             if _i_steps > 0:
                 self._n_same += 1
-                self._acc_rej = 'Same'
-                self._history_log(atoms)
+                status = 'Same'
+                self._history_log(struct_prop, status)
                 self._temperature *= _beta_s
                 log_msg = "    Same minimum found with fpd {:1.2e} {:d} time(s). Increase temperature to {:1.5f}".format(_escape, self._n_same, self._temperature)
                 print(log_msg)
 
+            # set the temperature according to Boltzmann distribution
             MaxwellBoltzmannDistribution(atoms, temperature_K=self._temperature)
 
+            # in case of periodic system do variable cell shape md and optimization
             if True in atoms.pbc:
+
+                # initialize the cell vectors as atoms
                 _mass = .75 * np.sum(atoms.get_masses()) / 10.
                 self._cell_atoms = Cell_atom(mass=_mass, positions=atoms.get_cell())
                 self._cell_atoms.set_velocities_boltzmann(temperature=self._temperature)
 
+                # softening of the velocities
                 softening = Softening(atoms, self._cell_atoms)
                 _velocities, _cell_velocities = softening.run(self._n_soft)
                 atoms.set_velocities(_velocities)
@@ -297,7 +315,9 @@ class Minimahopping:
                 log_msg = "    VCS OPT finished after {:d} steps         {:d}".format(opt._i_step, len(_opt_trajectory))
                 print(log_msg)
 
+            # in case of a non-periodic system do md and optimization
             else:
+                #start softening
                 softening = Softening(atoms)
                 _velocities = softening.run(self._n_soft)
                 atoms.set_velocities(_velocities)
@@ -314,31 +334,46 @@ class Minimahopping:
                 opt = Opt(atoms=atoms, outpath=self._outpath, max_froce_threshold=self._fmax, verbose=self._verbose)
                 _positions, self._noise, _opt_trajectory = opt.run()
                 atoms.set_positions(_positions)
-                log_msg = "    VCS OPT finished after {:d} steps".format(opt._i_step, len(_opt_trajectory))
+                log_msg = "    OPT finished after {:d} steps".format(opt._i_step, len(_opt_trajectory))
                 print(log_msg)
 
+            # check if the energy threshold is below the optimization noise
             self._check_energy_threshold()
 
-            _fp_out = self._get_OMFP(atoms, s=self._ns_orb, p=self._np_orb, width_cutoff=self._width_cutoff)
-            _energy_out = atoms.get_potential_energy()
-            _escape = self.fp_distance(_fp_in, _fp_out) / _fp_out.shape[0]
-            _escape_energy = abs(_energy_in - _energy_out)
+            struct_prop = Minimum(atoms,
+                        n_visit=1,
+                        s = self._ns_orb,
+                        p = self._np_orb, 
+                        width_cutoff = self._width_cutoff,
+                        maxnatsphere = self._maxnatsphere,
+                        epot = atoms.get_potential_energy(),
+                        T=self._temperature,
+                        ediff=self._Ediff,
+                        label=0)
+
+            # check if proposed structure is the same to the initial structure
+            _escape_energy = struct.__compareto__(struct_prop)
+            _escape = struct.__equals__(struct_prop)
+
             write(self._outpath + 'locm.extxyz', atoms, append=True)
 
             _i_steps += 1
             self._n_min += 1
 
+        
+
         log_msg = "    New minimum found with fpd {:1.2e} after looping {:d} time(s)".format(_escape, _i_steps)
         print(log_msg)
 
-        self.intermediate_minima.append(deepcopy(atoms))
-        self._acc_rej = 'Inter'
-        self._history_log(atoms)
+        # add new minimum to database
+        
+        n_visits = self.data.addElement(struct = struct_prop)
 
-        return deepcopy(atoms), _fp_out, _epot_max, _md_trajectory, _opt_trajectory
+        return struct_prop,n_visits,_epot_max, _md_trajectory, _opt_trajectory
 
 
-    def _hoplog(self, atoms):
+    def _hoplog(self, struct):
+        atoms = struct.atoms
         self._i_step += 1
         log_msg = "  Epot:  {:1.5f}   E_diff:  {:1.5f}    Temp:   {:1.5f} ".format(atoms.get_potential_energy(),
                                                                                              self._Ediff,
@@ -347,66 +382,68 @@ class Minimahopping:
 
 
 
-    def _acc_rej_step(self, atoms_cur):
-        _e_pot_cur = atoms_cur.get_potential_energy()
-        idebug = 0
-        for atom in self.intermediate_minima:
-            _e_pot = atom.get_potential_energy()
-            idebug += 1
-            if _e_pot - _e_pot_cur < self._Ediff:
-                self._Ediff *= self._alpha_a
-                atoms_cur = deepcopy(atom)
-                self._acc_rej = "Accepted"
-                self.intermediate_minima = []
-                ediff_acc = _e_pot - _e_pot_cur
-            else:
-                self._Ediff *= self._alpha_r
-                self._acc_rej = "Rejected"
-                ediff_rej = _e_pot - _e_pot_cur
+    def _acc_rej_step(self, struct_cur, struct):
 
-        if self._acc_rej == "Accepted":
+        _e_pot_cur = struct_cur.e_pot
+        _e_pot = struct.e_pot
+
+        _ediff_in = self._Ediff
+
+        if _e_pot - _e_pot_cur < self._Ediff:
+            self._Ediff *= self._alpha_a
+            struct_cur = struct.__deepcopy__()
+            is_accepted = True
+            ediff_acc = _e_pot - _e_pot_cur
+        else:
+            self._Ediff *= self._alpha_r
+            is_accepted = False
+            ediff_rej = _e_pot - _e_pot_cur
+
+
+        if is_accepted:
             log_msg = "  Minimum was accepted:  Enew - Ecur = {:1.5f} < {:1.5f} = Ediff".format(ediff_acc,
-                                                                                                self._Ediff)
+                                                                                                _ediff_in)
             print(log_msg)
         else:
             log_msg = "  Minimum was rejected:  Enew - Ecur = {:1.5f} > {:1.5f} = Ediff".format(ediff_rej,
-                                                                                                self._Ediff)
+                                                                                                _ediff_in)
             print(log_msg)
-        return atoms_cur
+        return struct_cur, is_accepted
 
 
 
-    def _adj_temperature(self,atoms):
-        if self._n_visits > 1:
+    def _adj_temperature(self,struct, n_visits):
+        if n_visits > 1:
             self._n_notunique += 1
             if self._enhanced_feedback:
-                self._temperature = self._temperature * self._beta_increase * (1. + 1. * np.log(float(self._n_visits)))
+                self._temperature = self._temperature * self._beta_increase * (1. + 1. * np.log(float(n_visits)))
             else:
                 self._temperature = self._temperature * self._beta_increase
         else:
             self._n_unique += 1
             self._temperature = self._temperature * self._beta_decrease
+            atoms = struct.atoms
             write(self._outpath + "min.extxyz", atoms,  append=True)
 
 
-    def _history_log(self, atoms):
+    def _history_log(self, struct, status, n_visits = 0):
+        atoms = struct.atoms
         _notunique_frac = float(self._n_notunique)/float(self._n_min)
         _same_frac = float(self._n_same)/float(self._n_min)
         _unique_frac = 1. - (_notunique_frac+_same_frac)
 
         history_msg = "{:1.9f}  {:d}  {:1.5f}  {:1.5f}  {:1.2f}  {:1.2f}  {:1.2f} {:s} \n".format(atoms.get_potential_energy(),
-                                                                        self._n_visits,
+                                                                        n_visits,
                                                                         self._temperature,
                                                                         self._Ediff,
                                                                         _same_frac,
                                                                         _notunique_frac,
                                                                         _unique_frac,
-                                                                        self._acc_rej)
+                                                                        status)
 
         history_file = open(self._outpath + 'history.dat', 'a')
         history_file.write(history_msg)
         history_file.close()
-        self._n_visits = 0
 
 
     def _check_energy_threshold(self):
@@ -415,135 +452,3 @@ class Minimahopping:
             warnings.warn(_warning_msg, UserWarning)
 
 
-
-    def _get_OMFP(self, _atoms,s=1, p=0, width_cutoff=1.5, maxnatsphere=100):
-        """
-        Calculation of the Overlapmatrix fingerprint. For peridoic systems a local environment fingerprint is calculated
-        and a hungarian algorithm has to be used for the fingerprint distance. For non-periodic systems a global fingerprint
-        is calculated and a simple l2-norm is sufficient for as a distance measure.
-
-        If you use that function please reference:
-
-        @article{sadeghi2013metrics,
-        title={Metrics for measuring distances in configuration spaces},
-        author={Sadeghi, Ali and Ghasemi, S Alireza and Schaefer, Bastian and Mohr, Stephan and Lill, Markus A and Goedecker, Stefan},
-        journal={The Journal of chemical physics},
-        volume={139},
-        number={18},
-        pages={184118},
-        year={2013},
-        publisher={American Institute of Physics}
-        }
-
-        and
-
-        @article{zhu2016fingerprint,
-        title={A fingerprint based metric for measuring similarities of crystalline structures},
-        author={Zhu, Li and Amsler, Maximilian and Fuhrer, Tobias and Schaefer, Bastian and Faraji, Somayeh and Rostami, Samare and Ghasemi, S Alireza and Sadeghi, Ali and Grauzinyte, Migle and Wolverton, Chris and others},
-        journal={The Journal of chemical physics},
-        volume={144},
-        number={3},
-        pages={034203},
-        year={2016},
-        publisher={AIP Publishing LLC}
-        }
-
-        Input:
-            s: int
-                number of s orbitals for which the fingerprint is calculated
-            p: int
-                number of p orbitals for which the fingerprint is calculated
-            width_cutoff: float
-                cutoff for searching neighbouring atoms
-            maxnatsphere:
-                maximum of the neighboring atoms which can be in the sphere
-        Return:
-            omfp: np array
-                numpy array which contains the fingerprint
-        """
-
-        _pbc = list(set(_atoms.pbc))
-        assert len(_pbc) == 1, "mixed boundary conditions"
-        _ang2bohr = 1.8897161646320724
-
-        _symbols = _atoms.get_chemical_symbols()
-        _positions = _atoms.get_positions()
-        _elements = _atoms.get_atomic_numbers()
-        _selected_postions = []
-        _selected_elem = []
-
-        for symb,elem, pos in zip(_symbols, _elements,_positions):
-            if symb not in self._exclude:
-                _selected_postions.append(pos)
-                _selected_elem.append(elem)
-        _selected_postions = np.array(_selected_postions)
-
-
-        if True in _pbc:
-            _selected_positions = _selected_postions*_ang2bohr
-            _lattice = _atoms.get_cell()*_ang2bohr
-            _omfpCalculator = OMFP.stefansOMFP(s=s, p=p, width_cutoff=width_cutoff, maxnatsphere=maxnatsphere)
-            _omfp = _omfpCalculator.fingerprint(_selected_positions, _selected_elem, lat=_lattice)
-            _omfp = np.array(_omfp)
-
-        else:
-            _selected_positions = _selected_postions*_ang2bohr
-            _elements = _atoms.get_atomic_numbers()
-            _width_cutoff = 1000000
-            _maxnatsphere = len(_atoms)
-            _omfpCalculator = OMFP.stefansOMFP(s=s, p=p, width_cutoff=_width_cutoff, maxnatsphere=_maxnatsphere)
-            _omfp = _omfpCalculator.globalFingerprint(_selected_positions, _selected_elem)
-            _omfp = np.array(_omfp)
-
-        return _omfp
-
-    def fp_distance(self, desc1, desc2):
-        """
-        Calcualtes the fingerprint distance of 2 structures with local environment descriptors using the hungarian algorithm
-        if a local environment descriptor is used. Else the distance is calculated using l2-norm.
-        desc1: np array
-            numpy array containing local environments of structure 1
-        desc2: np array
-            numpy array containing local environments of structure 2
-        Return:
-            Global fingerprint distance between structure 1 and structure 2
-        """
-
-        n_dim1 = len(desc1.shape)
-        n_dim2 = len(desc2.shape)
-
-        assert n_dim1 == n_dim2, "Dimension of vector 1 is and vector 2 is different"
-        assert n_dim1 < 3, "Dimension of vector 1 is larger that 2"
-        assert n_dim2 < 3, "Dimension of vector 2 is larger that 2"
-
-        if n_dim1 == 1 and n_dim2 == 1:
-            fp_dist = np.linalg.norm(desc1 - desc2)
-        else:
-            costmat = self._costmatrix(desc1, desc2)
-            ans_pos = scipy.optimize.linear_sum_assignment(costmat)
-            fp_dist = 0.
-            for index1, index2 in zip(ans_pos[0], ans_pos[1]):
-                fp_dist += np.dot((desc1[index1, :] - desc2[index2, :]), (desc1[index1, :] - desc2[index2, :]))
-            fp_dist = np.sqrt(fp_dist)
-
-        return fp_dist
-
-    def _costmatrix(self, desc1, desc2):
-        """
-        Cost matrix of the local fingerprints for the hungarian algorithm
-        desc1: np array
-            numpy array containing local fingerprints of structure 1
-        desc2: np array
-            numpy array containing local fingerprints of structure 2
-        Return:
-            cost matrix of with the distances of the local fingerprints
-        """
-        assert desc1.shape[0] == desc2.shape[0], "descriptor has not the same length"
-
-        costmat = np.zeros((desc1.shape[0], desc2.shape[0]))
-
-        for i, vec1 in enumerate(desc1):
-            for j, vec2 in enumerate(desc2):
-                costmat[i, j] = np.linalg.norm(vec1 - vec2)
-
-        return costmat

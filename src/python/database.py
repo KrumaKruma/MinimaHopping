@@ -1,19 +1,37 @@
 import bisect
 from ase.io import read, write
+import pickle
 
 class Database():
-    def __init__(self, struct,energy_threshold, minima_threshold):
-        self.unique_minima_sorted = [struct]
+    def __init__(self,energy_threshold, minima_threshold, is_restart = False):
+        self.unique_minima_sorted = []
         self.nstructs = 0
 
         self.energy_threshold = energy_threshold
         self.minima_threshold = minima_threshold
+        self.is_restart = is_restart
+
+
+    def __enter__(self):
+        if self.is_restart:
+            listpickle = open("databasename.pickle", "rb")
+            self.unique_minima_sorted = pickle.load(listpickle)
+            listpickle.close()
+        return self
+
+    def __exit__(self,exc_type, exc_value, exc_traceback):
+        listpickle = open("databasename.pickle", "wb")
+        pickle.dump(self.unique_minima_sorted, listpickle)
+        listpickle.close()
+        return
+        
+
 
 
     def addElement(self, struct,):
+        struct = struct.__copy__()
         index = self.get_element(struct=struct)
         already_found = self.contains(index=index)
-
         if already_found:
             self.unique_minima_sorted[index].n_visit += 1
             n_visits = self.unique_minima_sorted[index].n_visit
@@ -44,6 +62,9 @@ class Database():
         return index
 
     def get_index_energyrange(self, struct):
+        if self.nstructs == 0:
+            return []
+
         i_start = bisect.bisect(self.unique_minima_sorted, struct)
 
         if i_start >= len(self.unique_minima_sorted):
