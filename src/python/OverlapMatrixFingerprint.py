@@ -21,9 +21,11 @@ class OverlapMatrixFingerprint:
             lmn[iel] = []
             for ss in range(s):
                 #cs(i)=sqrt(2.d0)**(i-1)
-                lmn[iel].append((OverlapMatrixFingerprint.getRcov(iel) * np.sqrt(2.)**((ss + 1) - ((s + 1.) / 2.)), 's'))
+                #lmn[iel].append((OverlapMatrixFingerprint.getRcov(iel) * np.sqrt(2.)**((ss + 1) - ((s + 1.) / 2.)), 's'))
+                lmn[iel].append((OverlapMatrixFingerprint.getRcov(iel) * np.sqrt(2.) ** (ss), 's'))
             for pp in range(p):
-                lmn[iel].append((OverlapMatrixFingerprint.getRcov(iel) * np.sqrt(2.)**((pp + 1) - ((p + 1.) / 2.)), 'p'))
+                #lmn[iel].append((OverlapMatrixFingerprint.getRcov(iel) * np.sqrt(2.)**((pp + 1) - ((p + 1.) / 2.)), 'p'))
+                lmn[iel].append((OverlapMatrixFingerprint.getRcov(iel) * np.sqrt(2.) ** ((pp)), 'p'))
         nex_cutoff = 2
         rcut = np.sqrt(2 * nex_cutoff) * width_cutoff
         return OverlapMatrixFingerprint(lmn, rcut=rcut, nex_cutoff=nex_cutoff, fplen=maxnatsphere*(s+3*p))

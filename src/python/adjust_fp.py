@@ -10,12 +10,12 @@ from OverlapMatrixFingerprint import OverlapMatrixFingerprint as OMFP
 from cell_atom import Cell_atom
 from copy import deepcopy
 from bazant_calc import BazantCalculator
-
-
+from ase.cluster.wulff import wulff_construction
+from ase.cluster import Icosahedron
 
 
 class adjust_fp():
-    def __init__(self, atoms, fmax,iterations=100, temperature=500, dt=0.1, md_min=1, s=1, p=1, width_cutoff=3.5, exclude=[]):
+    def __init__(self, atoms, fmax,iterations=100, temperature=500, dt=0.01, md_min=1, s=1, p=1, width_cutoff=5.5, exclude=[]):
         self._atoms = deepcopy(atoms)
         self.n_steps = iterations
         self._temperature = temperature
@@ -56,14 +56,14 @@ class adjust_fp():
         self._cell_atoms = Cell_atom(mass=_mass, positions=self._atoms.get_cell())
         self._cell_atoms.set_velocities_boltzmann(temperature=self._temperature)
         md = MD(atoms=self._atoms,outpath='./', cell_atoms=self._cell_atoms, dt=self._dt, n_max=self._mdmin, verbose=self._verbose)
-        _positions, _cell, self._dtt = md.run()
+        _positions, _cell, self._dtt, traj, epotmax = md.run()
         self._atoms.set_positions(_positions)
         self._atoms.set_cell(_cell)
 
 
     def _md(self,):
         md = MD(atoms=self._atoms, outpath='./',cell_atoms=None, dt=self._dt, n_max=self._mdmin, verbose=self._verbose)
-        _positions = md.run()
+        _positions, self._dtt, traj, epotmax = md.run()
         self._atoms.set_positions(_positions)
 
 
@@ -77,7 +77,7 @@ class adjust_fp():
     def _vcs_opt(self,):
         for _atom in self.md_structures:
             opt = Opt(atoms=_atom, outpath='./', max_froce_threshold=self._fmax, verbose=self._verbose)
-            _positions, _lattice, self._noise = opt.run()
+            _positions, _lattice, self._noise, traj  = opt.run()
             _atom.set_positions(_positions)
             _atom.set_cell(_lattice)
             self.opt_structures.append(deepcopy(_atom))
@@ -85,7 +85,7 @@ class adjust_fp():
     def _c_opt(self,):
         for _atom in self.md_structures:
             opt = Opt(atoms=_atom,outpath='./', max_froce_threshold=self._fmax, verbose=self._verbose)
-            _positions, self._noise = opt.run()
+            _positions, self._noise, traj  = opt.run()
             _atom.set_positions(_positions)
             self.opt_structures.append(deepcopy(_atom))
 
@@ -177,7 +177,7 @@ class adjust_fp():
             _omfp = np.array(_omfp)
 
         else:
-            _selected_positions = _selected_postions #* _ang2bohr
+            _selected_positions = _selected_postions * _ang2bohr
             _elements = _atoms.get_atomic_numbers()
             _width_cutoff = 1000000
             _maxnatsphere = len(_atoms)
@@ -240,14 +240,11 @@ class adjust_fp():
 
 
 def main():
-    filename = "../../data/SiC_in.extxyz"
-    atoms = read(filename)
-    # calculator = LennardJones()
-    # calculator.parameters.epsilon = 1.0
-    # calculator.parameters.sigma = 1.0
-    # calculator.parameters.rc = 6.0
-    #calculator = EAM(potential="Na_v2.eam.fs")
-    calculator = BazantCalculator()
+    #filename = "../../data/SiC_in.extxyz"
+    #atoms = read(filename)
+    atoms = Icosahedron('Na', 2, latticeconstant=None)
+    write("test.extxyz", atoms)
+    calculator = EAM(potential="Na_v2.eam.fs")
     atoms.calc = calculator
 
 

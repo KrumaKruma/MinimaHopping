@@ -13,6 +13,7 @@ from md import MD
 from optim import Opt
 from minimum import Minimum
 from cell_atom import Cell_atom
+from database import Database
 import time
 
 
@@ -45,7 +46,7 @@ class Minimahopping:
         'enhanced_feedback' : False, # Enhanced feedback to adjust the temperature (bool)
         'energy_threshold' : 0.00005, # Energy threshold at which a OMFP distance calculation is performed (float)
         'n_poslow' : 30, # Number of posmin files which are written in sorted order (int)
-        'minima_threshold' : 5.e-3, # Fingerprint difference for identifying identical configurations (float)
+        'minima_threshold' : 5.e-4, # Fingerprint difference for identifying identical configurations (float)
         'restart_optim' : False, # Reoptimizes all the proviously found minima which are read (bool)
         'start_lowest': False, # If True the run is restarted with the lowest alredy known minimum
         'verbose' : True, # If True MD and optim. steps are written to the output (bool)
@@ -71,21 +72,38 @@ class Minimahopping:
         atoms = deepcopy(self._atoms)
         atoms, atoms_cur = self._startup(atoms,)
         while (self._counter <= totalsteps):
-            print("START HOPPING STEP")
+            msg = "START HOPPING STEP NR.  {:d}".format(self._counter)
+            print(msg)
             print("  Start escape loop")
             print("  ---------------------------------------------------------------")
-            atoms, epot_max, md_trajectory, opt_trajectory = self._escape(atoms,)
+            atoms, fp, epot_max, md_trajectory, opt_trajectory = self._escape(atoms,)
             print("  ---------------------------------------------------------------")
             print("  New minimum found!")
+
+            #TODO: clean up function
             atoms_cur = self._acc_rej_step(atoms_cur)
+
+            # construct minimum class of new minimum
+            mini = Minimum(atoms,
+                            n_visit=1,
+                            epot = atoms.get_potential_energy(),
+                            fingerprint=fp,
+                            T=self._temperature,
+                            ediff=self._Ediff,
+                            acc_rej=self._acc_rej,
+                            label=0)
+
+            self._n_visits = self.data.addElement(struct = mini)
+            self.data._write_poslow(self._n_poslow ,self._minima_path)
+
+            #TODO: clean up function
             self._hoplog(atoms)
-            self._n_visits = self._in_history_fp(atoms)
             log_msg = "  New minimum has been found {:d} time(s)".format(self._n_visits)
             print(log_msg)
             print("  Write restart files")
+            #TODO: clean up function
             self._adj_temperature(atoms)
-            self._update_data(atoms)
-            self._write_poslow()
+            #TODO: clean up function
             self._history_log(atoms)
             atoms = deepcopy(atoms_cur)
             self._counter += 1
@@ -127,10 +145,8 @@ class Minimahopping:
         self._time_in = time.time()
 
         # Check if run is restarted
-        self.all_minima = []
-        self.unique_minima_sorted = []
-        self.unique_minima = []
-        self.accepted_minima = []
+        #TODO: write new restart mechanism for mh 
+        #TODO: no intermediate list, keep only lowest intermediate
         self.intermediate_minima = []
         self._i_step = 0
 
@@ -147,90 +163,31 @@ class Minimahopping:
         if not os.path.exists(self._minima_path):
             os.mkdir(self._minima_path)
 
-        _is_acc_minima = os.path.exists(self._outpath + 'acc.extxyz')
-        _is_unique_minima = os.path.exists(self._outpath + 'min.extxyz')
-        _is_history = os.path.exists(self._outpath + 'history.dat')
-        if _is_unique_minima and _is_history:
-            _is_restart = True
-            if self._new_start:
-                _is_restart = False
-        else:
-            is_files = {_is_history, _is_unique_minima}
-            assert len(is_files)==1, 'Some but not all files exist for a restart.'
-            _is_restart = False
-
-        if _is_restart:
-            msg = '  Restart of previous run'
-            print(msg)
-            calc = atoms.calc
-
-            unique_minima = read(self._outpath + "min.extxyz", index=':')
-            if _is_acc_minima:
-                accepted_minima = read(self._outpath + "acc.extxyz", index=':')
-                atoms = accepted_minima[-1]
-            else:
-                warn_msg = 'No previous accepted minima detected restart at last found minimum'
-                warnings.warn(warn_msg, UserWarning)
-                atoms = unique_minima[-1]
-
-            if os.path.exists(self._outpath + 'fp.dat') and not self._restart_optim:
-                fps = self._read_fp(atoms)
-                assert len(fps) == len(unique_minima), 'FP and minima file have not the same length, delete fp file for fp recalculation'
-                k = 0
-                for fp, atom in zip(fps, unique_minima):
-                    self.all_minima.append(
-                        Minimum(deepcopy(atom), n_visit=1, fingerprint=fp, T=-100.0, ediff=-10., acc_rej='NA', label=k))
-                    self.unique_minima_sorted.append(
-                        Minimum(deepcopy(atom), n_visit=1, fingerprint=fp, T=-100.0, ediff=-10., acc_rej='NA', label=k))
-                    k += 1
-            else:
-                warn_msg = 'Fingerprints all recalculated for all found minima'
-                warnings.warn(warn_msg, UserWarning)
-                for atom in unique_minima:
-                    if self._restart_optim:
-                        atom.calc = calc
-                        _positions, _lattice = self._restart_opt(atom)
-                        atom.set_positions(_positions)
-                        atom.set_cell(_lattice)
-
-                    fp = self._get_OMFP(atom, s=self._ns_orb, p=self._np_orb, width_cutoff=self._width_cutoff)
-                    self.all_minima.append(
-                        Minimum(deepcopy(atom), n_visit=1, fingerprint=fp, T=-100.0, ediff=-10., acc_rej='NA'))
-                    self.unique_minima_sorted.append(
-                        Minimum(deepcopy(atom), n_visit=1, fingerprint=fp, T=-100.0, ediff=-10., acc_rej='NA'))
-
-
-            if self._restart_optim:
-                _positions, _lattice = self._restart_opt(atoms)
-                atoms.set_positions(_positions)
-                atoms.set_cell(_lattice)
-
-            self.unique_minima_sorted.sort()
-            if self._start_lowest:
-                atoms = self.unique_minima_sorted[0].atoms
-
-            atoms.calc = calc
-
-            _history_file = open(self._outpath + 'history.dat', 'r')
-            self.history = []
-            for line in _history_file:
-                self.history.append(line)
-            _last_line = self.history[-1].split()
-            self._temperature = float(_last_line[2])
-            self._Ediff = float(_last_line[3])
-            _history_file.close()
-        else:
-            msg = '  New MH run is started'
-            print(msg)
-            _positions, _lattice = self._restart_opt(atoms)
-            atoms.set_positions(_positions)
-            atoms.set_cell(_lattice)
-            write(self._outpath + "acc.extxyz", atoms, append=True)
+        msg = '  New MH run is started'
+        print(msg)
+        _positions, _lattice = self._restart_opt(atoms)
+        atoms.set_positions(_positions)
+        atoms.set_cell(_lattice)
+        write(self._outpath + "acc.extxyz", atoms, append=True)
 
         atoms_cur = deepcopy(atoms)
         self._n_visits = 1
         self._acc_rej = 'Initial'
         self._history_log(atoms_cur)
+
+        fp = self._get_OMFP(atoms, s=self._ns_orb, p=self._np_orb, width_cutoff=self._width_cutoff)
+        # add input structure to database after optimization
+        mini = Minimum(atoms,
+                            n_visit=1,
+                            epot = atoms.get_potential_energy(),
+                            fingerprint=fp,
+                            T=self._temperature,
+                            ediff=self._Ediff,
+                            acc_rej=self._acc_rej,
+                            label=0)
+        # initialize database
+        self.data = Database(mini, self._energy_threshold, self._minima_threshold)
+
 
         print("DONE")
         print("=================================================================")
@@ -295,7 +252,6 @@ class Minimahopping:
         _fp_in = self._get_OMFP(atoms,s=self._ns_orb, p=self._np_orb, width_cutoff=self._width_cutoff)
         _energy_in = atoms.get_potential_energy()
         _beta_s = 1.05
-        _temperature_in = self._temperature
         _i_steps = 0
         while _escape < self._minima_threshold or _escape_energy < self._energy_threshold:
 
@@ -365,7 +321,6 @@ class Minimahopping:
 
             _fp_out = self._get_OMFP(atoms, s=self._ns_orb, p=self._np_orb, width_cutoff=self._width_cutoff)
             _energy_out = atoms.get_potential_energy()
-            self._fp = _fp_out
             _escape = self.fp_distance(_fp_in, _fp_out) / _fp_out.shape[0]
             _escape_energy = abs(_energy_in - _energy_out)
             write(self._outpath + 'locm.extxyz', atoms, append=True)
@@ -380,7 +335,7 @@ class Minimahopping:
         self._acc_rej = 'Inter'
         self._history_log(atoms)
 
-        return deepcopy(atoms), _epot_max, _md_trajectory, _opt_trajectory
+        return deepcopy(atoms), _fp_out, _epot_max, _md_trajectory, _opt_trajectory
 
 
     def _hoplog(self, atoms):
@@ -419,78 +374,7 @@ class Minimahopping:
             print(log_msg)
         return atoms_cur
 
-    def _in_history_fp(self,atoms):
-        mini = Minimum(deepcopy(atoms),
-                       n_visit=1,
-                       fingerprint=self._fp,
-                       T=self._temperature,
-                       ediff=self._Ediff,
-                       acc_rej=self._acc_rej,
-                       label=0)
-        _i_start = bisect.bisect(self.unique_minima_sorted, mini)
 
-        if not self.unique_minima_sorted:
-            self.unique_minima_sorted.append(mini)
-            itest = 1
-            return itest
-
-        if _i_start >= len(self.unique_minima_sorted):
-            _i_start -= 1
-
-        _epot = atoms.get_potential_energy()
-        _fp1 = self._fp
-        _already_found = False
-        _n_visits = 1
-        # #backward
-        _energy_difference = 0
-        min_dist = 10e10
-        for _i_compare in range(_i_start, -1, -1):
-            if _energy_difference > self._energy_threshold:
-                break
-            else:
-                s = self.unique_minima_sorted[_i_compare]
-                _energy_difference = abs(s.atoms.get_potential_energy() - _epot)
-                _fp2 = s.fingerprint
-                _fp_dist = self.fp_distance(_fp1, _fp2) / _fp2.shape[0]
-                if _fp_dist < self._minima_threshold:
-                    if _energy_difference < min_dist:
-                        min_dist = _energy_difference
-                        _index = _i_compare
-                    _already_found = True
-
-
-        #forward
-        _i_compare = _i_start
-        for _i_compare in range(_i_start, len(self.unique_minima_sorted), 1):
-            if _energy_difference > self._energy_threshold:
-                break
-            else:
-                s = self.unique_minima_sorted[_i_compare]
-                _energy_difference = abs(s.atoms.get_potential_energy() - _epot)
-                _fp2 = s.fingerprint
-                _fp_dist = self.fp_distance(_fp1, _fp2) / _fp2.shape[0]
-                if _fp_dist < self._minima_threshold:
-                    if _energy_difference < min_dist:
-                        min_dist = _energy_difference
-                        _index = _i_compare
-                    _already_found = True
-
-        if not _already_found:
-            label = len(self.unique_minima_sorted)
-            mini = Minimum(deepcopy(atoms),
-                                       n_visit=1,
-                                       fingerprint=self._fp,
-                                       T=self._temperature,
-                                       ediff=self._Ediff,
-                                       acc_rej=self._acc_rej,
-                                       label=label)
-            bisect.insort(self.unique_minima_sorted, mini)
-        else:
-            self.unique_minima_sorted[_index].n_visit += 1
-            _n_visits = self.unique_minima_sorted[_index].n_visit
-
-
-        return _n_visits
 
     def _adj_temperature(self,atoms):
         if self._n_visits > 1:
@@ -502,34 +386,7 @@ class Minimahopping:
         else:
             self._n_unique += 1
             self._temperature = self._temperature * self._beta_decrease
-            self.unique_minima.append(deepcopy(atoms))
-            write(self._outpath + "min.extxyz", self.unique_minima[-1],  append=True)
-            self._write_fp(atoms)
-
-
-    def _write_fp(self, atoms):
-        fp_file = open(self._outpath + 'fp.dat', 'a')
-        if True in atoms.pbc:
-            for env in self._fp:
-                for num in env:
-                    fp_w = str(num) + '  '
-                    fp_file.write(fp_w)
-                fp_file.write('\n')
-        else:
-            for num in self._fp:
-                fp_w = str(num) + '  '
-                fp_file.write(fp_w)
-            fp_file.write('\n')
-        fp_file.close()
-
-
-
-
-    def _update_data(self, atoms):
-        if self._acc_rej == "Accepted":
-            self.accepted_minima.append(deepcopy(atoms))
-            write(self._outpath + "acc.extxyz", self.accepted_minima[-1], append=True)
-
+            write(self._outpath + "min.extxyz", atoms,  append=True)
 
 
     def _history_log(self, atoms):
@@ -557,20 +414,6 @@ class Minimahopping:
             _warning_msg = 'Energy threshold is below the noise level'
             warnings.warn(_warning_msg, UserWarning)
 
-
-    def _write_poslow(self,):
-        _i_poslow = 0
-        for s in self.unique_minima_sorted:
-            filename = 'min'+str(_i_poslow).zfill(6)
-            if True in s.atoms.pbc:
-                filename += '.ascii'
-            else:
-                filename += '.xyz'
-            filename = self._minima_path + filename
-            write(filename,s.atoms)
-            _i_poslow += 1
-            if _i_poslow-1 > self._n_poslow:
-                break
 
 
     def _get_OMFP(self, _atoms,s=1, p=0, width_cutoff=1.5, maxnatsphere=100):
