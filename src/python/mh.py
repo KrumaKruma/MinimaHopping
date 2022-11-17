@@ -1,8 +1,6 @@
 import numpy as np
-import scipy
 import warnings
 import os
-import bisect
 from ase.io import read, write
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
 import lattice_operations as lat_opt
@@ -15,7 +13,6 @@ from minimum import Minimum
 from cell_atom import Cell_atom
 from database import Database
 import time
-import pickle
 
 """
 MH Software written by Marco Krummenacher (marco.krummenacher@unibas.ch)
@@ -80,12 +77,8 @@ class Minimahopping:
             struct = self._startup(atoms,)  # gets an atoms object and a minimum object is returned.
             struct_cur = struct.__deepcopy__()
 
-            # Initialization to hold back lowest intermediate structure
-            in_reject = True
-            first_reject = True
             # Start hopping loop
             while (self._counter <= totalsteps):
-                while in_reject:
                 msg = "START HOPPING STEP NR.  {:d}".format(self._counter)
                 print(msg)
                 print("  Start escape loop")
@@ -102,30 +95,14 @@ class Minimahopping:
                 status = 'Inter'
                 self._history_log(struct_inter, status, n_visits)
 
-                # check if previously found minimum was rejected
-                if in_reject:
-                    # check if new found minimum is lower in energy
-                    epot_prev = lowest_rej.e_pot
-                    epot_new = struct_inter.e_pot
-                    if epot_new < epot_prev:
-                        # if new found minimum is lower in energy that's the lowest rejected minimum 
-                        lowest_rej = struct_inter.__deepcopy__()
-                    struct_inter = lowest_rej.__deepcopy__()
-
                 # check if new proposed structure is accepted or rejected
                 struct_cur, is_accepted =  self._acc_rej_step(struct_cur, struct_inter)
 
                 # if structure is not accepted store the first rejected structre as currently lowest rejected structure
                 if not is_accepted :
                     status = "Rejected"
-                    if first_reject:
-                        lowest_rej = struct_inter.__deepcopy__()
-                        first_reject = False
-                    in_reject = True 
                 else:
                     status = "Accepted"
-                    in_reject = False
-                    first_reject = True
                 
                 
                 log_msg = "  New minimum has been found {:d} time(s)".format(n_visits)
@@ -135,6 +112,49 @@ class Minimahopping:
 
                 # write to history output file
                 self._history_log(struct_inter, status)
+
+                if not is_accepted:
+                    lowest_rej = struct_inter.__deepcopy__()
+                
+                while not is_accepted:
+                    msg = "START HOPPING STEP NR.  {:d}".format(self._counter)
+                    print(msg)
+                    print(msg)
+                    print("  Start escape loop")
+                    print("  ---------------------------------------------------------------")
+                    struct_inter, n_visits, _epot_max, _md_trajectory, _opt_trajectory = self._escape(struct,) 
+                    print("  ---------------------------------------------------------------")
+                    print("  New minimum found!")
+                    # write the lowest n minima to files
+                    self.data._write_poslow(self._n_poslow ,self._minima_path)
+
+                    # write output
+                    self._hoplog(struct_inter)
+                    status = 'Inter'
+                    self._history_log(struct_inter, status, n_visits)
+                    struct_cur, is_accepted =  self._acc_rej_step(struct_cur, struct_inter)
+
+                    if not is_accepted :
+                        status = "Rejected"
+                    else:
+                        status = "Accepted"
+
+                    epot_prev = lowest_rej.e_pot
+                    epot_new = struct_inter.e_pot
+                    if epot_new < epot_prev:
+                        # if new found minimum is lower in energy that's the lowest rejected minimum 
+                        lowest_rej = struct_inter.__deepcopy__()
+                    struct_inter = lowest_rej.__deepcopy__()
+
+                    log_msg = "  New minimum has been found {:d} time(s)".format(n_visits)
+                    print(log_msg)
+                    # adjust the temperature according to the number of visits
+                    self._adj_temperature(struct, n_visits)
+
+                    # write to history output file
+                    self._history_log(struct_inter, status)
+
+
                 struct = struct_cur.__deepcopy__()
                 self._counter += 1
                 print("DONE")
@@ -170,7 +190,7 @@ class Minimahopping:
     def _startup(self, atoms):
         print("=================================================================")
         print("MINIMAHOPPING SETUP START")
-
+        # TODO: write new restart mechanism for mh 
         # self._is_restart = False
         # if not self._new_start:
         #     if os.path.exists("databasename.pickle"):
@@ -182,7 +202,7 @@ class Minimahopping:
         self._time_in = time.time()
 
         # Check if run is restarted
-        #TODO: write new restart mechanism for mh 
+        
         self._i_step = 0
         self._n_min = 1
         self._n_unique = 0
@@ -246,15 +266,6 @@ class Minimahopping:
         nd, d = self._run_time.split('-')
         h, m, s = d.split(':')
         return int(nd) * 86400 + int(h) * 3600 + int(m) * 60 + int(s)
-
-
-    def _get_which_intermediate(self, atoms_inter, prev_atoms_inter, prev_inter):
-        if prev_inter:
-            e_pot_new = atoms_inter.get_potential_energy()
-            e_pot_prev = prev_atoms_inter.get_potential_energy()
-            if e_pot_prev < e_pot_new:
-                atoms_inter = deepcopy(prev_atoms_inter)
-        return atoms_inter
 
 
     def _escape(self, struct):
