@@ -1,6 +1,5 @@
 import numpy as np
 import warnings
-import os
 from ase.io import read, write
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
 import lattice_operations as lat_opt
@@ -28,23 +27,23 @@ Parts of the software were originally developped (some in Fortran) from other pe
 
 class Minimahopping:
     def __init__(self, atoms,
-                        T0 = 5000,
+                        T0 = 500,
                         beta_decrease = 1./1.1,
                         beta_increase = 1.1,
                         Ediff0 = .01,
                         alpha_a = 0.95,
                         alpha_r = 1.05,
                         n_soft = 20,
-                        ns_orb = 1,
-                        np_orb = 1,
-                        width_cutoff = 3.5,
-                        maxnatsphere = 100,
+                        ns_orb = 1, 
+                        np_orb = 1, 
+                        width_cutoff = 3.5, 
+                        maxnatsphere = 100, 
                         exclude = [],
                         dt = 0.1,
                         mdmin = 2,
-                        fmax = 0.00005,
+                        fmax = 0.00005, 
                         enhanced_feedback = False,
-                        energy_threshold = 0.00005,
+                        energy_threshold = 0.00005, #5 the noise
                         n_poslow = 30,
                         minima_threshold = 5e-4,
                         verbose = True,
@@ -82,7 +81,13 @@ class Minimahopping:
 
         self.restart_dict = {"dt" : self._dt,
                              "T" : self._temperature, 
-                             "Ediff" : self._Ediff,}
+                             "Ediff" : self._Ediff,
+                             "ns_orb" : 1,
+                             "np_orb" : 1,
+                             "width_cutoff" : 3.5, 
+                             "exclude" : [],
+                             "minima_threshold" : 5e-4,
+                             }
 
     def __call__(self, totalsteps = None):
 
@@ -220,6 +225,29 @@ class Minimahopping:
         print("=================================================================")
         print("MINIMAHOPPING SETUP START")
 
+
+        if not isinstance(atoms, list):
+            atoms = [deepcopy(atoms)]
+
+        for atom in atoms:
+            calc = atom.calc
+            _positions, _lattice = self._restart_opt(atom,)
+            atom.set_positions(_positions)
+            atom.set_cell(_lattice)
+
+            struct = Minimum(atom,
+                        n_visit=1,
+                        s = self._ns_orb,
+                        p = self._np_orb, 
+                        width_cutoff = self._width_cutoff,
+                        maxnatsphere = self._maxnatsphere,
+                        epot = atom.get_potential_energy(),
+                        T=self._temperature,
+                        ediff=self._Ediff,
+                        label=0)
+            
+            self.data.addElement(struct)
+
         # Convert given time to seconds
         if self._run_time is not "infinit":
             self._run_time_sec = self._get_sec()
@@ -237,9 +265,6 @@ class Minimahopping:
         if self._is_restart:
             msg = '  Restart MH run'
             print(msg)
-
-            # Get calculator from input structure
-            calc = atoms.calc
 
             # Read current structure
             filename = self.restart_path + "poscur.extxyz"
@@ -267,31 +292,47 @@ class Minimahopping:
             self._Ediff = self.restart_dict["Ediff"]
             self._temperature = self.restart_dict["T"]
 
+            if self._ns_orb != self.restart_dict["ns_orb"]:
+                msg = "Number of s orbitals in OMFP is not consistent with previous run!"
+                warnings.warn(msg, UserWarning)
+                self._ns_orb = self.restart_dict["ns_orb"]
+
+            if self._np_orb != self.restart_dict["np_orb"]:
+                msg = "Number of p orbitals in OMFP is not consistent with previous run!"
+                warnings.warn(msg, UserWarning)
+                self._np_orb = self.restart_dict["np_orb"]
+
+            if self._width_cutoff != self.restart_dict["width_cutoff"]:
+                msg = "width cutoff in OMFP is not consistent with previous run!"
+                warnings.warn(msg, UserWarning)
+                self._width_cutoff = self.restart_dict["width_cutoff"]
+            
+            if self._exclude != self.restart_dict["exclude"]:
+                msg = "Exclude element list in OMFP is not consistent with previous run!"
+                warnings.warn(msg, UserWarning)
+                self._exclude = self.restart_dict["exclude"]
+            
+            if self._minima_threshold != self.restart_dict["minima_threshold"]:
+                msg = "Minimum threshold is not consistent with previous run!"
+                warnings.warn(msg, UserWarning)
+                self._minima_threshold = self.restart_dict["minima_threshold"]
+
+
         else:
 
             msg = '  New MH run is started'
             print(msg)
-
-            _positions, _lattice = self._restart_opt(atoms)
-            atoms.set_positions(_positions)
-            atoms.set_cell(_lattice)
+            
+            # add input structure to database after optimization
+            struct_cur = self.data.unique_minima_sorted[0].__copy__()
+            struct_cur.atoms.calc = calc
+            atoms = struct_cur.atoms
             write(self._outpath + "acc.extxyz", atoms, append=True)
             write(self.restart_path + "poscur.extxyz", atoms)
 
-            # add input structure to database after optimization
+            
 
-            struct_cur = Minimum(atoms,
-                        n_visit=1,
-                        s = self._ns_orb,
-                        p = self._np_orb, 
-                        width_cutoff = self._width_cutoff,
-                        maxnatsphere = self._maxnatsphere,
-                        epot = atoms.get_potential_energy(),
-                        T=self._temperature,
-                        ediff=self._Ediff,
-                        label=0)
-        
-        
+
         status = 'Initial'
         self._history_log(struct_cur, status, n_visits=1)
 
