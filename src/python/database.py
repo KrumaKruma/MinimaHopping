@@ -1,26 +1,30 @@
 import bisect
 from ase.io import read, write
 import pickle
+import os
 
 class Database():
-    def __init__(self,energy_threshold, minima_threshold, is_restart = False):
+    def __init__(self,energy_threshold, minima_threshold, is_restart = False, outpath='./'):
         self.unique_minima_sorted = []
         self.nstructs = 0
 
         self.energy_threshold = energy_threshold
         self.minima_threshold = minima_threshold
         self.is_restart = is_restart
+        self.outpath = outpath
 
 
     def __enter__(self):
         if self.is_restart:
-            listpickle = open("databasename.pickle", "rb")
+            filename = self.outpath + "data.pickle"
+            listpickle = open(filename, "rb")
             self.unique_minima_sorted = pickle.load(listpickle)
             listpickle.close()
         return self
 
     def __exit__(self,exc_type, exc_value, exc_traceback):
-        listpickle = open("databasename.pickle", "wb")
+        filename = self.outpath + "data.pickle"
+        listpickle = open(filename, "wb")
         pickle.dump(self.unique_minima_sorted, listpickle)
         listpickle.close()
         return
@@ -32,6 +36,7 @@ class Database():
         struct = struct.__copy__()
         index = self.get_element(struct=struct)
         already_found = self.contains(index=index)
+
         if already_found:
             self.unique_minima_sorted[index].n_visit += 1
             n_visits = self.unique_minima_sorted[index].n_visit
@@ -41,21 +46,23 @@ class Database():
             struct.set_label(label)
             bisect.insort(self.unique_minima_sorted, struct)
             n_visits = 1
-        # TODO: better solution for this function return.
+
         return n_visits
 
 
     def get_element(self, struct):
         
         indices = self.get_index_energyrange(struct)
+
         min_dist = 10e10
         index = -1
+
         for i_compare in indices:
             s = self.unique_minima_sorted[i_compare]
             energy_difference = struct.__compareto__(s)
-            #fp_dist = struct.__equals__(s)
-            if energy_difference < 0.0001:
-                if energy_difference < min_dist:
+            fp_dist = struct.__equals__(s)
+            if fp_dist < self.minima_threshold:
+                if fp_dist < min_dist:
                     min_dist = energy_difference
                     index = i_compare
 
@@ -75,25 +82,25 @@ class Database():
         # #backward
         energy_difference = 0
         for i_compare in range(i_start-1, -1, -1):
-            if energy_difference > 10.1:
+            if energy_difference > self.energy_threshold:
                 break
             else:
                 s = self.unique_minima_sorted[i_compare]
                 energy_difference = struct.__compareto__(s)
                 #if fp_dist < self.minima_threshold:
-                if energy_difference < 10.1:
+                if energy_difference < self.energy_threshold:
                     indices.append(i_compare)
 
         energy_difference = 0
         #forward
         i_compare = i_start
         for i_compare in range(i_start, self.nstructs, 1):
-            if energy_difference > 10.1:
+            if energy_difference > self.energy_threshold:
                 break
             else:
                 s = self.unique_minima_sorted[i_compare]
                 energy_difference = struct.__compareto__(s)
-                if energy_difference < 10.1:
+                if energy_difference < self.energy_threshold:
                     indices.append(i_compare)
 
         return indices

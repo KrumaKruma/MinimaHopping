@@ -13,6 +13,8 @@ from minimum import Minimum
 from cell_atom import Cell_atom
 from database import Database
 import time
+import json
+import file_handling 
 
 """
 MH Software written by Marco Krummenacher (marco.krummenacher@unibas.ch)
@@ -25,53 +27,76 @@ Parts of the software were originally developped (some in Fortran) from other pe
 
 
 class Minimahopping:
-    #TODO: write settings to json file
-    _default_settings = {
-        'T0' : 50000.,  # Initital temperature in Kelvin (float)
-        'beta_decrease': 1. / 1.1,  # temperature adjustment parameter (float)
-        'beta_increase': 1.1,  # temperature adjustment parameter (float)
-        'Ediff0' : .01, # Initial energy aceptance threshold (float)
-        'alpha_a' : 0.95, # factor for decreasing Ediff (float)
-        'alpha_r' : 1.05, # factor for increasing Ediff (float)
-        'n_soft' : 20, # number of softening steps for the velocity before the MD (int)
-        'ns_orb' : 1, # number of s orbitals in OMFP fingerprint
-        'np_orb' : 1, # number of p orbitals in OMFP fingerprint
-        'width_cutoff' : 3.5, # with cutoff for OMFP fingerprint
-        'maxnatsphere' : 100,
-        'exclude': [], # Elements which are to be excluded from the OMFP (list of str)
-        'dt' : 0.1, # timestep for the MD part (float)
-        'mdmin' : 2, # criteria to stop the MD trajectory (no. of minima) (int)
-        'fmax' : 0.000005, # max force component for the local geometry optimization
-        'enhanced_feedback' : False, # Enhanced feedback to adjust the temperature (bool)
-        'energy_threshold' : 0.00005, # Energy threshold at which a OMFP distance calculation is performed (float)
-        'n_poslow' : 30, # Number of posmin files which are written in sorted order (int)
-        'minima_threshold' : 5.e-4, # Fingerprint difference for identifying identical configurations (float)
-        'restart_optim' : False, # Reoptimizes all the proviously found minima which are read (bool)
-        'start_lowest': False, # If True the run is restarted with the lowest alredy known minimum
-        'verbose' : True, # If True MD and optim. steps are written to the output (bool)
-        'new_start': False, # If True the Run is restarted and written to different output folders
-        'run_time': "infinit" # String in the format D-HH:MM:SS, if infinit set run_time to infinit
-    }
-
-    def __init__(self, atoms, **kwargs):
+    def __init__(self, atoms,
+                        T0 = 5000,
+                        beta_decrease = 1./1.1,
+                        beta_increase = 1.1,
+                        Ediff0 = .01,
+                        alpha_a = 0.95,
+                        alpha_r = 1.05,
+                        n_soft = 20,
+                        ns_orb = 1,
+                        np_orb = 1,
+                        width_cutoff = 3.5,
+                        maxnatsphere = 100,
+                        exclude = [],
+                        dt = 0.1,
+                        mdmin = 2,
+                        fmax = 0.00005,
+                        enhanced_feedback = False,
+                        energy_threshold = 0.00005,
+                        n_poslow = 30,
+                        minima_threshold = 5e-4,
+                        verbose = True,
+                        new_start = False,
+                        run_time = 'infinit'):
         """Initialize with an ASE atoms object and keyword arguments."""
         self._atoms = atoms
-        for key in kwargs:
-            if key not in self._default_settings:
-                raise RuntimeError('Unknown keyword: %s' % key)
-        for k, v in self._default_settings.items():
-            setattr(self, '_%s' % k, kwargs.pop(k, v))
+        self._T0 = T0 
+        self._beta_decrease = beta_decrease
+        self._beta_increase = beta_increase
+        self._Ediff0 = Ediff0 
+        self._alpha_a = alpha_a
+        self._alpha_r = alpha_r
+        self._n_soft = n_soft
+        self._ns_orb = ns_orb
+        self._np_orb = np_orb
+        self._width_cutoff = width_cutoff
+        self._maxnatsphere = maxnatsphere
+        self._exclude = exclude
+        self._dt = dt
+        self._mdmin = mdmin
+        self._fmax = fmax
+        self._enhanced_feedback = enhanced_feedback
+        self._energy_threshold = energy_threshold
+        self._n_poslow = n_poslow
+        self._minima_threshold = minima_threshold
+        self._verbose = verbose
+        self._new_start = new_start
+        self._run_time = run_time
 
         self._temperature = self._T0
         self._Ediff = self._Ediff0
 
         self._counter = 0
 
+        self.restart_dict = {"dt" : self._dt,
+                             "T" : self._temperature, 
+                             "Ediff" : self._Ediff,}
+
     def __call__(self, totalsteps = None):
-        
-        self._is_restart = False
+
+        # Check if all the files are there for a restart.
+        self._outpath = 'output/' 
+        self.restart_path = self._outpath + "restart/"
+        self._minima_path = 'minima/'
+        self._is_restart = file_handling.restart(self._outpath, self.restart_path, self._minima_path)
+        # Check if new start is desired
+        if self._new_start:
+            self._is_restart = False
+
         # initialize database
-        with Database(self._energy_threshold, self._minima_threshold, self._is_restart) as self.data:
+        with Database(self._energy_threshold, self._minima_threshold, self._is_restart, self.restart_path) as self.data:
             # Start up minimahopping 
             atoms = deepcopy(self._atoms)
             struct = self._startup(atoms,)  # gets an atoms object and a minimum object is returned.
@@ -113,12 +138,13 @@ class Minimahopping:
                 # write to history output file
                 self._history_log(struct_inter, status)
 
+                # if not accepted the first rejected is the current lowest rejected
                 if not is_accepted:
                     lowest_rej = struct_inter.__deepcopy__()
                 
+                # if not accepted start reject loop until a minimum has been accepted
                 while not is_accepted:
                     msg = "START HOPPING STEP NR.  {:d}".format(self._counter)
-                    print(msg)
                     print(msg)
                     print("  Start escape loop")
                     print("  ---------------------------------------------------------------")
@@ -153,6 +179,7 @@ class Minimahopping:
 
                     # write to history output file
                     self._history_log(struct_inter, status)
+                    self._counter += 1
 
 
                 struct = struct_cur.__deepcopy__()
@@ -186,22 +213,19 @@ class Minimahopping:
             print(msg)
 
 
+        
+        
 
     def _startup(self, atoms):
         print("=================================================================")
         print("MINIMAHOPPING SETUP START")
-        # TODO: write new restart mechanism for mh 
-        # self._is_restart = False
-        # if not self._new_start:
-        #     if os.path.exists("databasename.pickle"):
-        #         self._is_restart = True
 
         # Convert given time to seconds
         if self._run_time is not "infinit":
             self._run_time_sec = self._get_sec()
         self._time_in = time.time()
 
-        # Check if run is restarted
+        # Initialization of global counters
         
         self._i_step = 0
         self._n_min = 1
@@ -209,27 +233,54 @@ class Minimahopping:
         self._n_notunique = 0
         self._n_same = 0
 
-        self._outpath = 'output/'
-        if not os.path.exists(self._outpath):
-            os.mkdir(self._outpath)
+        # Check if restart
+        if self._is_restart:
+            msg = '  Restart MH run'
+            print(msg)
 
-        self._minima_path = 'minima/'
-        if not os.path.exists(self._minima_path):
-            os.mkdir(self._minima_path)
+            # Get calculator from input structure
+            calc = atoms.calc
 
-        msg = '  New MH run is started'
-        print(msg)
+            # Read current structure
+            filename = self.restart_path + "poscur.extxyz"
+            atoms = read(filename)
+            atoms.calc = calc
 
-        _positions, _lattice = self._restart_opt(atoms)
-        atoms.set_positions(_positions)
-        atoms.set_cell(_lattice)
-        write(self._outpath + "acc.extxyz", atoms, append=True)
+            label = self.data.nstructs + 1
+            struct_cur = Minimum(atoms,
+                        n_visit=1,
+                        s = self._ns_orb,
+                        p = self._np_orb, 
+                        width_cutoff = self._width_cutoff,
+                        maxnatsphere = self._maxnatsphere,
+                        epot = atoms.get_potential_energy(),
+                        T=self._temperature,
+                        ediff=self._Ediff,
+                        label=label)
 
-        self._n_visits = 1
+            # Read parameters and set them
+            filename = self.restart_path + "params.json"
+            f = open(filename)
+            self.restart_dict = json.load(f)
+            f.close()
+            self._dt = self.restart_dict["dt"]
+            self._Ediff = self.restart_dict["Ediff"]
+            self._temperature = self.restart_dict["T"]
 
-        # add input structure to database after optimization
+        else:
 
-        struct_cur = Minimum(atoms,
+            msg = '  New MH run is started'
+            print(msg)
+
+            _positions, _lattice = self._restart_opt(atoms)
+            atoms.set_positions(_positions)
+            atoms.set_cell(_lattice)
+            write(self._outpath + "acc.extxyz", atoms, append=True)
+            write(self.restart_path + "poscur.extxyz", atoms)
+
+            # add input structure to database after optimization
+
+            struct_cur = Minimum(atoms,
                         n_visit=1,
                         s = self._ns_orb,
                         p = self._np_orb, 
@@ -239,6 +290,7 @@ class Minimahopping:
                         T=self._temperature,
                         ediff=self._Ediff,
                         label=0)
+        
         
         status = 'Initial'
         self._history_log(struct_cur, status, n_visits=1)
@@ -371,6 +423,12 @@ class Minimahopping:
             _i_steps += 1
             self._n_min += 1
 
+            # update and save restart dict
+            self.restart_dict["dt"] = self._dt
+            self.restart_dict["T"] = self._temperature
+            f = open(self.restart_path+"params.json", "w")
+            json.dump(self.restart_dict,f)
+            f.close()
         
 
         log_msg = "    New minimum found with fpd {:1.2e} after looping {:d} time(s)".format(_escape, _i_steps)
@@ -415,10 +473,19 @@ class Minimahopping:
             log_msg = "  Minimum was accepted:  Enew - Ecur = {:1.5f} < {:1.5f} = Ediff".format(ediff_acc,
                                                                                                 _ediff_in)
             print(log_msg)
+            write(self._outpath + "acc.extxyz", struct_cur.atoms, append=True)
+            write(self.restart_path + "poscur.extxyz", struct_cur.atoms)
         else:
             log_msg = "  Minimum was rejected:  Enew - Ecur = {:1.5f} > {:1.5f} = Ediff".format(ediff_rej,
                                                                                                 _ediff_in)
             print(log_msg)
+
+        # update restart dict
+        self.restart_dict["Ediff"] = self._Ediff
+        f = open(self.restart_path+"params.json", "w")
+        json.dump(self.restart_dict,f)
+        f.close()
+
         return struct_cur, is_accepted
 
 
