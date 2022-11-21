@@ -14,6 +14,7 @@ from database import Database
 import time
 import json
 import file_handling 
+import graph
 
 """
 MH Software written by Marco Krummenacher (marco.krummenacher@unibas.ch)
@@ -45,7 +46,7 @@ class Minimahopping:
                         enhanced_feedback = False,
                         energy_threshold = 0.00005, #5 the noise
                         n_poslow = 30,
-                        minima_threshold = 1e-2,
+                        minima_threshold = 1e-3,
                         verbose = True,
                         new_start = False,
                         run_time = 'infinit'):
@@ -101,7 +102,7 @@ class Minimahopping:
             self._is_restart = False
 
         # initialize database
-        with Database(self._energy_threshold, self._minima_threshold, self._is_restart, self.restart_path) as self.data:
+        with Database(self._energy_threshold, self._minima_threshold, self._is_restart, self.restart_path) as self.data, graph.MinimaHoppingGraph('output/graph.dat', 'output/trajectory.dat', self._is_restart) as g:
             # Start up minimahopping 
             atoms = deepcopy(self._atoms)
             current_minimum = self._startup(atoms,)  # gets an atoms object and a minimum object is returned.
@@ -109,45 +110,13 @@ class Minimahopping:
 
             # Start hopping loop
             while (self._counter <= totalsteps):
-                msg = "START HOPPING STEP NR.  {:d}".format(self._counter)
-                print(msg)
-                print("  Start escape loop")
-                print("  ---------------------------------------------------------------")
-                escaped_minimum, n_visits, _epot_max, _md_trajectory, _opt_trajectory = self._escape(current_minimum,) 
-                print("  ---------------------------------------------------------------")
-                print("  New minimum found!")
-
-                # write the lowest n minima to files
-                self.data._write_poslow(self._n_poslow ,self._minima_path)
-
-                # write output
-                self._hoplog(escaped_minimum)
-                status = 'Inter'
-                self._history_log(escaped_minimum, status, n_visits)
-
-                # check if new proposed structure is accepted or rejected
-                current_minimum, is_accepted =  self._acc_rej_step(current_minimum, escaped_minimum)
-
-                # if structure is not accepted store the first rejected structre as currently lowest rejected structure
-                if not is_accepted :
-                    intermediate_minimum = escaped_minimum.__deepcopy__()
-                    status = "Rejected"
-                else:
-                    status = "Accepted"
-                
-                
-                log_msg = "  New minimum has been found {:d} time(s)".format(n_visits)
-                print(log_msg)
-                # adjust the temperature according to the number of visits
-                self._adj_temperature(escaped_minimum, n_visits)
-
-                # write to history output file
-                self._history_log(escaped_minimum, status)
+                is_accepted = False
+                is_first_accept_iteration = True
                 
                 # if not accepted start reject loop until a minimum has been accepted
+                msg = "START HOPPING STEP NR.  {:d}".format(self._counter)
+                print(msg)
                 while not is_accepted:
-                    msg = "START HOPPING STEP NR.  {:d}".format(self._counter)
-                    print(msg)
                     print("  Start escape loop")
                     print("  ---------------------------------------------------------------")
                     escaped_minimum, n_visits, _epot_max, _md_trajectory, _opt_trajectory = self._escape(current_minimum) 
@@ -158,26 +127,39 @@ class Minimahopping:
 
                     # write output
                     self._hoplog(escaped_minimum)
-                    status = 'Inter'
-                    self._history_log(escaped_minimum, status, n_visits)
 
-                    if escaped_minimum.e_pot < intermediate_minimum.e_pot:
+                    # check if intermediate or escaped minimum should be considered for accepting.
+                    if is_first_accept_iteration: # after first iteration, the escaped minimum must be considered for accecpting
                         intermediate_minimum = escaped_minimum.__deepcopy__()
+                        intermediate_minimum_is_escaped_minimum = True
+                        is_first_accept_iteration = False
+                    else: # After several iterations, the check if the escaped or the intermediate minimum has a lower energy
+                        intermediate_minimum_is_escaped_minimum = False
+                        if escaped_minimum.e_pot < intermediate_minimum.e_pot:
+                            intermediate_minimum = escaped_minimum.__deepcopy__()
+                            intermediate_minimum_is_escaped_minimum = True
+                    # accept minimum if necessary
                     current_minimum, is_accepted =  self._acc_rej_step(current_minimum, intermediate_minimum)
 
-                    if not is_accepted :
-                        status = "Rejected"
+                    # write log messages
+                    if is_accepted:
+                        if intermediate_minimum_is_escaped_minimum:
+                            status = "Accepted minimum after escaping"
+                            self._history_log(escaped_minimum, status, n_visits)
+                        else:
+                            status = 'Accepted intermediate minimum'
+                            self._history_log(intermediate_minimum, status, n_visits)
                     else:
-                        status = "Accepted"
+                        if intermediate_minimum_is_escaped_minimum:
+                            status = "Rejected -> new intermediate minimum"
+                        else:
+                            status = "Rejected"
+                        self._history_log(escaped_minimum, status, n_visits)
 
                     log_msg = "  New minimum has been found {:d} time(s)".format(n_visits)
                     print(log_msg)
                     # adjust the temperature according to the number of visits
                     self._adj_temperature(escaped_minimum, n_visits)
-
-                    # write to history output file
-                    self._history_log(escaped_minimum, status)
-                    self._counter += 1
 
 
                 self._counter += 1
@@ -524,7 +506,6 @@ class Minimahopping:
 
 
     def _adj_temperature(self,struct, n_visits):
-        print('nvisits, ', n_visits, struct.atoms.get_potential_energy())
         if n_visits > 1:
             self._n_notunique += 1
             if self._enhanced_feedback:
