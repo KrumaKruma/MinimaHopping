@@ -22,7 +22,8 @@ class EAMSymmetryCalculator(EAM):
         self.lengthfp = lengthfp
         self.num_cat = num_cat
         self.nex_cutoff = nex_cutoff
-        EAM.__init__(self, potential="Na_v2.eam.fs")
+        potential_file="/kernph/hubhan00/hannes-python/ASE_git/ase_mh/src/python/Na_v2.eam.fs"
+        EAM.__init__(self, potential = potential_file)
 
 
     def lattice_derivative(self, stress_tensor, cell):
@@ -60,7 +61,8 @@ class EAMSymmetryCalculator(EAM):
 
         #Set base_calculator:
         EAM.calculate(self, atoms, properties, system_changes)
-        self.calc = EAM(potential="Na_v2.eam.fs")
+        potential_file = "/kernph/hubhan00/hannes-python/ASE_git/ase_mh/src/python/Na_v2.eam.fs"
+        self.calc = EAM(potential = potential_file)
         self.atoms.calc = self.calc
 
         #Get energy, forces, deralat from calculator
