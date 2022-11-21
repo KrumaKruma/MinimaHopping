@@ -29,8 +29,8 @@ Parts of the software were originally developped (some in Fortran) from other pe
 class Minimahopping:
     def __init__(self, atoms,
                         T0 = 1000,
-                        beta_decrease = 1./1.1,
-                        beta_increase = 1.1,
+                        beta_decrease = 1./1.05,
+                        beta_increase = 1.05,
                         Ediff0 = .01,
                         alpha_a = 0.95,
                         alpha_r = 1.05,
@@ -42,15 +42,15 @@ class Minimahopping:
                         exclude = [],
                         dt = 0.1,
                         mdmin = 4,
-                        fmax = 0.00005, 
+                        fmax = 0.001, 
                         enhanced_feedback = False,
-                        energy_threshold = 0.00005, #5 the noise
+                        energy_threshold = 0.001, #5 the noise
                         n_poslow = 30,
                         minima_threshold = 1e-3,
                         verbose = True,
                         new_start = False,
                         run_time = 'infinit', 
-                        use_intermediate_mechanism = True):
+                        use_intermediate_mechanism = False):
         """Initialize with an ASE atoms object and keyword arguments."""
         self._atoms = atoms
         self._T0 = T0 
@@ -135,7 +135,7 @@ class Minimahopping:
                     self._hoplog(escaped_minimum)
 
                     # check if intermediate or escaped minimum should be considered for accepting.
-                    if is_first_accept_iteration: # after first iteration, the escaped minimum must be considered for accecpting
+                    if is_first_accept_iteration or not self._use_intermediate_mechanism: # after first iteration, the escaped minimum must be considered for accecpting
                         intermediate_minimum = escaped_minimum.__deepcopy__()
                         intermediate_minimum_is_escaped_minimum = True
                         is_first_accept_iteration = False
@@ -310,13 +310,10 @@ class Minimahopping:
             write(self._outpath + "acc.extxyz", atoms, append=True)
             write(self.restart_path + "poscur.extxyz", atoms)
 
-            
-
-
-        status = 'Initial'
-        self._history_log(struct_cur, status, n_visits=1)
 
         self.data.addElement(struct_cur)
+        status = 'Initial'
+        self._history_log(struct_cur, status, n_visits=struct_cur.n_visit)
 
         print("DONE")
         print("=================================================================")
