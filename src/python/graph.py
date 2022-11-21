@@ -26,7 +26,8 @@ class MinimaHoppingGraph:
             try:
                 os.remove(self.trajectoryDatabaseName)
             except FileNotFoundError:
-                print('File not found')
+                #print('File not found')
+                pass
         self.trajectoryDict = shelve.open(self.trajectoryDatabaseName,  writeback=True)
         return self
 

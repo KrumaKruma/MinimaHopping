@@ -32,22 +32,22 @@ class Database():
 
 
 
-    def addElement(self, struct,):
-        struct = struct.__copy__()
+    def addElement(self, struct):
         index = self.get_element(struct=struct)
         already_found = self.contains(index=index)
 
         if already_found:
             self.unique_minima_sorted[index].n_visit += 1
-            n_visits = self.unique_minima_sorted[index].n_visit
+            struct.n_visit = self.unique_minima_sorted[index].n_visit
+            struct.label = self.unique_minima_sorted[index].label
         else:
             self.nstructs += 1
             label = self.nstructs
             struct.set_label(label)
-            bisect.insort(self.unique_minima_sorted, struct)
-            n_visits = 1
+            struct.n_visit = 1
+            bisect.insort(self.unique_minima_sorted, struct.__copy__())
 
-        return n_visits
+        return
 
 
     def get_element(self, struct):

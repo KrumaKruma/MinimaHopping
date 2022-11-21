@@ -49,7 +49,8 @@ class Minimahopping:
                         minima_threshold = 1e-3,
                         verbose = True,
                         new_start = False,
-                        run_time = 'infinit'):
+                        run_time = 'infinit', 
+                        use_intermediate_mechanism = True):
         """Initialize with an ASE atoms object and keyword arguments."""
         self._atoms = atoms
         self._T0 = T0 
@@ -74,6 +75,7 @@ class Minimahopping:
         self._verbose = verbose
         self._new_start = new_start
         self._run_time = run_time
+        self._use_intermediate_mechanism = use_intermediate_mechanism
 
         self._temperature = self._T0
         self._Ediff = self._Ediff0
@@ -119,11 +121,15 @@ class Minimahopping:
                 while not is_accepted:
                     print("  Start escape loop")
                     print("  ---------------------------------------------------------------")
-                    escaped_minimum, n_visits, _epot_max, _md_trajectory, _opt_trajectory = self._escape(current_minimum) 
+                    escaped_minimum, n_visits, epot_max, md_trajectory, opt_trajectory = self._escape(current_minimum) 
                     print("  ---------------------------------------------------------------")
                     print("  New minimum found!")
                     # write the lowest n minima to files
                     self.data._write_poslow(self._n_poslow ,self._minima_path)
+
+                    # add new structure as edge to graph
+                    print('current_minimum.label, escaped_minimum.label', current_minimum.label, escaped_minimum.label)
+                    g.addStructure(current_minimum.label, escaped_minimum.label, md_trajectory + opt_trajectory, current_minimum.e_pot, escaped_minimum.e_pot, epot_max)
 
                     # write output
                     self._hoplog(escaped_minimum)
@@ -168,7 +174,7 @@ class Minimahopping:
 
                 _elapsed_time = time.time() - self._time_in
 
-                if self._run_time is not "infinit":
+                if self._run_time != "infinit":
                     if _elapsed_time > self._run_time_sec:
                         msg = 'Simulation stopped because the given time is over\n'
                         msg += 'Run terminated after {:d} steps'.format(self._counter)
@@ -223,7 +229,7 @@ class Minimahopping:
             self.data.addElement(struct)
 
         # Convert given time to seconds
-        if self._run_time is not "infinit":
+        if self._run_time != "infinit":
             self._run_time_sec = self._get_sec()
         self._time_in = time.time()
 
@@ -451,9 +457,9 @@ class Minimahopping:
 
         # add new minimum to database
         
-        n_visits = self.data.addElement(struct = struct_prop)
+        self.data.addElement(struct = struct_prop)
 
-        return struct_prop,n_visits,_epot_max, _md_trajectory, _opt_trajectory
+        return struct_prop, struct.n_visit, _epot_max, _md_trajectory, _opt_trajectory
 
 
     def _hoplog(self, struct):

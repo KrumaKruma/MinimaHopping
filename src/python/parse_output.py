@@ -8,9 +8,9 @@ import pygraphviz
 
 import graph
 
-with graph.MinimaHoppingGraph('graph.dat', 'trajectories.dat', True) as g:
-    #g.draw()
-    n = 27
+with graph.MinimaHoppingGraph('output/graph.dat', 'output/trajectory.dat', True) as g:
+    g.draw()
+    n = 19
     l = g.shortestPath(0, n)
     tl = g.getTrajectoryList(0, n)
 
@@ -45,18 +45,18 @@ with graph.MinimaHoppingGraph('graph.dat', 'trajectories.dat', True) as g:
     graph.get_node(ind).attr['root'] = 'true'
 
 
-    e0 = emin + .8
+    # e0 = emin + .8
 
-    for n in graph.nodes():
-        graph.get_node(n.get_name()).attr['width'] = '.5'
-        graph.get_node(n.get_name()).attr['heigt'] = '.5'
-        try:
-            e = float(n.attr['energy'])
-            if e > e0:
-                ind1 = n.get_name()
-                graph.remove_node(ind1)
-        except:
-            pass
+    # for n in graph.nodes():
+    #     graph.get_node(n.get_name()).attr['width'] = '.5'
+    #     graph.get_node(n.get_name()).attr['heigt'] = '.5'
+    #     try:
+    #         e = float(n.attr['energy'])
+    #         if e > e0:
+    #             ind1 = n.get_name()
+    #             graph.remove_node(ind1)
+    #     except:
+    #         pass
 
 
     graph.graph_attr['concentrate'] = 'true'
