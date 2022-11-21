@@ -9,17 +9,17 @@ import pygraphviz
 import graph
 
 with graph.MinimaHoppingGraph('output/graph.dat', 'output/trajectory.dat', True) as g:
-    g.draw()
-    n = 19
+    # g.draw()
+    n = 40
     l = g.shortestPath(0, n)
     tl = g.getTrajectoryList(0, n)
 
     print(l)
 
-    f = open('good_trajectory.extxyz', 'w')
+    f = open('output/good_trajectory.extxyz', 'w')
     f.close()
 
-    write('good_trajectory.extxyz', tl, append = True)
+    write('output/good_trajectory.extxyz', tl, append = True)
 
 
     graph = nx.nx_agraph.to_agraph(g.graph)
