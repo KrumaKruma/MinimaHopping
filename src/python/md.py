@@ -118,7 +118,7 @@ class MD():
             if self._sign_old != sign:
                 self._sign_old = sign
                 self._n_change += 1
-                if self._n_change%2 == 1:
+                if self._n_change%2 == 0:
                     self._i_max += 1
             self._e_pot = _e_pot_new
 
