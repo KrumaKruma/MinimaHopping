@@ -27,7 +27,7 @@ Parts of the software were originally developped (some in Fortran) from other pe
 
 class Minimahopping:
     def __init__(self, atoms,
-                        T0 = 500,
+                        T0 = 1000,
                         beta_decrease = 1./1.1,
                         beta_increase = 1.1,
                         Ediff0 = .01,
@@ -40,12 +40,12 @@ class Minimahopping:
                         maxnatsphere = 100, 
                         exclude = [],
                         dt = 0.1,
-                        mdmin = 2,
+                        mdmin = 4,
                         fmax = 0.00005, 
                         enhanced_feedback = False,
                         energy_threshold = 0.00005, #5 the noise
                         n_poslow = 30,
-                        minima_threshold = 5e-4,
+                        minima_threshold = 1e-2,
                         verbose = True,
                         new_start = False,
                         run_time = 'infinit'):
@@ -104,8 +104,8 @@ class Minimahopping:
         with Database(self._energy_threshold, self._minima_threshold, self._is_restart, self.restart_path) as self.data:
             # Start up minimahopping 
             atoms = deepcopy(self._atoms)
-            struct = self._startup(atoms,)  # gets an atoms object and a minimum object is returned.
-            struct_cur = struct.__deepcopy__()
+            current_minimum = self._startup(atoms,)  # gets an atoms object and a minimum object is returned.
+            #struct_cur = struct.__deepcopy__()
 
             # Start hopping loop
             while (self._counter <= totalsteps):
@@ -113,7 +113,7 @@ class Minimahopping:
                 print(msg)
                 print("  Start escape loop")
                 print("  ---------------------------------------------------------------")
-                struct_inter, n_visits, _epot_max, _md_trajectory, _opt_trajectory = self._escape(struct,) 
+                escaped_minimum, n_visits, _epot_max, _md_trajectory, _opt_trajectory = self._escape(current_minimum,) 
                 print("  ---------------------------------------------------------------")
                 print("  New minimum found!")
 
@@ -121,15 +121,16 @@ class Minimahopping:
                 self.data._write_poslow(self._n_poslow ,self._minima_path)
 
                 # write output
-                self._hoplog(struct_inter)
+                self._hoplog(escaped_minimum)
                 status = 'Inter'
-                self._history_log(struct_inter, status, n_visits)
+                self._history_log(escaped_minimum, status, n_visits)
 
                 # check if new proposed structure is accepted or rejected
-                struct_cur, is_accepted =  self._acc_rej_step(struct_cur, struct_inter)
+                current_minimum, is_accepted =  self._acc_rej_step(current_minimum, escaped_minimum)
 
                 # if structure is not accepted store the first rejected structre as currently lowest rejected structure
                 if not is_accepted :
+                    intermediate_minimum = escaped_minimum.__deepcopy__()
                     status = "Rejected"
                 else:
                     status = "Accepted"
@@ -138,14 +139,10 @@ class Minimahopping:
                 log_msg = "  New minimum has been found {:d} time(s)".format(n_visits)
                 print(log_msg)
                 # adjust the temperature according to the number of visits
-                self._adj_temperature(struct, n_visits)
+                self._adj_temperature(escaped_minimum, n_visits)
 
                 # write to history output file
-                self._history_log(struct_inter, status)
-
-                # if not accepted the first rejected is the current lowest rejected
-                if not is_accepted:
-                    lowest_rej = struct_inter.__deepcopy__()
+                self._history_log(escaped_minimum, status)
                 
                 # if not accepted start reject loop until a minimum has been accepted
                 while not is_accepted:
@@ -153,41 +150,36 @@ class Minimahopping:
                     print(msg)
                     print("  Start escape loop")
                     print("  ---------------------------------------------------------------")
-                    struct_inter, n_visits, _epot_max, _md_trajectory, _opt_trajectory = self._escape(struct,) 
+                    escaped_minimum, n_visits, _epot_max, _md_trajectory, _opt_trajectory = self._escape(current_minimum) 
                     print("  ---------------------------------------------------------------")
                     print("  New minimum found!")
                     # write the lowest n minima to files
                     self.data._write_poslow(self._n_poslow ,self._minima_path)
 
                     # write output
-                    self._hoplog(struct_inter)
+                    self._hoplog(escaped_minimum)
                     status = 'Inter'
-                    self._history_log(struct_inter, status, n_visits)
-                    struct_cur, is_accepted =  self._acc_rej_step(struct_cur, struct_inter)
+                    self._history_log(escaped_minimum, status, n_visits)
+
+                    if escaped_minimum.e_pot < intermediate_minimum.e_pot:
+                        intermediate_minimum = escaped_minimum.__deepcopy__()
+                    current_minimum, is_accepted =  self._acc_rej_step(current_minimum, intermediate_minimum)
 
                     if not is_accepted :
                         status = "Rejected"
                     else:
                         status = "Accepted"
 
-                    epot_prev = lowest_rej.e_pot
-                    epot_new = struct_inter.e_pot
-                    if epot_new < epot_prev:
-                        # if new found minimum is lower in energy that's the lowest rejected minimum 
-                        lowest_rej = struct_inter.__deepcopy__()
-                    struct_inter = lowest_rej.__deepcopy__()
-
                     log_msg = "  New minimum has been found {:d} time(s)".format(n_visits)
                     print(log_msg)
                     # adjust the temperature according to the number of visits
-                    self._adj_temperature(struct, n_visits)
+                    self._adj_temperature(escaped_minimum, n_visits)
 
                     # write to history output file
-                    self._history_log(struct_inter, status)
+                    self._history_log(escaped_minimum, status)
                     self._counter += 1
 
 
-                struct = struct_cur.__deepcopy__()
                 self._counter += 1
                 print("DONE")
                 print("=================================================================")
@@ -532,6 +524,7 @@ class Minimahopping:
 
 
     def _adj_temperature(self,struct, n_visits):
+        print('nvisits, ', n_visits, struct.atoms.get_potential_energy())
         if n_visits > 1:
             self._n_notunique += 1
             if self._enhanced_feedback:
