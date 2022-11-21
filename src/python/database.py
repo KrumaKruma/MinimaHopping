@@ -20,6 +20,7 @@ class Database():
             listpickle = open(filename, "rb")
             self.unique_minima_sorted = pickle.load(listpickle)
             listpickle.close()
+            self.nstructs = len(self.unique_minima_sorted)
         return self
 
     def __exit__(self,exc_type, exc_value, exc_traceback):
@@ -41,9 +42,9 @@ class Database():
             struct.n_visit = self.unique_minima_sorted[index].n_visit
             struct.label = self.unique_minima_sorted[index].label
         else:
-            self.nstructs += 1
             label = self.nstructs
             struct.set_label(label)
+            self.nstructs += 1
             struct.n_visit = 1
             bisect.insort(self.unique_minima_sorted, struct.__copy__())
 
