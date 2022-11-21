@@ -38,7 +38,8 @@ class MD():
             if self._verbose:
                 self._write()
         self._adjust_dt()
-        self._trajectory.append(deepcopy(self._atoms))
+        temp = deepcopy(self._atoms)
+        self._trajectory.append(temp.copy())
         if self._cell_atoms is not None:
             return self._atoms.get_positions(), self._atoms.get_cell(), self._dt, self._trajectory, self._epot_max
         else:
@@ -93,7 +94,8 @@ class MD():
             self._update_lattice_velocities()
 
         if self._check_coordinate_shift():
-            self._trajectory.append(deepcopy(self._atoms))
+            temp = deepcopy(self._atoms)
+            self._trajectory.append(temp.copy())
 
         _e_pot = self._atoms.get_potential_energy()
         if _e_pot > self._epot_max:
@@ -167,7 +169,7 @@ class MD():
         positions_cur = self._atoms.get_positions()
         pos_diff = np.abs(positions_cur-positions_old)
         max_diff = np.max(pos_diff)
-        if max_diff > 0.1:
+        if max_diff > 0.01:
             append_traj = True
             self._atoms_old = deepcopy(self._atoms)
         else:

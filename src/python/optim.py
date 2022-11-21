@@ -43,11 +43,13 @@ class Opt():
             f.close()
         if True in _pbc:
             self._vcs_geom_opt()
-            self._trajectory.append(deepcopy(self._atoms))
+            temp = deepcopy(self._atoms)
+            self._trajectory.append(temp.copy())
             return self._atoms.get_positions(), self._atoms.get_cell(), self._optim.lower_bound(), self._trajectory
         else:
             self._geom_opt()
-            self._trajectory.append(deepcopy(self._atoms))
+            temp = deepcopy(self._atoms)
+            self._trajectory.append(temp.copy())
             return self._atoms.get_positions(), self._optim.lower_bound(), self._trajectory
 
 
@@ -69,7 +71,8 @@ class Opt():
             if self._verbose:
                 self._write()
             if self._check_coordinate_shift():
-                self._trajectory.append(deepcopy(self._atoms))
+                temp = deepcopy(self._atoms)
+                self._trajectory.append(temp.copy())
             self._check()
 
 
@@ -89,7 +92,8 @@ class Opt():
             if self._verbose:
                 self._write()
             if self._check_coordinate_shift():
-                self._trajectory.append(deepcopy(self._atoms))
+                temp = deepcopy(self._atoms)
+                self._trajectory.append(temp.copy())
             self._check()
 
 
@@ -175,7 +179,7 @@ class Opt():
         positions_cur = self._atoms.get_positions()
         pos_diff = np.abs(positions_cur - positions_old)
         max_diff = np.max(pos_diff)
-        if max_diff > 0.05:
+        if max_diff > 0.01:
             append_traj = True
             self._atoms_old = deepcopy(self._atoms)
         else:
