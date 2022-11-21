@@ -14,8 +14,8 @@ def main():
     calculator = EAM(potential="Na_v2.eam.fs")
     atoms.calc = calculator
 
-    mh = Minimahopping(atoms, verbose=True, new_start=True)
-    mh(totalsteps=1000)
+    mh = Minimahopping(atoms, verbose=True, new_start=False, mdmin = 1)
+    mh(totalsteps=800)
 
 
 

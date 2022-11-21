@@ -41,9 +41,9 @@ class Minimahopping:
         'exclude': [], # Elements which are to be excluded from the OMFP (list of str)
         'dt' : 0.1, # timestep for the MD part (float)
         'mdmin' : 5, # criteria to stop the MD trajectory (no. of minima) (int)
-        'fmax' : 0.0001, # max force component for the local geometry optimization
+        'fmax' : 0.0000001, # max force component for the local geometry optimization
         'enhanced_feedback' : False, # Enhanced feedback to adjust the temperature (bool)
-        'energy_threshold' : 0.00005, # Energy threshold at which a OMFP distance calculation is performed (float)
+        'energy_threshold' : 0.01, # Energy threshold at which a OMFP distance calculation is performed (float)
         'n_poslow' : 30, # Number of posmin files which are written in sorted order (int)
         'minima_threshold' : 5.e-3, # Fingerprint difference for identifying identical configurations (float)
         'restart_optim' : False, # Reoptimizes all the proviously found minima which are read (bool)
@@ -71,7 +71,16 @@ class Minimahopping:
         atoms = deepcopy(self._atoms)
         atoms, atoms_cur = self._startup(atoms,)
         import graph
-        old_label = 0
+
+        if self._is_restart:
+            self._fp = self._get_OMFP(atoms, s=self._ns_orb, p=self._np_orb, width_cutoff=self._width_cutoff)
+            self._n_visits, index = self._in_history_fp(atoms)
+            old_label = self.unique_minima_sorted[index].label
+        else:
+            old_label = 0
+
+        e_old = atoms.get_potential_energy()
+
         with graph.MinimaHoppingGraph('graph.dat', 'trajectories.dat', self._is_restart) as g:
             while (self._counter <= totalsteps):
                 print("START HOPPING STEP")
@@ -88,9 +97,13 @@ class Minimahopping:
                 trajectory = md_trajectory + opt_trajectory
                 # print('trajectory', trajectory, md_trajectory, opt_trajectory)
                 #print(type(trajectory[0]))
-                g.addStructure(label, old_label, epot_max, trajectory)
+                e_new = atoms.get_potential_energy()
+                g.addStructure(old_label, label, trajectory, e_old, e_new, epot_max)
 
-                old_label = label
+
+                if self._acc_rej == "Accepted":
+                    old_label = label
+                    e_old = e_new
 
                 log_msg = "  New minimum has been found {:d} time(s)".format(self._n_visits)
                 print(log_msg)
@@ -239,6 +252,16 @@ class Minimahopping:
             atoms.set_positions(_positions)
             atoms.set_cell(_lattice)
             write(self._outpath + "acc.extxyz", atoms, append=True)
+            
+            #fp = self._get_OMFP(atoms, s=self._ns_orb, p=self._np_orb, width_cutoff=self._width_cutoff)
+            #mini = Minimum(deepcopy(atoms),
+            #           n_visit=1,
+            #           fingerprint=fp,
+            #           T=self._temperature,
+            #           ediff=self._Ediff,
+            #           acc_rej="Accepted",
+            #           label=0)
+            #self.unique_minima_sorted.append(mini)
 
         atoms_cur = deepcopy(atoms)
         self._n_visits = 1
@@ -417,6 +440,7 @@ class Minimahopping:
                 self._acc_rej = "Accepted"
                 self.intermediate_minima = []
                 ediff_acc = _e_pot - _e_pot_cur
+                break
             else:
                 self._Ediff *= self._alpha_r
                 self._acc_rej = "Rejected"
