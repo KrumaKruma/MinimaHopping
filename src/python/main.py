@@ -1,5 +1,5 @@
 from ase.io import read, write
-from ase.calculators.lj import LennardJones
+# from ase.calculators.lj import LennardJones
 from mh import Minimahopping
 from ase.calculators.eam import EAM
 from eam_sym_calc import EAMSymmetryCalculator
