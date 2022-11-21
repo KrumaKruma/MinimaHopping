@@ -58,7 +58,7 @@ class Opt():
         variable cell shape geometry optimization
         '''
         if self._initial_step_size is None:
-            self._get_init_step()
+            self._initial_step_size = -0.001
 
         _init_lat = self._atoms.get_cell().T
         self._optim = periodic_sqnm.periodic_sqnm(self._nat, _init_lat, self._initial_step_size, self._nhist_max, self._lattice_weight, self._alpha_min, self._eps_subsop)
@@ -79,7 +79,7 @@ class Opt():
         '''
 
         if self._initial_step_size is None:
-            self._get_init_step()
+            self._initial_step_size = -0.001
 
         self._optim = free_or_fixed_cell_sqnm.free_sqnm(nat=self._nat, initial_step_size=self._initial_step_size, nhist_max=self._nhist_max,alpha_min=self._alpha_min, eps_subsp=self._eps_subsop)
         self._max_force_comp = 100
@@ -133,14 +133,15 @@ class Opt():
         self._atoms.set_cell(_lat_new.T)
 
 
-    def _get_init_step(self,):
-        _f0 = self._atoms.get_forces()
-        _alpha = 0.001
-        _x1 = self._atoms.get_positions() + _alpha*_f0
-        _atom = deepcopy(self._atoms)
-        _atom.set_positions(_x1)
-        _f1 = _atom.get_forces()
-        self._initial_step_size = 1. / (np.linalg.norm(_f1-_f0) / (_alpha*np.linalg.norm(_f0)))
+    # This should not be needed anymore since this is implemented in v 1.1 of vc sqnm.
+    # def _get_init_step(self,):
+    #     _f0 = self._atoms.get_forces()
+    #     _alpha = 0.001
+    #     _x1 = self._atoms.get_positions() + _alpha*_f0
+    #     _atom = deepcopy(self._atoms)
+    #     _atom.set_positions(_x1)
+    #     _f1 = _atom.get_forces()
+    #     self._initial_step_size = 1. / (np.linalg.norm(_f1-_f0) / (_alpha*np.linalg.norm(_f0)))
 
 
     def _check(self):
