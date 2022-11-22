@@ -49,7 +49,6 @@ def adjust_velocities(positions, velocities,elements, masses):
     mass_3d = np.vstack([masses] * 3).T
     _e_kin = 0.5 * np.sum(mass_3d * velocities * velocities)
     _v_average = np.sqrt((2.*_e_kin)/(np.mean(masses) * velocities.shape[0]))
-    print(_v_average)
     shifts = np.zeros(positions.shape)
     labels, n_clusters = dbscan(eps, positions)
     if n_clusters > 1:

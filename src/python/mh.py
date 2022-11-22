@@ -431,7 +431,6 @@ class Minimahopping:
                 atoms.set_positions(_positions)
                 log_msg = "    OPT finished after {:d} steps".format(opt._i_step, len(_opt_trajectory))
                 print(log_msg)
-                quit()
             # check if the energy threshold is below the optimization noise
             self._check_energy_threshold()
 
