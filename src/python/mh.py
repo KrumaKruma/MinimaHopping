@@ -104,7 +104,8 @@ class Minimahopping:
             self._is_restart = False
 
         # initialize database
-        with Database(self._energy_threshold, self._minima_threshold, self._is_restart, self.restart_path) as self.data, graph.MinimaHoppingGraph('output/graph.dat', 'output/trajectory.dat', self._is_restart) as g:
+        with (Database(self._energy_threshold, self._minima_threshold, self._is_restart, self.restart_path) as self.data,
+                graph.MinimaHoppingGraph('output/graph.dat', 'output/trajectory.dat', self._is_restart) as g):
             # Start up minimahopping 
             atoms = deepcopy(self._atoms)
             current_minimum = self._startup(atoms,)  # gets an atoms object and a minimum object is returned.
@@ -456,7 +457,7 @@ class Minimahopping:
         
         self.data.addElement(struct = struct_prop)
 
-        return struct_prop, struct.n_visit, _epot_max, _md_trajectory, _opt_trajectory
+        return struct_prop, struct_prop.n_visit, _epot_max, _md_trajectory, _opt_trajectory
 
 
     def _hoplog(self, struct):
