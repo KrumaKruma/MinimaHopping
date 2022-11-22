@@ -1,7 +1,9 @@
 import bisect
 from ase.io import read, write
+from ase import atoms
 import pickle
 import os
+import minimum
 
 class Database():
     def __init__(self,energy_threshold, minima_threshold, is_restart = False, outpath='./'):
@@ -33,7 +35,7 @@ class Database():
 
 
 
-    def addElement(self, struct):
+    def addElement(self,struct: minimum.Minimum):
         index = self.get_element(struct=struct)
         already_found = self.contains(index=index)
 
@@ -46,8 +48,11 @@ class Database():
             struct.set_label(label)
             self.nstructs += 1
             struct.n_visit = 1
-            bisect.insort(self.unique_minima_sorted, struct.__copy__())
-
+            struct1 = struct.__copy__()
+            struct1.atoms.set_momenta(None)
+            struct1.atoms.info['energy'] = struct.e_pot
+            struct1.atoms.info['label'] = label
+            bisect.insort(self.unique_minima_sorted, struct1)
         return
 
 

@@ -164,8 +164,15 @@ class Minimahopping:
 
                     log_msg = "  New minimum has been found {:d} time(s)".format(n_visits)
                     print(log_msg)
+
                     # adjust the temperature according to the number of visits
                     self._adj_temperature(escaped_minimum, n_visits)
+                    temp_atoms_towrite = escaped_minimum.atoms.copy()
+                    temp_atoms_towrite.info = {}
+                    temp_atoms_towrite.set_momenta(None)
+                    temp_atoms_towrite.info['energy'] = escaped_minimum.e_pot
+                    temp_atoms_towrite.info['label'] = escaped_minimum.label
+                    write(self._outpath + "min.extxyz", temp_atoms_towrite,  append=True)
 
 
                 self._counter += 1
@@ -518,7 +525,6 @@ class Minimahopping:
             self._n_unique += 1
             self._temperature = self._temperature * self._beta_decrease
             atoms = struct.atoms
-            write(self._outpath + "min.extxyz", atoms,  append=True)
 
 
     def _history_log(self, struct, status, n_visits = 0):
