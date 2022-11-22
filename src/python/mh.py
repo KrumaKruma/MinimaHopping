@@ -28,7 +28,7 @@ Parts of the software were originally developped (some in Fortran) from other pe
 
 class Minimahopping:
     def __init__(self, atoms,
-                        T0 = 2000,
+                        T0 = None,
                         beta_decrease = 1./1.05,
                         beta_increase = 1.05,
                         Ediff0 = .01,
@@ -40,7 +40,7 @@ class Minimahopping:
                         width_cutoff = 3.5, 
                         maxnatsphere = 100, 
                         exclude = [],
-                        dt = 0.5,
+                        dt = None,
                         mdmin = 2,
                         fmax = 0.001, 
                         enhanced_feedback = False,
@@ -275,10 +275,15 @@ class Minimahopping:
             f = open(filename)
             self.restart_dict = json.load(f)
             f.close()
-            self._dt = self.restart_dict["dt"]
-            self._Ediff = self.restart_dict["Ediff"]
-            self._temperature = self.restart_dict["T"]
 
+            if self.dt is None:
+                self._dt = self.restart_dict["dt"]
+            
+            if self._temperature is None:
+                self._temperature = self.restart_dict["T"]
+
+
+            self._Ediff = self.restart_dict["Ediff"]
             if self._ns_orb != self.restart_dict["ns_orb"]:
                 msg = "Number of s orbitals in OMFP is not consistent with previous run!"
                 warnings.warn(msg, UserWarning)
@@ -310,6 +315,9 @@ class Minimahopping:
             msg = '  New MH run is started'
             print(msg)
             
+            assert self._temperature is not None, "Plase set an inital temperature"
+            assert self._dt is not None, "Please set a timestep for the MD"
+
             # add input structure to database after optimization
             struct_cur = self.data.unique_minima_sorted[0].__copy__()
             struct_cur.atoms.calc = calc
