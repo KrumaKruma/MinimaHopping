@@ -48,6 +48,10 @@ class MinimaHoppingGraph:
             return
         weight_old = e_max - e_old
         weight_new = e_max - e_new
+        if weight_new < 0:
+            weight_new = float('inf')
+        if weight_old < 0:
+            weight_old = float('inf')
         mt = copy.deepcopy(trajectory)
         reverse_trajectory = copy.deepcopy(trajectory)
         reverse_trajectory.reverse()
