@@ -43,7 +43,6 @@ class MD():
                 elements = self._atoms.get_atomic_numbers()
                 is_one_cluster = dbscan.one_cluster(positions, elements)
                 if not is_one_cluster:
-                    print(self._i_steps)
                     self._is_one_cluster = False
                     velocities = self._atoms.get_velocities()
                     masses = self._atoms.get_masses()
