@@ -28,7 +28,7 @@ Parts of the software were originally developped (some in Fortran) from other pe
 
 class Minimahopping:
     def __init__(self, atoms,
-                        T0 = 1000,
+                        T0 = 2000,
                         beta_decrease = 1./1.05,
                         beta_increase = 1.05,
                         Ediff0 = .01,
@@ -40,8 +40,8 @@ class Minimahopping:
                         width_cutoff = 3.5, 
                         maxnatsphere = 100, 
                         exclude = [],
-                        dt = 0.1,
-                        mdmin = 4,
+                        dt = 0.5,
+                        mdmin = 2,
                         fmax = 0.001, 
                         enhanced_feedback = False,
                         energy_threshold = 0.001, #5 the noise
@@ -104,8 +104,7 @@ class Minimahopping:
             self._is_restart = False
 
         # initialize database
-        with (Database(self._energy_threshold, self._minima_threshold, self._is_restart, self.restart_path) as self.data,
-                graph.MinimaHoppingGraph('output/graph.dat', 'output/trajectory.dat', self._is_restart) as g):
+        with Database(self._energy_threshold, self._minima_threshold, self._is_restart, self.restart_path) as self.data, graph.MinimaHoppingGraph('output/graph.dat', 'output/trajectory.dat', self._is_restart) as g:
             # Start up minimahopping 
             atoms = deepcopy(self._atoms)
             current_minimum = self._startup(atoms,)  # gets an atoms object and a minimum object is returned.
@@ -409,7 +408,6 @@ class Minimahopping:
                 md = MD(atoms=atoms, outpath=self._outpath, cell_atoms=None, dt=self._dt, n_max=self._mdmin, verbose=self._verbose)
                 _positions , self._dt, _md_trajectory, _epot_max = md.run()
                 atoms.set_positions(_positions)
-
                 log_msg = "    MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f}".format(md._i_steps, self._mdmin, self._dt)
                 print(log_msg)
                 print("    OPT start")
@@ -418,7 +416,7 @@ class Minimahopping:
                 atoms.set_positions(_positions)
                 log_msg = "    OPT finished after {:d} steps".format(opt._i_step, len(_opt_trajectory))
                 print(log_msg)
-
+                quit()
             # check if the energy threshold is below the optimization noise
             self._check_energy_threshold()
 

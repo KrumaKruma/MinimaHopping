@@ -3,6 +3,7 @@ from copy import deepcopy
 import lattice_operations as lat_opt
 import warnings
 from ase.io import read, write
+import dbscan
 
 class MD():
     '''
@@ -30,11 +31,27 @@ class MD():
         Running the MD over n_max maxima. If this is not reached after 10'000 steps the MD stops
         '''
         self._initialize()
+        self._is_one_cluster = True
         while self._i_max < self._n_max:
             self._verlet_step()
             self._i_steps += 1
             self._check()
             self._calc_etot_and_ekin()
+            
+            if self._i_steps%5 == 0:
+                positions = self._atoms.get_positions()
+                elements = self._atoms.get_atomic_numbers()
+                is_one_cluster = dbscan.one_cluster(positions, elements)
+                if not is_one_cluster:
+                    print(self._i_steps)
+                    self._is_one_cluster = False
+                    velocities = self._atoms.get_velocities()
+                    masses = self._atoms.get_masses()
+                    velocities = dbscan.adjust_velocities(positions, velocities, elements, masses)
+                    self._atoms.set_velocities(velocities)
+
+
+
             if self._verbose:
                 self._write()
         self._adjust_dt()
@@ -80,6 +97,7 @@ class MD():
         Performing one Verlet step
         '''
         _velocities = self._atoms.get_velocities()
+
         _positions = self._atoms.get_positions()
         self._atoms.set_positions(_positions + self._dt * _velocities + 0.5 * self._dt * self._dt * (self._forces / self._masses))
 
