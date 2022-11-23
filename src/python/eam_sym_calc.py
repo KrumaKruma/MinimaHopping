@@ -82,17 +82,18 @@ class EAMSymmetryCalculator(EAM):
             cell = np.array( [[100.0, 0.0, 0.0 ], [0.0, 100.0, 0.0 ], [0.0, 0.0, 100.0 ]] )
             deralat = np.array( [[0.0, 0.0, 0.0 ], [0.0, 0.0, 0.0 ], [0.0, 0.0, 0.0 ]] )
 
-
+        
         time3 = perf_counter()
-        bias, dbiasdr, dbiasdalat = sym_bias_wrapper.symmetry_bias(atoms, width_cutoff = self.width_cutoff, natx_sphere = self.natx_sphere, nums = self.nums, nump = self.nump, lengthfp = self.lengthfp, num_cat = self.num_cat, nex_cutoff = self.nex_cutoff)
+        bias, dbiasdr, dbiasdalat, nat_sphere_current_max = sym_bias_wrapper.symmetry_bias(atoms, width_cutoff = self.width_cutoff, natx_sphere = self.natx_sphere, nums = self.nums, nump = self.nump, lengthfp = self.lengthfp, num_cat = self.num_cat, nex_cutoff = self.nex_cutoff)
         # b_e_pot = bias
         # b_forces = -dbiasdr
         # b_deralat = dbiasdalat
         b_e_pot, b_forces, b_deralat = sym_bias_wrapper.add_bias_2_pes(atoms, energy, forces, deralat, self.pweight, bias, dbiasdr, dbiasdalat)
         time4 = perf_counter()
 
-        # print(bias, energy, time2 - time1, time4 - time3)
-
+        outfile = open("timings.txt", "a")
+        print(bias, energy, nat_sphere_current_max, time2 - time1, time4 - time3, "bias, energy, nat_sphere_current_max, timing_EAM, timing_bias", file=outfile)
+        outfile.close()
         # no lattice, no stress
         if self.atoms.cell.rank == 3:
             b_stress = - np.matmul(b_deralat, cell) / np.linalg.det(cell)

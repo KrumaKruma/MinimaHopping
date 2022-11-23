@@ -38,9 +38,9 @@ def symmetry_bias(atoms, width_cutoff=4.0, natx_sphere=50, nums=1, nump=1, lengt
     dbiasdr = dpenaldr.T * (Ha_eV/Bohr_Ang)
     dbiasdalat = dpenaldalat * (Ha_eV/Bohr_Ang)
 
-    print(nat_sphere_current_max, bias)
+    # print(nat_sphere_current_max, bias, "nat_sphere, bias(pweight=1.0)")
 
-    return bias, dbiasdr, dbiasdalat
+    return bias, dbiasdr, dbiasdalat, nat_sphere_current_max
 
 
 
