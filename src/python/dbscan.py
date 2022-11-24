@@ -1,4 +1,3 @@
-
 from ase.io import read, write
 from sklearn.cluster import DBSCAN
 import periodictable
@@ -67,44 +66,44 @@ def adjust_velocities(positions, velocities,elements, masses):
 
 
 
-def main():
-    atoms = read("acc.extxyz")
-    positions = atoms.get_positions()
-    elements = atoms.get_atomic_numbers()
-    masses = atoms.get_masses()
-    com = get_com(positions, masses)
-    rcovs = []
-    for element in elements:
-        rcovs.append(periodictable.getRcov_n(element))
-    rcovs = np.array(rcovs)
-    rcov_mean = np.mean(rcovs)
-    eps = 1.*rcov_mean
-    db = DBSCAN(eps=eps, min_samples=1).fit(positions)
-    labels = db.labels_
-    n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
-    n_noise = list(labels).count(-1)
-    assert n_noise == 0, "Some atoms in DBSCAN were recognized as noise"
-    if n_clusters > 1:
-        while n_clusters > 1:
-            for i in range(n_clusters):
-                indices = np.where(labels == i)
-                cluster_pos = positions[indices,:][0]
-                cluster_mass = masses[indices]
-                com_cluster = get_com(cluster_pos, cluster_mass)
-                shift = (com - com_cluster)/np.linalg.norm(com - com_cluster)
-                indices = np.where(labels == i)
-                positions[indices,:] += 0.1 * shift
+# def test():
+#     atoms = read("acc.extxyz")
+#     positions = atoms.get_positions()
+#     elements = atoms.get_atomic_numbers()
+#     masses = atoms.get_masses()
+#     com = get_com(positions, masses)
+#     rcovs = []
+#     for element in elements:
+#         rcovs.append(periodictable.getRcov_n(element))
+#     rcovs = np.array(rcovs)
+#     rcov_mean = np.mean(rcovs)
+#     eps = 1.*rcov_mean
+#     db = DBSCAN(eps=eps, min_samples=1).fit(positions)
+#     labels = db.labels_
+#     n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
+#     n_noise = list(labels).count(-1)
+#     assert n_noise == 0, "Some atoms in DBSCAN were recognized as noise"
+#     if n_clusters > 1:
+#         while n_clusters > 1:
+#             for i in range(n_clusters):
+#                 indices = np.where(labels == i)
+#                 cluster_pos = positions[indices,:][0]
+#                 cluster_mass = masses[indices]
+#                 com_cluster = get_com(cluster_pos, cluster_mass)
+#                 shift = (com - com_cluster)/np.linalg.norm(com - com_cluster)
+#                 indices = np.where(labels == i)
+#                 positions[indices,:] += 0.1 * shift
             
-            atoms.set_positions(positions)
-            write("toto.extxyz", atoms, append=True)
-            db = DBSCAN(eps=eps, min_samples=1).fit(positions)
-            labels = db.labels_
-            n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
-            n_noise = list(labels).count(-1)
-            assert n_noise == 0, "Some atoms in DBSCAN were recognized as noise"
+#             atoms.set_positions(positions)
+#             write("toto.extxyz", atoms, append=True)
+#             db = DBSCAN(eps=eps, min_samples=1).fit(positions)
+#             labels = db.labels_
+#             n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
+#             n_noise = list(labels).count(-1)
+#             assert n_noise == 0, "Some atoms in DBSCAN were recognized as noise"
 
 
 
 
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+#     main()

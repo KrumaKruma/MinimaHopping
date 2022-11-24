@@ -32,7 +32,7 @@ class MD():
         '''
         self._initialize()
         self._is_one_cluster = True
-        while self._i_max < self._n_max:
+        for i in range(10000):
             self._verlet_step()
             self._i_steps += 1
             self._check()
@@ -41,9 +41,8 @@ class MD():
             if self._i_steps%5 == 0:
                 positions = self._atoms.get_positions()
                 elements = self._atoms.get_atomic_numbers()
-                is_one_cluster = dbscan.one_cluster(positions, elements)
-                if not is_one_cluster:
-                    self._is_one_cluster = False
+                self._is_one_cluster = dbscan.one_cluster(positions, elements)
+                if not self._is_one_cluster:
                     velocities = self._atoms.get_velocities()
                     masses = self._atoms.get_masses()
                     velocities = dbscan.adjust_velocities(positions, velocities, elements, masses)
@@ -53,6 +52,12 @@ class MD():
 
             if self._verbose:
                 self._write()
+
+            if self._i_max > self._n_max:
+                if self._is_one_cluster:
+                    break
+
+
         self._adjust_dt()
         temp = deepcopy(self._atoms)
         self._trajectory.append(temp.copy())
