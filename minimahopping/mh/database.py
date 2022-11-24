@@ -3,7 +3,7 @@ from ase.io import read, write
 from ase import atoms
 import pickle
 import os
-import minimum
+import minimahopping.mh.minimum as minimum
 
 class Database():
     def __init__(self,energy_threshold, minima_threshold, is_restart = False, outpath='./'):

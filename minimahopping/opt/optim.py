@@ -1,9 +1,9 @@
 import numpy as np
 import warnings
 from ase.io import read, write
-import periodic_sqnm
-import free_or_fixed_cell_sqnm
-import lattice_operations as lat_opt
+import minimahopping.opt.periodic_sqnm as periodic_sqnm
+import minimahopping.opt.free_or_fixed_cell_sqnm as free_or_fixed_cell_sqnm
+import minimahopping.mh.lattice_operations as lat_opt
 from copy import deepcopy
 
 

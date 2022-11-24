@@ -2,19 +2,18 @@ import numpy as np
 import warnings
 from ase.io import read, write
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
-import lattice_operations as lat_opt
-from OverlapMatrixFingerprint import OverlapMatrixFingerprint as OMFP
+import minimahopping.mh.lattice_operations as lat_opt
 from copy import deepcopy
-from soften import Softening
-from md import MD
-from optim import Opt
-from minimum import Minimum
-from cell_atom import Cell_atom
-from database import Database
+from minimahopping.md.soften import Softening
+from minimahopping.md.md import MD
+from minimahopping.opt.optim import Opt
+from minimahopping.mh.minimum import Minimum
+from minimahopping.mh.cell_atom import Cell_atom
+from minimahopping.mh.database import Database
 import time
 import json
-import file_handling 
-import graph
+import minimahopping.mh.file_handling as file_handling 
+import minimahopping.graph.graph as graph
 
 """
 MH Software written by Marco Krummenacher (marco.krummenacher@unibas.ch)

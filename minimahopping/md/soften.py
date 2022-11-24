@@ -1,6 +1,6 @@
 import numpy as np
 from copy import deepcopy
-import lattice_operations as lat_opt
+import minimahopping.mh.lattice_operations as lat_opt
 
 class Softening():
     """

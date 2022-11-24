@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import optimize
 from copy import deepcopy
-from OverlapMatrixFingerprint import OverlapMatrixFingerprint as OMFP
+from minimahopping.omfp.OverlapMatrixFingerprint import OverlapMatrixFingerprint as OMFP
 
 class Minimum():
     def __init__(self, atoms, epot, n_visit, s, p, width_cutoff, maxnatsphere, T, ediff, label, exclude=[]):

@@ -1,6 +1,6 @@
 from ase.io import read, write
 from sklearn.cluster import DBSCAN
-import periodictable
+import minimahopping.mh.periodictable as periodictable
 import numpy as np
 
 

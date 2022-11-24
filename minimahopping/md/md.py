@@ -1,9 +1,9 @@
 import numpy as np
 from copy import deepcopy
-import lattice_operations as lat_opt
+import minimahopping.mh.lattice_operations as lat_opt
 import warnings
 from ase.io import read, write
-import dbscan
+import minimahopping.md.dbscan as dbscan
 
 class MD():
     '''

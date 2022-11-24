@@ -1,9 +1,9 @@
 import numpy as np
 import warnings
-from OverlapMatrix import buildOverlapMatrix
-from OverlapMatrixVectorized import buildOverlapMatrix_vectorized
-from Neighborlist import findNeighbors
-import periodictable 
+from minimahopping.omfp.OverlapMatrix import buildOverlapMatrix
+from minimahopping.omfp.OverlapMatrixVectorized import buildOverlapMatrix_vectorized
+from minimahopping.omfp.Neighborlist import findNeighbors
+import minimahopping.mh.periodictable as periodictable 
 
 class OverlapMatrixFingerprint:
     def __init__(self, lmn, rcut=-1, nex_cutoff=2, fplen=-1):

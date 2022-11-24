@@ -4,14 +4,12 @@ from ase.io import read, write
 from ase.calculators.lj import LennardJones
 from ase.calculators.eam import EAM
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
-from md import MD
-from optim import Opt
-from OverlapMatrixFingerprint import OverlapMatrixFingerprint as OMFP
-from cell_atom import Cell_atom
+from minimahopping.md.md import MD
+from minimahopping.opt.optim import Opt
+from minimahopping.omfp.OverlapMatrixFingerprint import OverlapMatrixFingerprint as OMFP
+from minimahopping.mh.cell_atom import Cell_atom
 from copy import deepcopy
-from bazant_calc import BazantCalculator
-from ase.cluster.wulff import wulff_construction
-from ase.cluster import Icosahedron
+
 
 
 class adjust_fp():
