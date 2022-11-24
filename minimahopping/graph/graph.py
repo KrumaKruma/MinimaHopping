@@ -33,11 +33,24 @@ class MinimaHoppingGraph:
                 os.remove(self.trajectoryDatabaseName)
             except FileNotFoundError:
                 pass
-        self.trajectoryDict = shelve.open(self.trajectoryDatabaseName,  writeback=True)
+        self.trajectoryDict = shelve.open(self.trajectoryDatabaseName)
         return self
 
     def write_to_disk(self):
+        """
+        Writes the graph to the disk and closes the trajectory data shelve.
+        """
         self.trajectoryDict.close()
+        graph_pickle = open (self.graphFileName, "wb")
+        pickle.dump(self.graph, graph_pickle)
+        graph_pickle.close()
+
+    
+    def write_restart_files(self):
+        """
+        Writes the graph to the disk and updates the trajectory data shelve.
+        """
+        self.trajectoryDict.sync()
         graph_pickle = open (self.graphFileName, "wb")
         pickle.dump(self.graph, graph_pickle)
         graph_pickle.close()
