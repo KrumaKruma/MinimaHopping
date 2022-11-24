@@ -33,6 +33,9 @@ class Database():
         return
         
 
+    def write_restart_files(self):
+        self.__exit__()
+
 
 
     def addElement(self,struct: minimum.Minimum):
