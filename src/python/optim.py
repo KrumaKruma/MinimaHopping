@@ -12,7 +12,7 @@ class Opt():
     '''
     SQNM optimization for clusters and variable cell shape SQNM for bulk systems
     '''
-    def __init__(self, atoms, max_froce_threshold,initial_step_size=None, nhist_max=10, lattice_weight=2, alpha_min=1e-3, eps_subsop=1e-3, verbose=True):
+    def __init__(self, atoms, max_froce_threshold,outpath,initial_step_size=None, nhist_max=10, lattice_weight=2, alpha_min=1e-3, eps_subsop=1e-3, verbose=True):
         self._atoms = deepcopy(atoms)
         self._max_force_threshold = max_froce_threshold
         self._initial_step_size = initial_step_size
@@ -21,9 +21,14 @@ class Opt():
         self._alpha_min = alpha_min
         self._eps_subsop = eps_subsop
         self._verbose = verbose
+        self._outpath = outpath
 
         self._nat = self._atoms.get_positions().shape[0]
         self._i_step = 0
+
+        self._atoms_old = deepcopy(atoms)
+        self._trajectory = []
+
 
 
     def run(self):
@@ -33,13 +38,19 @@ class Opt():
         _pbc = list(set(self._atoms.pbc))
         assert len(_pbc) == 1, "mixed boundary conditions"
         if self._verbose:
-            write("OPT.extxyz", self._atoms)
+            write(self._outpath + "OPT.extxyz", self._atoms)
+            f = open(self._outpath + "OPT_log.dat", "w")
+            f.close()
         if True in _pbc:
             self._vcs_geom_opt()
-            return self._atoms.get_positions(), self._atoms.get_cell(), self._optim.lower_bound()
+            temp = deepcopy(self._atoms)
+            self._trajectory.append(temp.copy())
+            return self._atoms.get_positions(), self._atoms.get_cell(), self._optim.lower_bound(), self._trajectory
         else:
             self._geom_opt()
-            return self._atoms.get_positions(), self._optim.lower_bound()
+            temp = deepcopy(self._atoms)
+            self._trajectory.append(temp.copy())
+            return self._atoms.get_positions(), self._optim.lower_bound(), self._trajectory
 
 
 
@@ -49,7 +60,7 @@ class Opt():
         variable cell shape geometry optimization
         '''
         if self._initial_step_size is None:
-            self._get_init_step()
+            self._initial_step_size = -0.001
 
         _init_lat = self._atoms.get_cell().T
         self._optim = periodic_sqnm.periodic_sqnm(self._nat, _init_lat, self._initial_step_size, self._nhist_max, self._lattice_weight, self._alpha_min, self._eps_subsop)
@@ -59,6 +70,9 @@ class Opt():
             self._i_step += 1
             if self._verbose:
                 self._write()
+            if self._check_coordinate_shift():
+                temp = deepcopy(self._atoms)
+                self._trajectory.append(temp.copy())
             self._check()
 
 
@@ -68,7 +82,7 @@ class Opt():
         '''
 
         if self._initial_step_size is None:
-            self._get_init_step()
+            self._initial_step_size = -0.001
 
         self._optim = free_or_fixed_cell_sqnm.free_sqnm(nat=self._nat, initial_step_size=self._initial_step_size, nhist_max=self._nhist_max,alpha_min=self._alpha_min, eps_subsp=self._eps_subsop)
         self._max_force_comp = 100
@@ -77,6 +91,9 @@ class Opt():
             self._i_step += 1
             if self._verbose:
                 self._write()
+            if self._check_coordinate_shift():
+                temp = deepcopy(self._atoms)
+                self._trajectory.append(temp.copy())
             self._check()
 
 
@@ -120,14 +137,15 @@ class Opt():
         self._atoms.set_cell(_lat_new.T)
 
 
-    def _get_init_step(self,):
-        _f0 = self._atoms.get_forces()
-        _alpha = 0.001
-        _x1 = self._atoms.get_positions() + _alpha*_f0
-        _atom = deepcopy(self._atoms)
-        _atom.set_positions(_x1)
-        _f1 = _atom.get_forces()
-        self._initial_step_size = 1. / (np.linalg.norm(_f1-_f0) / (_alpha*np.linalg.norm(_f0)))
+    # This should not be needed anymore since this is implemented in v 1.1 of vc sqnm.
+    # def _get_init_step(self,):
+    #     _f0 = self._atoms.get_forces()
+    #     _alpha = 0.001
+    #     _x1 = self._atoms.get_positions() + _alpha*_f0
+    #     _atom = deepcopy(self._atoms)
+    #     _atom.set_positions(_x1)
+    #     _f1 = _atom.get_forces()
+    #     self._initial_step_size = 1. / (np.linalg.norm(_f1-_f0) / (_alpha*np.linalg.norm(_f0)))
 
 
     def _check(self):
@@ -146,12 +164,26 @@ class Opt():
         printed
         '''
         _energy = self._atoms.get_potential_energy()
-        opt_msg = "OPT Step: {:d}   energy: {:1.8f}  max_force_comp:  {:1.5e}   gain ratio:   {:1.5e}   stepsize:   {:1.5e}".format(self._i_step,
+        opt_msg = "OPT Step: {:d}   energy: {:1.8f}  max_force_comp:  {:1.5e}   gain ratio:   {:1.5e}   stepsize:   {:1.5e}\n".format(self._i_step,
                                                                                                                                     _energy,
                                                                                                                                     self._max_force_comp,
                                                                                                                                     self._optim.optimizer.gainratio,
                                                                                                                                     self._optim.optimizer.alpha)
-        print(opt_msg)
-        write("OPT.extxyz", self._atoms, append=True)
+        f = open(self._outpath+"OPT_log.dat", "a")
+        f.write(opt_msg)
+        f.close()
+        write(self._outpath + "OPT.extxyz", self._atoms, append=True)
+
+    def _check_coordinate_shift(self, ):
+        positions_old = self._atoms_old.get_positions()
+        positions_cur = self._atoms.get_positions()
+        pos_diff = np.abs(positions_cur - positions_old)
+        max_diff = np.max(pos_diff)
+        if max_diff > 0.01:
+            append_traj = True
+            self._atoms_old = deepcopy(self._atoms)
+        else:
+            append_traj = False
+        return append_traj
 
 

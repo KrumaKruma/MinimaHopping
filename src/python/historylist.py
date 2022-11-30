@@ -1,6 +1,31 @@
+# The variable cell shape optimization method is based on the following 
+# paper: https://arxiv.org/abs/2206.07339
+# More details about the SQNM optimization method are available here:
+# https://comphys.unibas.ch/publications/Schaefer2015.pdf
+# Author of this document: Moritz Gubler 
+
+# Copyright (C) 2022 Moritz Gubler
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import numpy as np
 
 class HistoryList:
+    """Historylist that is used by the sqnm class.
+    More informations about the SQNM algorithm can be found here: https://aip.scitation.org/doi/10.1063/1.4905665
+    """
+
     def __init__(self, ndim, nhist_max):
         self.ndim = ndim
         self.nhist_max = nhist_max
@@ -12,6 +37,10 @@ class HistoryList:
 
 
     def add(self, vectorToAdd):
+        """
+        Add a vector to the history list.
+        """
+
         if self.icount < self.nhist_max:
             self.histList[:, self.icount] = vectorToAdd
             self.icount += 1
@@ -37,19 +66,10 @@ class HistoryList:
                 self.normalizedDiffList[:, -1] = self.diffList[:, -1] / np.linalg.norm(self.diffList[:, -1])
             return self.nhist_max
 
-    def print_me(self, n):
+    def _print_me(self, n):
         print('histlist')
         print(self.histList)
         print('difflist')
         print(self.diffList[:, :(n)])
         print('normalizeddifflist')
         print(self.normalizedDiffList[:, :(n)])
-
-
-#a = HistoryList(2, 5)
-#for i in range(1, 10):
-#    x = np.ones(2) * i**2
-#    n = a.add(x)
-#    a.print_me(n)
-#    print('length', n)
-#    print('')

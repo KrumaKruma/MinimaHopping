@@ -1,13 +1,58 @@
 #!/usr/bin/env python3
-from ast import Lambda
+
+# The variable cell shape optimization method is based on the following 
+# paper: https://arxiv.org/abs/2206.07339
+# More details about the SQNM optimization method are available here:
+# https://comphys.unibas.ch/publications/Schaefer2015.pdf
+# Author of this document: Moritz Gubler 
+
+# Copyright (C) 2022 Moritz Gubler
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import numpy as np
 import sqnm
 import sys
 
 
 class periodic_sqnm:
+    """
+    Implementation of the vc-sqnm method. More informations about the algorithm can be found here: https://arxiv.org/abs/2206.07339
+    """
 
     def __init__(self, nat, init_lat, initial_step_size, nhist_max, lattice_weigth, alpha_min, eps_subsp):
+        """
+        Construct a periodic optimizer object that can be used for variable cell shape optimization.
+        Parameters
+        ----------
+        nat: int
+            Number of atoms
+        init_lat: 3*3 numpy matrix 
+            Matrix containing initial lattice vectors stored columnwise.
+        initial_step_size: double
+            initial step size. default is 1.0. For systems with hard bonds (e.g. C-C) use a value between and 1.0 and
+            * 2.5. If a system only contains weaker bonds a value up to 5.0 may speed up the convergence.
+        nhist_max: int
+            Maximal number of steps that will be stored in the history list. Use a value between 3 and 20. Must be <= than 3*nat + 9.
+        lattice_weight: double
+            weight / size of the supercell that is used to transform lattice derivatives. Use a value between 1 and 2. Default is 2.
+        alpha_min: double
+            Lower limit on the step size. 1.e-2 is the default.
+        eps_subsp: double 
+            Lower limit on linear dependencies of basis vectors in history list. Default 1.e-4.
+        """
+
         self.nat = nat
         self.ndim = 3 * nat + 9
         self.lattice_weight = lattice_weigth
@@ -17,8 +62,39 @@ class periodic_sqnm:
         self.lattice_transformer_inv = np.linalg.inv(self.lattice_transformer)
         self.optimizer = sqnm.SQNM(self.ndim, nhist_max, initial_step_size, eps_subsp, alpha_min)
         self.fluct = 0.0
+        self.a_inv = np.zeros((3,3))
+        self.q = np.zeros(3 * nat)
+        self.df_dq = np.zeros(3 * nat)
+        self.a_tilde = np.zeros((3,3))
+        self.df_da_tilde = np.zeros((3, 3))
+        self.q_and_lat = np.zeros( 3*nat + 9)
+        self.dq_and_dlat = np.zeros( 3*nat + 9)
+        self.dd = np.zeros( 3*nat + 9)
 
     def optimizer_step(self, pos, alat, epot, forces, deralat):
+        """
+        Calculates new atomic coordinates that are closer to the local minimum. Variable cell shape optimization.
+        This function should be used the following way:
+        1. calculate energies, forces and stress tensor at positions r and lattice vectors a, b, c.
+        2. call the step function to update positions r and lattice vectors.
+        3. repeat.
+        Parameters
+        ----------
+        pos: numpy matrix, dimension(3, nat)
+            Input: atomic coordinates, dimension(3, nat). 
+            Output: improved coordinates that are calculated based on forces from this and previous iterations.
+        alat: Numpy 3*3 matrix
+            Matrix containing lattice vectors stored columnwise.
+        epot: double
+            Potential energy of current geometry.
+        forces: numpy matrix, dimension(3, nat)
+            Forces of current geometry
+        deralat: numpy matrix, dimension(3, nat)
+            Derivative of energy with repect to lattice vectors. Is connected to the stress tensor by:
+            dE / dA = -det(A) * stress A^{-1}^T
+            See equation 9 of the vc-sqnm paper. https://arxiv.org/abs/2206.07339
+        """
+
         # check for noise in forces using eq. 23 of vc-sqnm paper
         fnoise = np.linalg.norm(np.sum(forces, axis=1)) / np.sqrt(3 * self.nat)
         if self.fluct == 0.0:
@@ -26,34 +102,37 @@ class periodic_sqnm:
         else:
             self.fluct = .8 * self.fluct + .2 * fnoise
         if self.fluct > 0.2 * np.max( np.abs(forces) ):
-            print("""Warning: noise in forces is larger than 0.2 times the largest force component. Convergence is not guaranteed.""", file=sys.stderr)
+            print("""Warning: noise in forces is larger than 0.2 times the largest force component. 
+            Convergence is not guaranteed.""", file=sys.stderr)
 
-        a_inv = np.linalg.inv(alat)
+        self.a_inv = np.linalg.inv(alat)
 
-        q = ((self.initial_lat @ a_inv) @ pos).reshape(3 * self.nat)
-        df_dq = (- (alat @ self.initial_lat_inverse) @ forces).reshape(3 * self.nat)
+        self.q = ((self.initial_lat @ self.a_inv) @ pos).reshape(3 * self.nat)
+        self.df_dq = (- (alat @ self.initial_lat_inverse) @ forces).reshape(3 * self.nat)
 
-        a_tilde = (alat @ self.lattice_transformer).reshape(9)
-        df_da_tilde = (- deralat @ self.lattice_transformer).reshape(9)
+        self.a_tilde = (alat @ self.lattice_transformer).reshape(9)
+        self.df_da_tilde = (- deralat @ self.lattice_transformer_inv).reshape(9)
 
-        q_and_lat = np.concatenate((q, a_tilde))
-        dq_and_dlat = np.concatenate((df_dq, df_da_tilde))
+        self.q_and_lat = np.concatenate((self.q, self.a_tilde))
+        self.dq_and_dlat = np.concatenate((self.df_dq, self.df_da_tilde))
 
-        dd = self.optimizer.sqnm_step(q_and_lat, epot, dq_and_dlat)
+        self.dd = self.optimizer.sqnm_step(self.q_and_lat, epot, self.dq_and_dlat)
 
-        q_and_lat = q_and_lat + dd
+        self.q_and_lat = self.q_and_lat + self.dd
 
-        q = q_and_lat[:(3 * self.nat)].reshape(3, self.nat)
-        a_tilde = q_and_lat[(3*self.nat):].reshape(3, 3)
-
-        alat = a_tilde @ self.lattice_transformer_inv
-        pos = (alat @ self.initial_lat_inverse) @ q
+        alat = (self.q_and_lat[(3*self.nat):].reshape(3, 3)) @ self.lattice_transformer_inv
+        pos = (alat @ self.initial_lat_inverse) @ (self.q_and_lat[:(3 * self.nat)].reshape(3, self.nat))
 
         return pos, alat
 
     def lower_bound(self):
+        """ Returns an estimate of a lower bound for the local minumum.
+        The estimate is only accurate when the optimization is converged.
+        """
+
         return self.optimizer.lower_bound()
 
+# the rest of this file can be used for testing only
 
 def _energyandforces(nat, pos, alat):
     import bazant
@@ -84,15 +163,9 @@ def _tests():
     lattice_weight = 2.0
     nhist_max = 10
 
-    # calculate optimal stepsize
-    beta = 0.1
-    e0, f0, d0 = _energyandforces(nat, pos, lat)
-    p1 = pos + beta * f0
-    e1, f1, d0 = _energyandforces(nat, p1, lat)
-    gtg = np.linalg.norm(f0)**2    
-    lmax = ( 2* (e1 - e0 + beta * gtg) / ( gtg * beta**2 ))
-    lmax1 = np.linalg.norm(f1 - f0) / (beta * np.linalg.norm(f0))
-    alpha = 1 / max(lmax, lmax1)
+    # if alpha is negative, initial step size will be estimated using eq. 24 and 25 of the
+    # of the vc-sqnm paper: https://arxiv.org/abs/2206.07339
+    alpha = -0.1
     print('initial step size', alpha)
 
     opt = periodic_sqnm(nat, lat, alpha, nhist_max, lattice_weight, 1e-2, 1e-3)
@@ -104,5 +177,7 @@ def _tests():
     print('The current energy is: ', epot)
     print('The estimated lower bound of the ground state is:', opt.lower_bound())
     print('The estimated energy error is:', epot - opt.lower_bound())
+
+
 if __name__ == "__main__":
     _tests()

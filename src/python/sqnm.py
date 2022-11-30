@@ -1,11 +1,55 @@
 #!/usr/bin/env python3
 
+# The variable cell shape optimization method is based on the following 
+# paper: https://arxiv.org/abs/2206.07339
+# More details about the SQNM optimization method are available here:
+# https://comphys.unibas.ch/publications/Schaefer2015.pdf
+# Author of this document: Moritz Gubler 
+
+# Copyright (C) 2022 Moritz Gubler
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import numpy as np
 import historylist
 import time
 
 class SQNM:
+    """This class is an implementation of the stabilized quasi newton optimization method.
+    More informations about the algorithm can be found here: https://aip.scitation.org/doi/10.1063/1.4905665
+    """
+    
     def __init__(self, ndim, nhist_max, alpha, eps_supsp, alpha_min):
+        """
+        Parameters
+        ----------
+        ndim : int
+            Number of dimensions of the optimization problem
+        nhist_max : int
+            maximal length of history list
+        alpha: double
+            Initial step size. Should be approximately the inverse of the largest eigenvalue of the Hessian matrix.
+            If alpha is negative, the inial step size is estimated using the mechanism from section 6.4 of the 
+            vc-sqnm paper: https://arxiv.org/abs/2206.07339
+            beta will then be equal to minus alpha. Good choices for beta are 0.1 in hartee / bohr^2 and
+            0.001 in eV / A^2
+        eps_subsp: double
+            Lower limit on linear dependencies in history list.
+        alpha_min: double
+            Lowest step size that is allowed.
+        """
+
         self.ndim = ndim
         self.nhist_max = nhist_max
         if ndim < nhist_max:
@@ -15,8 +59,17 @@ class SQNM:
         self.alpha_min = alpha_min
         self.xlist = historylist.HistoryList(self.ndim, self.nhist_max)
         self.flist = historylist.HistoryList(self.ndim, self.nhist_max)
-        self.alpha = alpha
+        
+        # when alpha is smaller than zero estimate initial step size.
+        self.estimate_step_size = False
+        if alpha <= 0:
+            self.estimate_step_size = True
+            self.alpha = - alpha
+        else:
+            self.alpha = alpha
+        
         self.dir_of_descent = np.zeros(ndim)
+        self.expected_positions = np.zeros(ndim)
         self.prev_f_of_x = 0.0
         self.prev_df_dx = np.zeros(ndim)
         self.s_evec = np.zeros((nhist_max, nhist_max))
@@ -31,6 +84,27 @@ class SQNM:
         self.nhist = 0
 
     def sqnm_step(self, x, f_of_x, df_dx):
+        """ Calculates a set of new coordinates based on the function value and derivatives provide on input.
+
+        The idea behind this function is, that the user evaluates the function at the new point this method suggested and
+        then calls this method again with the function value at the new point until convergence was reached.
+
+        Parameters
+        ----------
+        x: numpy array
+            Numpy array containg position vector x.
+        f_of_x: double
+            Value of target function at point x.
+        df_dx: numpy array
+            derivative of function f with respect to x.
+        """
+
+        # check if norm of gradient is already zero:
+        # and return zero if this is the case
+        if np.linalg.norm(df_dx) < 10e-13:
+            self.dir_of_descent = np.zeros(self.ndim)
+            return self.dir_of_descent
+
         self.nhist = self.xlist.add(x)
         self.flist.add(df_dx)
 
@@ -38,12 +112,26 @@ class SQNM:
         if self.nhist == 0:
             self.dir_of_descent = -self.alpha * df_dx
         else:
-            # calculate and adjust gainratio
-            self.gainratio = (f_of_x - self.prev_f_of_x) / ( .5 * np.dot(self.dir_of_descent, self.prev_df_dx) )
-            if self.gainratio < .5:
-                self.alpha = max(self.alpha_min, self.alpha * .65)
-            if self.gainratio > 1.05:
-                self.alpha *= 1.05
+
+            # check if positions have been modified
+            if np.max(np.abs(x - self.expected_positions)) > 10.0e-9:
+                print("SQNM was not called with positions that were expected. If this was not done on purpose, it is probably a bug.")
+                print("Were atoms that left the simulation box put back into the cell? This is not allowed.")
+
+            if self.estimate_step_size:
+                l1 = (f_of_x - self.prev_f_of_x + self.alpha * np.linalg.norm(self.prev_df_dx)**2) / (0.5 * (self.alpha**2) * np.linalg.norm(self.prev_df_dx)**2)
+                l2 = np.linalg.norm(df_dx - self.prev_df_dx) / (self.alpha * np.linalg.norm(self.prev_df_dx))
+                self.alpha = 1.0 / max(l1, l2)
+                print("      Automatic initial step size guess for geometry optimization: ", self.alpha)
+                self.estimate_step_size = False
+            else:
+                # calculate and adjust gainratio
+                self.gainratio = (f_of_x - self.prev_f_of_x) / ( .5 * np.dot(self.dir_of_descent, self.prev_df_dx) )
+                if not self.estimate_step_size:
+                    if self.gainratio < .5:
+                        self.alpha = max(self.alpha_min, self.alpha * .65)
+                    if self.gainratio > 1.05:
+                        self.alpha *= 1.05
 
             # calculate overlap matrix of basis
             self.s_evec[:self.nhist, :self.nhist] = self.xlist.normalizedDiffList[:, :self.nhist].T \
@@ -90,15 +178,22 @@ class SQNM:
                 , self.h_evec[:, :dim_subsp], np.divide(1.0, self.h_eval[:dim_subsp]) )
 
             self.dir_of_descent = - self.dir_of_descent
+        self.expected_positions = x + self.dir_of_descent
         self.prev_f_of_x = f_of_x
         self.prev_df_dx = df_dx
         return self.dir_of_descent
 
     def lower_bound(self):
+        """ Returns an estimate of a lower bound for the local minumum.
+        The estimate is only accurate when the optimization is converged.
+        """
+
         if self.nhist < 1:
-        #    print("At least one optimization step needs to be done before lower_limit can be called.")
+            print("At least one optimization step needs to be done before lower_limit can be called.")
             return 0
         return self.prev_f_of_x - .5 * np.dot(self.prev_df_dx, self.prev_df_dx) / self.h_eval[0]
+
+# the rest of this file can be used for testing only
 
 def _test_fun(x):
     n = len(x)
