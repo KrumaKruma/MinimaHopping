@@ -49,7 +49,8 @@ class Minimahopping:
                         verbose = True,
                         new_start = False,
                         run_time = 'infinit', 
-                        use_intermediate_mechanism = False):
+                        use_intermediate_mechanism = False,
+                        restart_interval = 2):
         """Initialize with an ASE atoms object and keyword arguments."""
         self._atoms = atoms
         self._T0 = T0 
@@ -81,6 +82,12 @@ class Minimahopping:
 
         self._counter = 0
 
+        # restart interval in minutes
+        self._restart_interval = restart_interval
+
+        # time of last restart
+        self._last_restart = time.time()
+
         self.restart_dict = {"dt" : self._dt,
                              "T" : self._temperature, 
                              "Ediff" : self._Ediff,
@@ -103,7 +110,7 @@ class Minimahopping:
             self._is_restart = False
 
         # initialize database
-        with Database(self._energy_threshold, self._minima_threshold, self._is_restart, self.restart_path) as self.data, graph.MinimaHoppingGraph('output/graph.dat', 'output/trajectory.dat', self._is_restart) as g:
+        with Database(self._energy_threshold, self._minima_threshold, self._is_restart, self.restart_path) as self.data, graph.MinimaHoppingGraph('output/graph.dat', 'output/trajectory.dat', self._is_restart) as self.mh_graph:
             # Start up minimahopping 
             atoms = deepcopy(self._atoms)
             current_minimum = self._startup(atoms,)  # gets an atoms object and a minimum object is returned.
@@ -128,7 +135,7 @@ class Minimahopping:
 
                     # add new structure as edge to graph
                     print('current_minimum.label, escaped_minimum.label', current_minimum.label, escaped_minimum.label)
-                    g.addStructure(current_minimum.label, escaped_minimum.label, md_trajectory + opt_trajectory, current_minimum.e_pot, escaped_minimum.e_pot, epot_max)
+                    self.mh_graph.addStructure(current_minimum.label, escaped_minimum.label, md_trajectory + opt_trajectory, current_minimum.e_pot, escaped_minimum.e_pot, epot_max)
 
                     # write output
                     self._hoplog(escaped_minimum)
@@ -172,7 +179,7 @@ class Minimahopping:
                     temp_atoms_towrite.info['energy'] = escaped_minimum.e_pot
                     temp_atoms_towrite.info['label'] = escaped_minimum.label
                     write(self._outpath + "min.extxyz", temp_atoms_towrite,  append=True)
-
+                    self._write_restart_if_necessary()
 
                 self._counter += 1
                 print("DONE")
@@ -204,8 +211,18 @@ class Minimahopping:
             print(msg)
 
 
-        
-        
+    def _write_restart(self):
+        self.mh_graph.write_restart_files()
+        self.data.write_restart_files()
+        self._last_restart = time.time()
+        # TODO write poscur and params.json
+
+
+    def _write_restart_if_necessary(self):
+        minutes_since_restart = (self._last_restart - time.time()) / 60.0
+        if minutes_since_restart > self._restart_interval:
+            self._write_restart()
+
 
     def _startup(self, atoms):
         print("=================================================================")
