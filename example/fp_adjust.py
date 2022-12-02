@@ -1,5 +1,5 @@
 from ase.calculators.eam import EAM
-from minimahopping.adjust_fp2 import adjust_fp
+from minimahopping.adjust_fp import adjust_fp
 from ase.cluster.wulff import wulff_construction
 from ase.cluster import Icosahedron
 from ase.io import read, write

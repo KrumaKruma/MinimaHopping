@@ -25,6 +25,7 @@ class Opt():
 
         self._nat = self._atoms.get_positions().shape[0]
         self._i_step = 0
+        self.max_disp = 0
 
         self._atoms_old = deepcopy(atoms)
         self._trajectory = []
@@ -40,6 +41,8 @@ class Opt():
         if self._verbose:
             write(self._outpath + "OPT.extxyz", self._atoms)
             f = open(self._outpath + "OPT_log.dat", "w")
+            msg = 'STEP      ETOT              MAX_FORCE       GAIN_RATIO       STEPSIZE           DIM_SUPSP         MAX_DISP\n'
+            f.write(msg)
             f.close()
         if True in _pbc:
             self._vcs_geom_opt()
@@ -66,6 +69,7 @@ class Opt():
         self._optim = periodic_sqnm.periodic_sqnm(self._nat, _init_lat, self._initial_step_size, self._nhist_max, self._lattice_weight, self._alpha_min, self._eps_subsop)
         self._max_force_comp = 100
         while self._max_force_comp > self._max_force_threshold:
+            pos_in = self._atoms.get_positions()
             self._vcs_optim_step()
             self._i_step += 1
             if self._verbose:
@@ -74,6 +78,8 @@ class Opt():
                 temp = deepcopy(self._atoms)
                 self._trajectory.append(temp.copy())
             self._check()
+            pos_out = self._atoms.get_positions()
+            self.max_disp = self._get_max_disp(pos_in, pos_out)
 
 
     def _geom_opt(self,):
@@ -87,6 +93,7 @@ class Opt():
         self._optim = free_or_fixed_cell_sqnm.free_sqnm(nat=self._nat, initial_step_size=self._initial_step_size, nhist_max=self._nhist_max,alpha_min=self._alpha_min, eps_subsp=self._eps_subsop)
         self._max_force_comp = 100
         while self._max_force_comp > self._max_force_threshold:
+            pos_in = self._atoms.get_positions()
             self._optim_step()
             self._i_step += 1
             if self._verbose:
@@ -95,6 +102,8 @@ class Opt():
                 temp = deepcopy(self._atoms)
                 self._trajectory.append(temp.copy())
             self._check()
+            pos_out = self._atoms.get_positions()
+            self.max_disp = self._get_max_disp(pos_in, pos_out)
 
 
 
@@ -164,11 +173,13 @@ class Opt():
         printed
         '''
         _energy = self._atoms.get_potential_energy()
-        opt_msg = "OPT Step: {:d}   energy: {:1.8f}  max_force_comp:  {:1.5e}   gain ratio:   {:1.5e}   stepsize:   {:1.5e}\n".format(self._i_step,
+        opt_msg = "{:4d}     {:1.8f}       {:1.5e}     {:1.5e}      {:1.5e}        {:1.5e}       {:1.5e}\n".format(self._i_step,
                                                                                                                                     _energy,
                                                                                                                                     self._max_force_comp,
                                                                                                                                     self._optim.optimizer.gainratio,
-                                                                                                                                    self._optim.optimizer.alpha)
+                                                                                                                                    self._optim.optimizer.alpha,
+                                                                                                                                    self._optim.optimizer.dim_subsp,
+                                                                                                                                    self.max_disp)
         f = open(self._outpath+"OPT_log.dat", "a")
         f.write(opt_msg)
         f.close()
@@ -185,5 +196,10 @@ class Opt():
         else:
             append_traj = False
         return append_traj
+
+    def _get_max_disp(self,pos_in, pos_out):
+        displacements = pos_in-pos_out
+        max_disp = np.max(displacements)
+        return max_disp
 
 

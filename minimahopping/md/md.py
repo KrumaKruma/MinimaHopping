@@ -75,6 +75,8 @@ class MD():
         if self._verbose:
             write(self._outpath + "MD.extxyz", self._atoms)
             f = open(self._outpath + "MD_log.dat", "w")
+            msg = 'STEP      EPOT          EKIN          ETOT               DT\n'
+            f.write(msg)
             f.close()
         self._masses = self._atoms.get_masses()[:, np.newaxis]/ self._atoms.get_masses()[:, np.newaxis]  # for the moment no masses
         self._forces = self._atoms.get_forces()
@@ -174,7 +176,8 @@ class MD():
         started
         '''
         _i = self._i_steps
-        md_msg = "MD STEP:  {:d}   e_pot: {:1.5f}  e_kin:  {:1.5f}   e_tot:  {:1.8f}  dt:  {:1.5f}\n".format(_i,
+
+        md_msg = "{:4d}      {:1.5f}      {:1.5f}       {:1.8f}       {:1.5f}\n".format(_i,
                                                                                              self._e_pot,
                                                                                              self._e_kin,
                                                                                              self._e_tot,
