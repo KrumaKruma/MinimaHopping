@@ -2,8 +2,7 @@
 from ase.calculators.eam import EAM
 from minimahopping.minhop import Minimahopping
 from ase.cluster.wulff import wulff_construction
-from ase.cluster import Icosahedron
-from ase.io import read, write
+
 
 def main():
     # construct a chain with 13 atoms:
@@ -17,7 +16,7 @@ def main():
     calculator = EAM(potential="Na_v2.eam.fs")
     atoms.calc = calculator
     mh = Minimahopping(atoms, verbose=True, T0=2000, dt=0.1)
-    mh(totalsteps=1000)
+    mh(totalsteps=100)
 
 
 

@@ -4,6 +4,9 @@ from copy import deepcopy
 from minimahopping.omfp.OverlapMatrixFingerprint import OverlapMatrixFingerprint as OMFP
 
 class Minimum():
+    """ 
+    Minimum class for managing the database of the minima hopping. 
+    """
     def __init__(self, atoms, epot, n_visit, s, p, width_cutoff, maxnatsphere, T, ediff, label, exclude=[]):
         self.atoms = deepcopy(atoms)
         self.e_pot = epot
@@ -40,12 +43,6 @@ class Minimum():
         """
          Calcualtes the fingerprint distance of 2 structures with local environment descriptors using the hungarian algorithm
          if a local environment descriptor is used. Else the distance is calculated using l2-norm.
-         desc1: np array
-             numpy array containing local environments of structure 1
-         desc2: np array
-             numpy array containing local environments of structure 2
-         Return:
-             Global fingerprint distance between structure 1 and structure 2
          """
 
         n_dim1 = len(self.fp.shape)
@@ -71,12 +68,6 @@ class Minimum():
     def _costmatrix(self, desc1, desc2):
         """
         Cost matrix of the local fingerprints for the hungarian algorithm
-        desc1: np array
-            numpy array containing local fingerprints of structure 1
-        desc2: np array
-            numpy array containing local fingerprints of structure 2
-        Return:
-            cost matrix of with the distances of the local fingerprints
         """
         assert desc1.shape[0] == desc2.shape[0], "descriptor has not the same length"
 
@@ -120,19 +111,6 @@ class Minimum():
             year={2016},
             publisher={AIP Publishing LLC}
             }
-
-            Input:
-                s: int
-                    number of s orbitals for which the fingerprint is calculated
-                p: int
-                    number of p orbitals for which the fingerprint is calculated
-                width_cutoff: float
-                    cutoff for searching neighbouring atoms
-                maxnatsphere:
-                    maximum of the neighboring atoms which can be in the sphere
-            Return:
-                omfp: np array
-                    numpy array which contains the fingerprint
             """
 
             _pbc = list(set(self.atoms.pbc))
