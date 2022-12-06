@@ -68,7 +68,6 @@ class Minimahopping:
 
         if self.isRestart and not overwriteParametersOnRestart:
             self._read_changing_parameters("params.json")
-
         else:
             self.parameter_dictionary = {
                 "beta_decrease" : beta_decrease,
@@ -123,14 +122,11 @@ class Minimahopping:
                 while not is_accepted:
                     print("  Start escape loop")
                     print("  ---------------------------------------------------------------")
-                    escaped_minimum, n_visits, epot_max, md_trajectory, opt_trajectory = self._escape(current_minimum) 
+                    escaped_minimum, epot_max, md_trajectory, opt_trajectory = self._escape(current_minimum) 
                     print("  ---------------------------------------------------------------")
                     print("  New minimum found!")
-                    # write the lowest n minima to files
-                    self.data._write_poslow(self.parameter_dictionary["output_n_lowest_minima"] ,self._minima_path)
 
-                    # add new structure as edge to graph
-                    print('current_minimum.label, escaped_minimum.label', current_minimum.label, escaped_minimum.label)
+                    self.data.addElement(escaped_minimum)
                     self.mh_graph.addStructure(current_minimum.label, escaped_minimum.label, md_trajectory + opt_trajectory, current_minimum.e_pot, escaped_minimum.e_pot, epot_max)
 
                     # write output
@@ -153,29 +149,29 @@ class Minimahopping:
                     if is_accepted:
                         if intermediate_minimum_is_escaped_minimum:
                             status = "Accepted minimum after escaping"
-                            self._history_log(escaped_minimum, status, n_visits)
+                            self._history_log(escaped_minimum, status, escaped_minimum.n_visit)
                         else:
                             status = 'Accepted intermediate minimum'
-                            self._history_log(intermediate_minimum, status, n_visits)
+                            self._history_log(intermediate_minimum, status, escaped_minimum.n_visit)
                     else:
                         if intermediate_minimum_is_escaped_minimum:
                             status = "Rejected -> new intermediate minimum"
                         else:
                             status = "Rejected"
-                        self._history_log(escaped_minimum, status, n_visits)
+                        self._history_log(escaped_minimum, status, escaped_minimum.n_visit)
 
-                    log_msg = "  New minimum has been found {:d} time(s)".format(n_visits)
+                    log_msg = "  New minimum has been found {:d} time(s)".format(escaped_minimum.n_visit)
                     print(log_msg)
 
                     # adjust the temperature according to the number of visits
-                    self._adj_temperature(escaped_minimum, n_visits)
+                    self._adj_temperature(escaped_minimum, escaped_minimum.n_visit)
                     temp_atoms_towrite = escaped_minimum.atoms.copy()
                     temp_atoms_towrite.info = {}
                     temp_atoms_towrite.set_momenta(None)
                     temp_atoms_towrite.info['energy'] = escaped_minimum.e_pot
                     temp_atoms_towrite.info['label'] = escaped_minimum.label
                     write(self._outpath + "min.extxyz", temp_atoms_towrite,  append=True)
-                    self._write_restart_if_necessary()
+                    self._write_restart_if_necessary(temp_atoms_towrite)
 
                 counter += 1
                 print("DONE")
@@ -207,14 +203,20 @@ class Minimahopping:
             print(msg)
 
 
-    def _write_restart(self):
+    def _write_restart(self, current_geometry):
         self.mh_graph.write_restart_files()
         self.data.write_restart_files()
         self._last_restart = time.time()
-        # TODO write poscur and params.json
+        f = open(self.restart_path+"params.json", "w")
+        json.dump(self.parameter_dictionary,f)
+        f.close()
+        write(self.restart_path + "poscur.extxyz", current_geometry)
+        
+        # write the lowest n minima to files
+        self.data._write_poslow(self.parameter_dictionary["output_n_lowest_minima"] ,self._minima_path)
 
 
-    def _write_restart_if_necessary(self):
+    def _write_restart_if_necessary(self, current_geometry):
         minutes_since_restart = (self._last_restart - time.time()) / 60.0
         if minutes_since_restart > self.parameter_dictionary["restart_interval_minutes"]:
             self._write_restart()
@@ -285,7 +287,7 @@ class Minimahopping:
             struct_cur.atoms.calc = calc
             atoms = struct_cur.atoms
             write(self._outpath + "acc.extxyz", atoms, append=True)
-            write(self.restart_path + "poscur.extxyz", atoms)
+            #write(self.restart_path + "poscur.extxyz", atoms)
 
 
         self.data.addElement(struct_cur)
@@ -337,7 +339,7 @@ class Minimahopping:
             if _i_steps > 0:
                 self._n_same += 1
                 status = 'Same'
-                self._history_log(struct_prop, status)
+                self._history_log(proposed_structure, status)
                 self.parameter_dictionary['T'] *= _beta_s
                 log_msg = "    Same minimum found with fpd {:1.2e} {:d} time(s). Increase temperature to {:1.5f}".format(_escape, self._n_same, self.parameter_dictionary['T'])
                 print(log_msg)
@@ -404,7 +406,7 @@ class Minimahopping:
             # check if the energy threshold is below the optimization noise
             self._check_energy_threshold()
 
-            struct_prop = Minimum(atoms,
+            proposed_structure = Minimum(atoms,
                         n_visit=1,
                         s = self.parameter_dictionary['n_S_orbitals'],
                         p = self.parameter_dictionary["n_P_orbitals"], 
@@ -417,30 +419,19 @@ class Minimahopping:
                         exclude= self.parameter_dictionary["exclude"])
 
             # check if proposed structure is the same to the initial structure
-            _escape_energy = struct.__compareto__(struct_prop)
-            _escape = struct.__equals__(struct_prop)
+            _escape_energy = struct.__compareto__(proposed_structure)
+            _escape = struct.__equals__(proposed_structure)
 
             write(self._outpath + 'locm.extxyz', atoms, append=True)
 
             _i_steps += 1
             self._n_min += 1
-
-            # update and save restart dict
-            self.parameter_dictionary["dt"] = self.parameter_dictionary['dt']
-            self.parameter_dictionary["T"] = self.parameter_dictionary['T']
-            f = open(self.restart_path+"params.json", "w")
-            json.dump(self.parameter_dictionary,f)
-            f.close()
         
 
         log_msg = "    New minimum found with fpd {:1.2e} after looping {:d} time(s)".format(_escape, _i_steps)
         print(log_msg)
 
-        # add new minimum to database
-        
-        self.data.addElement(struct = struct_prop)
-
-        return struct_prop, struct_prop.n_visit, _epot_max, _md_trajectory, _opt_trajectory
+        return proposed_structure, _epot_max, _md_trajectory, _opt_trajectory
 
 
     def _hoplog(self, struct):
@@ -453,7 +444,6 @@ class Minimahopping:
 
 
     def _acc_rej_step(self, struct_cur, struct):
-
         _e_pot_cur = struct_cur.e_pot
         _e_pot = struct.e_pot
 
@@ -475,20 +465,13 @@ class Minimahopping:
                                                                                                 _ediff_in)
             print(log_msg)
             write(self._outpath + "acc.extxyz", struct_cur.atoms, append=True)
-            write(self.restart_path + "poscur.extxyz", struct_cur.atoms)
         else:
             log_msg = "  Minimum was rejected:  Enew - Ecur = {:1.5f} > {:1.5f} = Ediff".format(ediff_rej,
                                                                                                 _ediff_in)
             print(log_msg)
 
-        # update restart dict
-        self.parameter_dictionary["Ediff"] = self.parameter_dictionary["energy_difference_to_accept"]
-        f = open(self.restart_path+"params.json", "w")
-        json.dump(self.parameter_dictionary,f)
-        f.close()
-
+        self.parameter_dictionary["energy_difference_to_accept"] = self.parameter_dictionary["energy_difference_to_accept"]
         return struct_cur, is_accepted
-
 
 
     def _adj_temperature(self,struct, n_visits):
