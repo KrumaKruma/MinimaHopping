@@ -36,7 +36,6 @@ class Database():
 
     def write_restart_files(self):
         filename = self.outpath + "data.pickle"
-        print(filename)
         listpickle = open(filename, "wb")
         pickle.dump(self.unique_minima_sorted, listpickle)
         listpickle.close()
