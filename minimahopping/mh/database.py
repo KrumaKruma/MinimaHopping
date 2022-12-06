@@ -2,6 +2,7 @@ import bisect
 from ase.io import read, write
 from ase import atoms
 import pickle
+import shelve
 import os
 import minimahopping.mh.minimum as minimum
 
@@ -15,6 +16,8 @@ class Database():
         self.is_restart = is_restart
         self.outpath = outpath
 
+        self.minima_shelve = None
+
 
     def __enter__(self):
         self.read_restart_files()
@@ -23,22 +26,25 @@ class Database():
 
     def __exit__(self,exc_type, exc_value, exc_traceback):
         self.write_restart_files()
+        self.minima_shelve.close()
         
 
-    def read_restart_files(self):
+    def read_restart_files(self):        
+        filename = self.outpath + "minima.pickle.shelve"
+        self.minima_shelve = shelve.open(filename)
         if self.is_restart:
-            filename = self.outpath + "data.pickle"
-            listpickle = open(filename, "rb")
-            self.unique_minima_sorted = pickle.load(listpickle)
-            listpickle.close()
+            # print('asdf', list(dict(self.minima_shelve).values()).sort())
+            self.unique_minima_sorted = list(dict(self.minima_shelve).values())
+            self.unique_minima_sorted.sort()
             self.nstructs = len(self.unique_minima_sorted)
 
 
     def write_restart_files(self):
-        filename = self.outpath + "data.pickle"
-        listpickle = open(filename, "wb")
-        pickle.dump(self.unique_minima_sorted, listpickle)
-        listpickle.close()
+        pass
+        # filename = self.outpath + "minima.pickle"
+        # listpickle = open(filename, "wb")
+        # pickle.dump(self.unique_minima_sorted, listpickle)
+        # listpickle.close()
 
 
     def addElement(self,struct: minimum.Minimum):
@@ -49,6 +55,7 @@ class Database():
             self.unique_minima_sorted[index].n_visit += 1
             struct.n_visit = self.unique_minima_sorted[index].n_visit
             struct.label = self.unique_minima_sorted[index].label
+            self.minima_shelve[str(self.unique_minima_sorted[index].label)] = self.unique_minima_sorted[index]
         else:
             label = self.nstructs
             struct.set_label(label)
@@ -59,6 +66,7 @@ class Database():
             struct1.atoms.info['energy'] = struct.e_pot
             struct1.atoms.info['label'] = label
             bisect.insort(self.unique_minima_sorted, struct1)
+            self.minima_shelve[str(label)] = struct1
         return
 
 
