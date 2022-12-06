@@ -8,15 +8,15 @@ def main():
     # construct a chain with 13 atoms:
     # atoms = Icosahedron('Na', 2, latticeconstant=None)
 
-    atoms = wulff_construction('Na', surfaces=[(1, 0, 0), (0, 1, 0),(0, 0, 1)], energies=[0.001, 0.001, 0.15],
+    initial_configuration = wulff_construction('Na', surfaces=[(1, 0, 0), (0, 1, 0),(0, 0, 1)], energies=[0.001, 0.001, 0.15],
                             size=13, # maximum number of atoms
                             structure='bcc', rounding='above')
 
 
     calculator = EAM(potential="Na_v2.eam.fs")
-    atoms.calc = calculator
-    mh = Minimahopping(atoms, verbose=True, T0=2000, dt=0.1)
-    mh(totalsteps=100)
+    initial_configuration.calc = calculator
+    mh = Minimahopping(initial_configuration, verbose_output=True, T0=2000, dt=0.1)
+    mh(totalsteps=10)
 
 
 
