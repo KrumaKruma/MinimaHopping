@@ -111,8 +111,8 @@ class MinimaHoppingGraph:
             for i in remove:
                 for v in graph_copy.neighbors(i):
                     # print(i, graph_copy.edges(i), v)
-                    graph_copy.nodes[v]['width'] = graph_copy.nodes[v]['width'] + 0.05
-                    graph_copy.nodes[v]['height'] = graph_copy.nodes[v]['height'] + 0.05
+                    graph_copy.nodes[v]['width'] = graph_copy.nodes[v]['width'] + 0.05 / graph_copy.nodes[v]['width']
+                    graph_copy.nodes[v]['height'] = graph_copy.nodes[v]['height'] + 0.05 / graph_copy.nodes[v]['height']
             graph_copy.remove_nodes_from(remove)
         return graph_copy
     
