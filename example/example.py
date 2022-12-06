@@ -1,4 +1,4 @@
-
+#!/usr/bin/env python3
 from ase.calculators.eam import EAM
 from minimahopping.minhop import Minimahopping
 from ase.cluster.wulff import wulff_construction
