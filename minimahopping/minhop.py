@@ -51,14 +51,11 @@ class Minimahopping:
                         new_start = False,
                         run_time = 'infinite', 
                         use_intermediate_mechanism = False,
-                        restart_interval_minutes = 2,
+                        restart_interval = 1,
                         overwriteParametersOnRestart = False):
         """Initialize with an ASE atoms object and keyword arguments."""
 
         self.initial_configuration = initial_configuration
-
-        # time of last restart
-        self._last_restart = time.time()
 
         self._outpath = 'output/' 
         self.restart_path = self._outpath + "restart/"
@@ -92,7 +89,7 @@ class Minimahopping:
                 "exclude" : exclude,
                 "run_time" : run_time,
                 "use_intermediate_mechanism" : use_intermediate_mechanism,
-                "restart_interval_minutes": restart_interval_minutes,
+                "restart_interval": restart_interval,
             }
 
         # Initialization of global counters        
@@ -103,6 +100,7 @@ class Minimahopping:
 
     def __call__(self, totalsteps = None):
         counter = 0
+        last_restart = 0
 
         # initialize database
         with Database(self.parameter_dictionary["energy_threshold"], self.parameter_dictionary["fingerprint_threshold"], self.isRestart, self.restart_path) as self.data, graph.MinimaHoppingGraph('output/graph.dat', 'output/trajectory.dat', self.isRestart) as self.mh_graph:
@@ -171,9 +169,14 @@ class Minimahopping:
                     temp_atoms_towrite.info['energy'] = escaped_minimum.e_pot
                     temp_atoms_towrite.info['label'] = escaped_minimum.label
                     write(self._outpath + "min.extxyz", temp_atoms_towrite,  append=True)
-                    self._write_restart_if_necessary(temp_atoms_towrite)
+                    counter += 1
+                    if (counter - last_restart >= self.parameter_dictionary['restart_interval']):
+                        t1 = time.time()
+                        self._write_restart(temp_atoms_towrite)
+                        t2 = time.time()
+                        print("RESTART TIME, ", t2 - t1,  file=open('toto', 'a'))
+                        last_restart = counter
 
-                counter += 1
                 print("DONE")
                 print("=================================================================")
 
@@ -216,16 +219,9 @@ class Minimahopping:
         self.data._write_poslow(self.parameter_dictionary["output_n_lowest_minima"] ,self._minima_path)
 
 
-    def _write_restart_if_necessary(self, current_geometry):
-        minutes_since_restart = (self._last_restart - time.time()) / 60.0
-        if minutes_since_restart > self.parameter_dictionary["restart_interval_minutes"]:
-            self._write_restart(current_geometry)
-
-
     def _startup(self, atoms):
         print("=================================================================")
         print("MINIMAHOPPING SETUP START")
-
 
         if not isinstance(atoms, list):
             atoms = [deepcopy(atoms)]
