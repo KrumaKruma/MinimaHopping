@@ -17,25 +17,29 @@ class Database():
 
 
     def __enter__(self):
+        self.read_restart_files()
+        return self
+
+
+    def __exit__(self,exc_type, exc_value, exc_traceback):
+        self.write_restart_files()
+        
+
+    def read_restart_files(self):
         if self.is_restart:
             filename = self.outpath + "data.pickle"
             listpickle = open(filename, "rb")
             self.unique_minima_sorted = pickle.load(listpickle)
             listpickle.close()
             self.nstructs = len(self.unique_minima_sorted)
-        return self
 
-    def __exit__(self,exc_type, exc_value, exc_traceback):
+
+    def write_restart_files(self):
         filename = self.outpath + "data.pickle"
+        print(filename)
         listpickle = open(filename, "wb")
         pickle.dump(self.unique_minima_sorted, listpickle)
         listpickle.close()
-        return
-        
-
-    def write_restart_files(self):
-        self.__exit__()
-
 
 
     def addElement(self,struct: minimum.Minimum):
