@@ -48,7 +48,7 @@ class Minimahopping:
                         minima_threshold = 1e-3,
                         verbose = True,
                         new_start = False,
-                        run_time = 'infinit', 
+                        run_time = 'infinite', 
                         use_intermediate_mechanism = False,
                         restart_interval = 2):
         """Initialize with an ASE atoms object and keyword arguments."""
@@ -56,7 +56,6 @@ class Minimahopping:
         self._T0 = T0 
         self._beta_decrease = beta_decrease
         self._beta_increase = beta_increase
-        self._Ediff0 = Ediff0 
         self._alpha_a = alpha_a
         self._alpha_r = alpha_r
         self._n_soft = n_soft
@@ -78,7 +77,7 @@ class Minimahopping:
         self._use_intermediate_mechanism = use_intermediate_mechanism
 
         self._temperature = self._T0
-        self._Ediff = self._Ediff0
+        self._Ediff = Ediff0
 
         self._counter = 0
 
@@ -91,14 +90,12 @@ class Minimahopping:
         self.restart_dict = {"dt" : self._dt,
                              "T" : self._temperature, 
                              "Ediff" : self._Ediff,
-                             "ns_orb" : 1,
-                             "np_orb" : 1,
-                             "width_cutoff" : 3.5, 
-                             "exclude" : [],
-                             "minima_threshold" : 5e-4,
-                             }
-
-    def __call__(self, totalsteps = None):
+                             "ns_orb" : ns_orb,
+                             "np_orb" : np_orb,
+                             "width_cutoff" : width_cutoff, 
+                             "exclude" : exclude,
+                             "minima_threshold" : minima_threshold,
+                            }
 
         # Check if all the files are there for a restart.
         self._outpath = 'output/' 
@@ -108,6 +105,19 @@ class Minimahopping:
         # Check if new start is desired
         if self._new_start:
             self._is_restart = False
+
+        # Initialization of global counters        
+        self._i_step = 0
+        self._n_min = 1
+        self._n_unique = 0
+        self._n_notunique = 0
+        self._n_same = 0
+
+        if self._is_restart:
+            self._read_changing_parameters("params.json")
+
+
+    def __call__(self, totalsteps = None):
 
         # initialize database
         with Database(self._energy_threshold, self._minima_threshold, self._is_restart, self.restart_path) as self.data, graph.MinimaHoppingGraph('output/graph.dat', 'output/trajectory.dat', self._is_restart) as self.mh_graph:
@@ -187,7 +197,7 @@ class Minimahopping:
 
                 _elapsed_time = time.time() - self._time_in
 
-                if self._run_time != "infinit":
+                if self._run_time != "infinite":
                     if _elapsed_time > self._run_time_sec:
                         msg = 'Simulation stopped because the given time is over\n'
                         msg += 'Run terminated after {:d} steps'.format(self._counter)
@@ -252,17 +262,9 @@ class Minimahopping:
             self.data.addElement(struct)
 
         # Convert given time to seconds
-        if self._run_time != "infinit":
+        if self._run_time != "infinite":
             self._run_time_sec = self._get_sec()
         self._time_in = time.time()
-
-        # Initialization of global counters
-        
-        self._i_step = 0
-        self._n_min = 1
-        self._n_unique = 0
-        self._n_notunique = 0
-        self._n_same = 0
 
         # Check if restart
         if self._is_restart:
@@ -285,46 +287,6 @@ class Minimahopping:
                         T=self._temperature,
                         ediff=self._Ediff,
                         label=label)
-
-            # Read parameters and set them
-            filename = self.restart_path + "params.json"
-            f = open(filename)
-            self.restart_dict = json.load(f)
-            f.close()
-
-            if self.dt is None:
-                self._dt = self.restart_dict["dt"]
-            
-            if self._temperature is None:
-                self._temperature = self.restart_dict["T"]
-
-
-            self._Ediff = self.restart_dict["Ediff"]
-            if self._ns_orb != self.restart_dict["ns_orb"]:
-                msg = "Number of s orbitals in OMFP is not consistent with previous run!"
-                warnings.warn(msg, UserWarning)
-                self._ns_orb = self.restart_dict["ns_orb"]
-
-            if self._np_orb != self.restart_dict["np_orb"]:
-                msg = "Number of p orbitals in OMFP is not consistent with previous run!"
-                warnings.warn(msg, UserWarning)
-                self._np_orb = self.restart_dict["np_orb"]
-
-            if self._width_cutoff != self.restart_dict["width_cutoff"]:
-                msg = "width cutoff in OMFP is not consistent with previous run!"
-                warnings.warn(msg, UserWarning)
-                self._width_cutoff = self.restart_dict["width_cutoff"]
-            
-            if self._exclude != self.restart_dict["exclude"]:
-                msg = "Exclude element list in OMFP is not consistent with previous run!"
-                warnings.warn(msg, UserWarning)
-                self._exclude = self.restart_dict["exclude"]
-            
-            if self._minima_threshold != self.restart_dict["minima_threshold"]:
-                msg = "Minimum threshold is not consistent with previous run!"
-                warnings.warn(msg, UserWarning)
-                self._minima_threshold = self.restart_dict["minima_threshold"]
-
 
         else:
 
@@ -350,6 +312,46 @@ class Minimahopping:
         print("=================================================================")
         return struct_cur
 
+
+    def _read_changing_parameters(self, param_dict_name):
+        # Read parameters and set them
+        filename = self.restart_path + param_dict_name
+        f = open(filename)
+        self.restart_dict = json.load(f)
+        f.close()
+
+        if self._dt is None:
+            self._dt = self.restart_dict["dt"]
+        
+        if self._temperature is None:
+            self._temperature = self.restart_dict["T"]
+
+
+        self._Ediff = self.restart_dict["Ediff"]
+        if self._ns_orb != self.restart_dict["ns_orb"]:
+            msg = "Number of s orbitals in OMFP is not consistent with previous run!"
+            warnings.warn(msg, UserWarning)
+            self._ns_orb = self.restart_dict["ns_orb"]
+
+        if self._np_orb != self.restart_dict["np_orb"]:
+            msg = "Number of p orbitals in OMFP is not consistent with previous run!"
+            warnings.warn(msg, UserWarning)
+            self._np_orb = self.restart_dict["np_orb"]
+
+        if self._width_cutoff != self.restart_dict["width_cutoff"]:
+            msg = "width cutoff in OMFP is not consistent with previous run!"
+            warnings.warn(msg, UserWarning)
+            self._width_cutoff = self.restart_dict["width_cutoff"]
+        
+        if self._exclude != self.restart_dict["exclude"]:
+            msg = "Exclude element list in OMFP is not consistent with previous run!"
+            warnings.warn(msg, UserWarning)
+            self._exclude = self.restart_dict["exclude"]
+        
+        if self._minima_threshold != self.restart_dict["minima_threshold"]:
+            msg = "Minimum threshold is not consistent with previous run!"
+            warnings.warn(msg, UserWarning)
+            self._minima_threshold = self.restart_dict["minima_threshold"]
 
 
     def _restart_opt(self, atoms,):
