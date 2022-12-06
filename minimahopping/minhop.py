@@ -219,7 +219,7 @@ class Minimahopping:
     def _write_restart_if_necessary(self, current_geometry):
         minutes_since_restart = (self._last_restart - time.time()) / 60.0
         if minutes_since_restart > self.parameter_dictionary["restart_interval_minutes"]:
-            self._write_restart()
+            self._write_restart(current_geometry)
 
 
     def _startup(self, atoms):
