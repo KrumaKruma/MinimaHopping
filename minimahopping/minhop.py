@@ -255,15 +255,13 @@ class Minimahopping:
 
         # Check if restart
         if self.isRestart:
-            msg = '  Restart MH run'
-            print(msg)
+            print('  Restart MH run')
 
             # Read current structure
             filename = self.restart_path + "poscur.extxyz"
             atoms = read(filename)
             atoms.calc = calc
-
-            label = self.data.nstructs + 1
+            
             struct_cur = Minimum(atoms,
                         n_visit=1,
                         s = self.parameter_dictionary['n_S_orbitals'],
@@ -273,16 +271,14 @@ class Minimahopping:
                         epot = atoms.get_potential_energy(),
                         T=self.parameter_dictionary['T'],
                         ediff=self.parameter_dictionary["energy_difference_to_accept"],
-                        label=label,
+                        label=-1,
                         exclude= self.parameter_dictionary["exclude"])
-
+            index = self.data.get_element(struct_cur)
+            struct_cur.set_label(self.data.unique_minima_sorted[index].label)
         else:
 
             msg = '  New MH run is started'
             print(msg)
-            
-            assert self.parameter_dictionary['T'] is not None, "Plase set an inital temperature"
-            assert self.parameter_dictionary['dt'] is not None, "Please set a timestep for the MD"
 
             # add input structure to database after optimization
             struct_cur = self.data.unique_minima_sorted[0].__copy__()
@@ -307,39 +303,6 @@ class Minimahopping:
         f = open(filename)
         self.parameter_dictionary = json.load(f)
         f.close()
-
-        # if self.parameter_dictionary['dt'] is None:
-        #     self.parameter_dictionary['dt'] = self.parameter_dictionary["dt"]
-        
-        # if self.parameter_dictionary['T'] is None:
-        #     self.parameter_dictionary['T'] = self.parameter_dictionary["T"]
-
-
-        # self.parameter_dictionary["energy_difference_to_accept"] = self.parameter_dictionary["Ediff"]
-        # if self.parameter_dictionary['n_S_orbitals'] != self.parameter_dictionary["ns_orb"]:
-        #     msg = "Number of s orbitals in OMFP is not consistent with previous run!"
-        #     warnings.warn(msg, UserWarning)
-        #     self.parameter_dictionary['n_S_orbitals'] = self.parameter_dictionary["ns_orb"]
-
-        # if self.parameter_dictionary["n_P_orbitals"] != self.parameter_dictionary["np_orb"]:
-        #     msg = "Number of p orbitals in OMFP is not consistent with previous run!"
-        #     warnings.warn(msg, UserWarning)
-        #     self.parameter_dictionary["n_P_orbitals"] = self.parameter_dictionary["np_orb"]
-
-        # if self.parameter_dictionary["width_cutoff"] != self.parameter_dictionary["width_cutoff"]:
-        #     msg = "width cutoff in OMFP is not consistent with previous run!"
-        #     warnings.warn(msg, UserWarning)
-        #     self.parameter_dictionary["width_cutoff"] = self.parameter_dictionary["width_cutoff"]
-        
-        # if self.parameter_dictionary["exclude"] != self.parameter_dictionary["exclude"]:
-        #     msg = "Exclude element list in OMFP is not consistent with previous run!"
-        #     warnings.warn(msg, UserWarning)
-        #     self.parameter_dictionary["exclude"] = self.parameter_dictionary["exclude"]
-        
-        # if self.parameter_dictionary["fingerprint_threshold"] != self.parameter_dictionary["fingerprint_threshold"]:
-        #     msg = "Minimum threshold is not consistent with previous run!"
-        #     warnings.warn(msg, UserWarning)
-        #     self.parameter_dictionary["fingerprint_threshold"] = self.parameter_dictionary["fingerprint_threshold"]
 
 
     def _restart_opt(self, atoms,):
@@ -535,9 +498,6 @@ class Minimahopping:
                 self.parameter_dictionary['T'] = self.parameter_dictionary['T'] * self.parameter_dictionary['beta_increase'] * (1. + 1. * np.log(float(n_visits)))
             else:
                 self.parameter_dictionary['T'] = self.parameter_dictionary['T'] * self.parameter_dictionary['beta_increase']
-        else:
-            self.parameter_dictionary['T'] = self.parameter_dictionary['T'] * self.parameter_dictionary['beta_decrease']
-            atoms = struct.atoms
 
 
     def _history_log(self, struct, status, n_visits = 0):
