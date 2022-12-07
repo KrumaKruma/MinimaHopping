@@ -14,8 +14,6 @@ setup(
     install_requires=[
         'numpy',
         'ase',
-        'pydot',
-        'pygraphviz',
         'scipy',
         'scikit-learn',
         'networkx',
