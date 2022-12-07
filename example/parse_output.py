@@ -6,7 +6,7 @@ import pydot
 import pygraphviz
 
 
-from minimahopping.graph.graph import graph
+from minimahopping.graph import graph
 
 
 def draw_pygraphviz(g, filename, layout='fdp'):
@@ -17,7 +17,7 @@ def draw_pygraphviz(g, filename, layout='fdp'):
     # g.write('file.dot')
     
 
-g = graph.MinimaHoppingGraph('output/graph.dat', 'output/trajectory.dat', True)
+g = graph.MinimaHoppingGraph('output/restart/graph.dat', 'output/restart/trajectory.dat', True)
 g.read_from_disk()
 n = 28
 # l = g.shortestPath(0, n)
