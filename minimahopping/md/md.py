@@ -73,7 +73,7 @@ class MD():
         '''
         self._trajectory = []
         if self._verbose:
-            write(self._outpath + "MD.extxyz", self._atoms)
+            write(self._outpath + "MD_trajectory.extxyz", self._atoms)
             f = open(self._outpath + "MD_log.dat", "w")
             msg = 'STEP      EPOT          EKIN          ETOT               DT\n'
             f.write(msg)
@@ -186,7 +186,7 @@ class MD():
         f = open(self._outpath+"MD_log.dat", "a")
         f.write(md_msg)
         f.close()
-        write(self._outpath + "MD.extxyz", self._atoms, append=True)
+        write(self._outpath + "MD_trajectory.extxyz", self._atoms, append=True)
 
 
     def _check_coordinate_shift(self,):
