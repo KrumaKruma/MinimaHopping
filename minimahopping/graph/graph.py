@@ -9,10 +9,10 @@ import copy
 
 class MinimaHoppingGraph:
     
-    def __init__(self, graphFileName, trajectoryDatabaseName, restart) -> None:
+    def __init__(self, graphFileName, trajectoryDatabaseName, is_restart) -> None:
         self.graphFileName = graphFileName
         self.trajectoryDatabaseName = trajectoryDatabaseName
-        self.restart = restart
+        self.is_restart = is_restart
         self.trajectoryDict = None
         self.graph = None
         self.lucky_counter = 0
@@ -24,7 +24,7 @@ class MinimaHoppingGraph:
         self.write_to_disk()
 
     def read_from_disk(self):
-        if self.restart:
+        if self.is_restart:
             graph_pickle = open(self.graphFileName, "rb")
             self.graph = pickle.load(graph_pickle)
             graph_pickle.close()
