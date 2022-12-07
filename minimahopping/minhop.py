@@ -57,9 +57,23 @@ class Minimahopping:
 
         self.initial_configuration = initial_configuration
 
-        self._outpath = 'output/' 
-        self.restart_path = self._outpath + "restart/"
-        self._minima_path = 'minima/'
+        try:
+            from mpi4py import MPI
+            self.mpiRank = MPI.COMM_WORLD.Get_rank()
+            self.mpiSize = MPI.COMM_WORLD.Get_size()
+            print('rank,', self.mpiRank, ' size', self.mpiSize)
+        except ImportError:
+            self.mpiRank = 0
+            self.mpiSize = 1
+        
+        if self.mpiSize == 1:
+            self._outpath = 'output/' 
+            self.restart_path = self._outpath + "restart/"
+            self._minima_path = 'minima/'
+        else:
+            self._outpath = 'output/worker_' + str(self.mpiRank) + '/' 
+            self.restart_path = self._outpath + "restart/"
+            self._minima_path = 'minima/worker_' + str(self.mpiRank) + '/' 
 
         self.isRestart = self.checkIfRestart(new_start)
 
