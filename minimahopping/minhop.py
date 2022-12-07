@@ -139,14 +139,14 @@ class Minimahopping:
                     print("  ---------------------------------------------------------------")
                     print("  New minimum found!")
 
-                    self.data.addElement(escaped_minimum)
-                    self.mh_graph.addStructure(current_minimum.label, escaped_minimum.label, md_trajectory + opt_trajectory, current_minimum.e_pot, escaped_minimum.e_pot, epot_max)
+                    self.data.addElementandConnectGraph(current_minimum, escaped_minimum, md_trajectory + opt_trajectory, epot_max)
 
                     # write output
                     self._hoplog(escaped_minimum)
 
                     # check if intermediate or escaped minimum should be considered for accepting.
-                    if is_first_accept_iteration or not self.parameter_dictionary["use_intermediate_mechanism"]: # after first iteration, the escaped minimum must be considered for accecpting
+                    if is_first_accept_iteration or not self.parameter_dictionary["use_intermediate_mechanism"]: 
+                        # after first iteration, the escaped minimum must be considered for accecpting
                         intermediate_minimum = escaped_minimum.__deepcopy__()
                         intermediate_minimum_is_escaped_minimum = True
                         is_first_accept_iteration = False
@@ -225,7 +225,7 @@ class Minimahopping:
             atoms = [deepcopy(atoms)]
         calc = atoms[0].calc
 
-        # Check if restart
+        # Check if this is a fresh start
         if not self.isRestart:
             print('  New MH run is started')
             for atom in atoms:

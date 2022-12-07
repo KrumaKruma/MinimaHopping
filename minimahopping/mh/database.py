@@ -1,10 +1,7 @@
 import bisect
-from ase.io import read, write
-from ase import atoms
-import pickle
 import shelve
-import os
 import minimahopping.mh.minimum as minimum
+import minimahopping.graph.graph
 
 class Database():
     def __init__(self,energy_threshold, minima_threshold, output_n_lowest_minima, is_restart = False, outpath='./', minima_path= "lowest_minima/"):
@@ -21,13 +18,19 @@ class Database():
         self.minima_shelve = None
 
 
+        self.graphFilename = self.outpath + "graph.dat"
+        self.graphTrajectoryFilename = self.outpath + 'trajectory.dat'
+        self.graph = minimahopping.graph.graph.MinimaHoppingGraph(self.graphFilename, self.graphTrajectoryFilename, self.is_restart)
+
+
     def __enter__(self):
         self.read_restart_files()
+        self.graph.read_from_disk()
         return self
 
 
     def __exit__(self,exc_type, exc_value, exc_traceback):
-        self.write_restart_files()
+        self.graph.write_to_disk()
         self.minima_shelve.close()
         
 
@@ -39,14 +42,6 @@ class Database():
             self.unique_minima_sorted = list(dict(self.minima_shelve).values())
             self.unique_minima_sorted.sort()
             self.nstructs = len(self.unique_minima_sorted)
-
-
-    def write_restart_files(self):
-        pass
-        # filename = self.outpath + "minima.pickle"
-        # listpickle = open(filename, "wb")
-        # pickle.dump(self.unique_minima_sorted, listpickle)
-        # listpickle.close()
 
 
     def addElement(self,struct: minimum.Minimum):
@@ -67,7 +62,6 @@ class Database():
             struct1.atoms.set_momenta(None)
             struct1.atoms.info['energy'] = struct.e_pot
             struct1.atoms.info['label'] = label
-            # bisect.insort(self.unique_minima_sorted, struct1)
             index = bisect.bisect_left(self.unique_minima_sorted, struct1)
             self.unique_minima_sorted.insert(index, struct1)
 
@@ -77,8 +71,11 @@ class Database():
             self.minima_shelve[str(label)] = struct1
         return
 
+    def addElementandConnectGraph(self, currentMinimum: minimum.Minimum, escapedMinimum: minimum.Minimum, trajectory, epot_max):
+        self.addElement(escapedMinimum)
 
-    def get_element(self, struct):
+
+    def get_element(self, struct: minimum.Minimum):
         
         indices = self.get_index_energyrange(struct)
 
