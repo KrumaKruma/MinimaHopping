@@ -45,7 +45,7 @@ class Minimahopping:
                         fmax = 0.001, 
                         enhanced_feedback = False,
                         energy_threshold = 0.001, #5 the noise
-                        output_n_lowest_minima = 30,
+                        output_n_lowest_minima = 20,
                         fingerprint_threshold = 1e-3,
                         verbose_output = True,
                         new_start = False,
@@ -103,7 +103,10 @@ class Minimahopping:
         last_restart = 0
 
         # initialize database
-        with Database(self.parameter_dictionary["energy_threshold"], self.parameter_dictionary["fingerprint_threshold"], self.isRestart, self.restart_path) as self.data, graph.MinimaHoppingGraph('output/graph.dat', 'output/trajectory.dat', self.isRestart) as self.mh_graph:
+        with Database(self.parameter_dictionary["energy_threshold"], self.parameter_dictionary["fingerprint_threshold"]\
+                , self.parameter_dictionary["output_n_lowest_minima"], self.isRestart, self.restart_path, self._minima_path)\
+                as self.data\
+                , graph.MinimaHoppingGraph('output/graph.dat', 'output/trajectory.dat', self.isRestart) as self.mh_graph:
             # Start up minimahopping 
             atoms = deepcopy(self.initial_configuration)
             current_minimum = self._startup(atoms,)  # gets an atoms object and a minimum object is returned.
@@ -163,16 +166,11 @@ class Minimahopping:
 
                     # adjust the temperature according to the number of visits
                     self._adj_temperature(escaped_minimum, escaped_minimum.n_visit)
-                    temp_atoms_towrite = escaped_minimum.atoms.copy()
-                    temp_atoms_towrite.info = {}
-                    temp_atoms_towrite.set_momenta(None)
-                    temp_atoms_towrite.info['energy'] = escaped_minimum.e_pot
-                    temp_atoms_towrite.info['label'] = escaped_minimum.label
-                    write(self._outpath + "min.extxyz", temp_atoms_towrite,  append=True)
+                    escaped_minimum.write(self._outpath + "min.extxyz", append=True)
                     counter += 1
                     if (counter - last_restart >= self.parameter_dictionary['restart_interval']):
                         t1 = time.time()
-                        self._write_restart(temp_atoms_towrite)
+                        self._write_restart(escaped_minimum)
                         t2 = time.time()
                         print("RESTART TIME, ", t2 - t1,  file=open('toto', 'a'))
                         last_restart = counter
@@ -180,43 +178,28 @@ class Minimahopping:
                 print("DONE")
                 print("=================================================================")
 
-                _elapsed_time = time.time() - self._time_in
-
                 if self.parameter_dictionary["run_time"] != "infinite":
-                    if _elapsed_time > self._run_time_sec:
+                    if time.time() - self._time_in > self._run_time_sec:
                         msg = 'Simulation stopped because the given time is over\n'
                         msg += 'Run terminated after {:d} steps'.format(counter)
                         print(msg)
                         print("=================================================================")
                         return
-
-            _elapsed_time = time.time() - self._time_in
-            day = _elapsed_time // (24 * 3600)
-            _elapsed_time = _elapsed_time % (24 * 3600)
-            hour = _elapsed_time // 3600
-            _elapsed_time %= 3600
-            minutes = _elapsed_time // 60
-            _elapsed_time %= 60
-            seconds = _elapsed_time
-            msg = 'Run terminated after {:d} steps in {:d}D {:d}H {:d}M {:d}S'.format(totalsteps,
-                                                                                    int(day),
-                                                                                    int(hour),
-                                                                                    int(minutes),
-                                                                                    int(seconds))
-            print(msg)
+                
+        self.print_elapsed_time(totalsteps)
+        return
 
 
-    def _write_restart(self, current_geometry):
+    def _write_restart(self, current_minimum: Minimum):
         self.mh_graph.write_restart_files()
-        self.data.write_restart_files()
         self._last_restart = time.time()
         f = open(self.restart_path+"params.json", "w")
         json.dump(self.parameter_dictionary,f)
         f.close()
-        write(self.restart_path + "poscur.extxyz", current_geometry)
+        current_minimum.write(self.restart_path + "poscur.extxyz", append=False)
         
         # write the lowest n minima to files
-        self.data._write_poslow(self.parameter_dictionary["output_n_lowest_minima"] ,self._minima_path)
+        # self.data._write_poslow(self.parameter_dictionary["output_n_lowest_minima"] ,self._minima_path)
 
 
     def _startup(self, atoms):
@@ -510,3 +493,20 @@ class Minimahopping:
         if isNewStart:
             isRestart = False
         return isRestart
+
+
+    def print_elapsed_time(self, totalsteps):
+        _elapsed_time = time.time() - self._time_in
+        day = _elapsed_time // (24 * 3600)
+        _elapsed_time = _elapsed_time % (24 * 3600)
+        hour = _elapsed_time // 3600
+        _elapsed_time %= 3600
+        minutes = _elapsed_time // 60
+        _elapsed_time %= 60
+        seconds = _elapsed_time
+        msg = 'Run terminated after {:d} steps in {:d}D {:d}H {:d}M {:d}S'.format(totalsteps,
+                                                                                int(day),
+                                                                                int(hour),
+                                                                                int(minutes),
+                                                                                int(seconds))
+        print(msg)
