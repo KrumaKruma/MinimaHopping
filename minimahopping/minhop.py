@@ -112,7 +112,6 @@ class Minimahopping:
 
     def __call__(self, totalsteps = None):
         counter = 0
-        last_restart = 0
 
         # initialize database
         with Database(self.parameter_dictionary["energy_threshold"], self.parameter_dictionary["fingerprint_threshold"]\
@@ -121,8 +120,6 @@ class Minimahopping:
             # Start up minimahopping 
             atoms = deepcopy(self.initial_configuration)
             current_minimum = self._startup(atoms,)  # gets an atoms object and a minimum object is returned.
-            #struct_cur = struct.__deepcopy__()
-
             # Start hopping loop
             while (counter <= totalsteps):
                 is_accepted = False
@@ -161,7 +158,6 @@ class Minimahopping:
                     # write log messages
                     if is_accepted:
                         current_minimum = intermediate_minimum.__deepcopy__()
-                        intermediate_minimum.write(self._outpath + "accepted_minima.extxyz", append=True)
                         if intermediate_minimum_is_escaped_minimum:
                             status = "Accepted minimum after escaping"
                             self._history_log(escaped_minimum, status, escaped_minimum.n_visit)
@@ -204,6 +200,7 @@ class Minimahopping:
         f.close()
         if isAccepted:
             intermediate_minimum.write(self.restart_path + "poscur.extxyz", append=False)
+            intermediate_minimum.write(self._outpath + "accepted_minima.extxyz", append=True)
         escaped_minimum.write(self._outpath + "all_minima.extxyz", append=True)
         if escaped_minimum.n_visit == 1:
             escaped_minimum.write(self._outpath + "all_minima_no_duplicates.extxyz", append=True)
@@ -244,7 +241,6 @@ class Minimahopping:
             # add input structure to database after optimization
             struct_cur = self.data.unique_minima_sorted[0].__copy__()
             struct_cur.atoms.calc = calc
-            atoms = struct_cur.atoms
             self._write_restart(self.data.unique_minima_sorted[0], self.data.unique_minima_sorted[0], True)
         else:
             print('  Restart MH run')
@@ -266,9 +262,9 @@ class Minimahopping:
                         label=-1,
                         exclude= self.parameter_dictionary["exclude"])
         
-        index = self.data.get_element(struct_cur)
-        struct_cur.set_label(self.data.unique_minima_sorted[index].label)
-        struct_cur.n_visit = self.data.unique_minima_sorted[index].n_visit
+            index = self.data.get_element(struct_cur)
+            struct_cur.set_label(self.data.unique_minima_sorted[index].label)
+            struct_cur.n_visit = self.data.unique_minima_sorted[index].n_visit
 
         status = 'Initial'
         self._history_log(struct_cur, status, n_visits=struct_cur.n_visit)
@@ -308,10 +304,10 @@ class Minimahopping:
         self._n_same = 0
         _escape = 0.0
         _escape_energy = 0.0
-        atoms = deepcopy(struct.atoms)
         _beta_s = 1.05
         _i_steps = 0
         while _escape < self.parameter_dictionary["fingerprint_threshold"] or _escape_energy < self.parameter_dictionary["energy_threshold"]:
+            atoms = deepcopy(struct.atoms)
             # if the loop not escaped (no new minimum found) rise temperature
             if _i_steps > 0:
                 self._n_same += 1
@@ -432,7 +428,6 @@ class Minimahopping:
             self.parameter_dictionary["energy_difference_to_accept"] *= self.parameter_dictionary['alpha_reject']
             is_accepted = False
             ediff_rej = _e_pot - _e_pot_cur
-
 
         if is_accepted:
             log_msg = "  Minimum was accepted:  Enew - Ecur = {:1.5f} < {:1.5f} = Ediff".format(ediff_acc,
