@@ -182,8 +182,9 @@ class Minimahopping:
                     # adjust the temperature according to the number of visits
                     self._adj_temperature(escaped_minimum.n_visit)
                     counter += 1
+                    t1 = time.time()
                     self._write_restart(escaped_minimum, intermediate_minimum, is_accepted)
-
+                    print(time.time() - t1, file=open('toto', 'a'))
 
                 print("DONE")
                 print("=================================================================")
@@ -201,8 +202,6 @@ class Minimahopping:
 
 
     def _write_restart(self, escaped_minimum: Minimum, intermediate_minimum: Minimum, isAccepted: bool):
-        self.mh_graph.write_restart_files()
-        self._last_restart = time.time()
         f = open(self.restart_path+"params.json", "w")
         json.dump(self.parameter_dictionary,f)
         f.close()
@@ -217,36 +216,40 @@ class Minimahopping:
         print("=================================================================")
         print("MINIMAHOPPING SETUP START")
 
-        if not isinstance(atoms, list):
-            atoms = [deepcopy(atoms)]
-
-        for atom in atoms:
-            calc = atom.calc
-            _positions, _lattice = self._restart_opt(atom,)
-            atom.set_positions(_positions)
-            atom.set_cell(_lattice)
-
-            struct = Minimum(atom,
-                        n_visit=1,
-                        s = self.parameter_dictionary['n_S_orbitals'],
-                        p = self.parameter_dictionary["n_P_orbitals"], 
-                        width_cutoff = self.parameter_dictionary["width_cutoff"],
-                        maxnatsphere = self.parameter_dictionary["max_atoms_in_cutoff_sphere"],
-                        epot = atom.get_potential_energy(),
-                        T=self.parameter_dictionary['T'],
-                        ediff=self.parameter_dictionary["energy_difference_to_accept"],
-                        label=0,
-                        exclude= self.parameter_dictionary["exclude"])
-            
-            self.data.addElement(struct)
-
         # Convert given time to seconds
         if self.parameter_dictionary["run_time"] != "infinite":
             self._run_time_sec = self._get_sec()
         self._time_in = time.time()
 
+        if not isinstance(atoms, list):
+            atoms = [deepcopy(atoms)]
+        calc = atoms[0].calc
+
         # Check if restart
-        if self.isRestart:
+        if not self.isRestart:
+            print('  New MH run is started')
+            for atom in atoms:
+                _positions, _lattice = self._restart_opt(atom,)
+                atom.set_positions(_positions)
+                atom.set_cell(_lattice)
+                struct = Minimum(atom,
+                            n_visit=1,
+                            s = self.parameter_dictionary['n_S_orbitals'],
+                            p = self.parameter_dictionary["n_P_orbitals"], 
+                            width_cutoff = self.parameter_dictionary["width_cutoff"],
+                            maxnatsphere = self.parameter_dictionary["max_atoms_in_cutoff_sphere"],
+                            epot = atom.get_potential_energy(),
+                            T=self.parameter_dictionary['T'],
+                            ediff=self.parameter_dictionary["energy_difference_to_accept"],
+                            label=0,
+                            exclude= self.parameter_dictionary["exclude"])     
+                self.data.addElement(struct)
+            # add input structure to database after optimization
+            struct_cur = self.data.unique_minima_sorted[0].__copy__()
+            struct_cur.atoms.calc = calc
+            atoms = struct_cur.atoms
+            self._write_restart(self.data.unique_minima_sorted[0], self.data.unique_minima_sorted[0], True)
+        else:
             print('  Restart MH run')
 
             # Read current structure
@@ -265,26 +268,14 @@ class Minimahopping:
                         ediff=self.parameter_dictionary["energy_difference_to_accept"],
                         label=-1,
                         exclude= self.parameter_dictionary["exclude"])
-            index = self.data.get_element(struct_cur)
-            struct_cur.set_label(self.data.unique_minima_sorted[index].label)
-        else:
+        
+        index = self.data.get_element(struct_cur)
+        struct_cur.set_label(self.data.unique_minima_sorted[index].label)
+        struct_cur.n_visit = self.data.unique_minima_sorted[index].n_visit
 
-            msg = '  New MH run is started'
-            print(msg)
-
-            # add input structure to database after optimization
-            struct_cur = self.data.unique_minima_sorted[0].__copy__()
-            struct_cur.atoms.calc = calc
-            atoms = struct_cur.atoms
-            self._write_restart(self.data.unique_minima_sorted[0], self.data.unique_minima_sorted[0], True)
-
-
-        self.data.addElement(struct_cur)
         status = 'Initial'
         self._history_log(struct_cur, status, n_visits=struct_cur.n_visit)
 
-        print("DONE")
-        print("=================================================================")
         return struct_cur
 
 
