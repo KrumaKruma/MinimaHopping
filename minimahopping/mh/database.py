@@ -73,6 +73,7 @@ class Database():
 
     def addElementandConnectGraph(self, currentMinimum: minimum.Minimum, escapedMinimum: minimum.Minimum, trajectory, epot_max):
         self.addElement(escapedMinimum)
+        self.graph.addStructure(currentMinimum.label, escapedMinimum.label, trajectory, currentMinimum.e_pot, escapedMinimum.e_pot, epot_max)
 
 
     def get_element(self, struct: minimum.Minimum):

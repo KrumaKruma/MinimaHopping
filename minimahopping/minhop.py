@@ -117,8 +117,7 @@ class Minimahopping:
         # initialize database
         with Database(self.parameter_dictionary["energy_threshold"], self.parameter_dictionary["fingerprint_threshold"]\
                 , self.parameter_dictionary["output_n_lowest_minima"], self.isRestart, self.restart_path, self._minima_path)\
-                as self.data\
-                , graph.MinimaHoppingGraph('output/graph.dat', 'output/trajectory.dat', self.isRestart) as self.mh_graph:
+                as self.data:
             # Start up minimahopping 
             atoms = deepcopy(self.initial_configuration)
             current_minimum = self._startup(atoms,)  # gets an atoms object and a minimum object is returned.
@@ -182,9 +181,7 @@ class Minimahopping:
                     # adjust the temperature according to the number of visits
                     self._adj_temperature(escaped_minimum.n_visit)
                     counter += 1
-                    t1 = time.time()
                     self._write_restart(escaped_minimum, intermediate_minimum, is_accepted)
-                    print(time.time() - t1, file=open('toto', 'a'))
 
                 print("DONE")
                 print("=================================================================")
