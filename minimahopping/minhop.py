@@ -51,7 +51,8 @@ class Minimahopping:
                         new_start = False,
                         run_time = 'infinite', 
                         use_intermediate_mechanism = False,
-                        overwriteParametersOnRestart = False):
+                        overwriteParametersOnRestart = False,
+                        write_graph_output = True):
         """Initialize with an ASE atoms object and keyword arguments."""
 
         self.initial_configuration = initial_configuration
@@ -102,6 +103,7 @@ class Minimahopping:
                 "exclude" : exclude,
                 "run_time" : run_time,
                 "use_intermediate_mechanism" : use_intermediate_mechanism,
+                "write_graph_output" : write_graph_output
             }
 
         # Initialization of global counters        
@@ -115,7 +117,8 @@ class Minimahopping:
 
         # initialize database
         with Database(self.parameter_dictionary["energy_threshold"], self.parameter_dictionary["fingerprint_threshold"]\
-                , self.parameter_dictionary["output_n_lowest_minima"], self.isRestart, self.restart_path, self._minima_path)\
+                , self.parameter_dictionary["output_n_lowest_minima"], self.isRestart, self.restart_path, self._minima_path\
+                , self.parameter_dictionary["write_graph_output"])\
                 as self.data:
             # Start up minimahopping 
             atoms = deepcopy(self.initial_configuration)

@@ -4,7 +4,7 @@ import minimahopping.mh.minimum as minimum
 import minimahopping.graph.graph
 
 class Database():
-    def __init__(self,energy_threshold, minima_threshold, output_n_lowest_minima, is_restart = False, outpath='./', minima_path= "lowest_minima/"):
+    def __init__(self,energy_threshold, minima_threshold, output_n_lowest_minima, is_restart = False, outpath='./', minima_path= "lowest_minima/", write_graph_output = True):
         self.unique_minima_sorted = []
         self.nstructs = 0
 
@@ -14,23 +14,26 @@ class Database():
         self.is_restart = is_restart
         self.outpath = outpath
         self.minima_path = minima_path
+        self.write_graph_output = write_graph_output
 
         self.minima_shelve = None
 
-
-        self.graphFilename = self.outpath + "graph.dat"
-        self.graphTrajectoryFilename = self.outpath + 'trajectory.dat'
-        self.graph = minimahopping.graph.graph.MinimaHoppingGraph(self.graphFilename, self.graphTrajectoryFilename, self.is_restart)
+        if self.write_graph_output:
+            self.graphFilename = self.outpath + "graph.dat"
+            self.graphTrajectoryFilename = self.outpath + 'trajectory.dat'
+            self.graph = minimahopping.graph.graph.MinimaHoppingGraph(self.graphFilename, self.graphTrajectoryFilename, self.is_restart)
 
 
     def __enter__(self):
         self.read_restart_files()
-        self.graph.read_from_disk()
+        if self.write_graph_output:
+            self.graph.read_from_disk()
         return self
 
 
     def __exit__(self,exc_type, exc_value, exc_traceback):
-        self.graph.write_to_disk()
+        if self.write_graph_output:
+            self.graph.write_to_disk()
         self.minima_shelve.close()
         
 
@@ -73,7 +76,8 @@ class Database():
 
     def addElementandConnectGraph(self, currentMinimum: minimum.Minimum, escapedMinimum: minimum.Minimum, trajectory, epot_max):
         self.addElement(escapedMinimum)
-        self.graph.addStructure(currentMinimum.label, escapedMinimum.label, trajectory, currentMinimum.e_pot, escapedMinimum.e_pot, epot_max)
+        if self.write_graph_output:
+            self.graph.addStructure(currentMinimum.label, escapedMinimum.label, trajectory, currentMinimum.e_pot, escapedMinimum.e_pot, epot_max)
 
 
     def get_element(self, struct: minimum.Minimum):
