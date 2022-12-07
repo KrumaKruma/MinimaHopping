@@ -7,14 +7,16 @@ import os
 import minimahopping.mh.minimum as minimum
 
 class Database():
-    def __init__(self,energy_threshold, minima_threshold, is_restart = False, outpath='./'):
+    def __init__(self,energy_threshold, minima_threshold, output_n_lowest_minima, is_restart = False, outpath='./', minima_path= "lowest_minima/"):
         self.unique_minima_sorted = []
         self.nstructs = 0
 
         self.energy_threshold = energy_threshold
         self.minima_threshold = minima_threshold
+        self.output_n_lowest_minima = output_n_lowest_minima
         self.is_restart = is_restart
         self.outpath = outpath
+        self.minima_path = minima_path
 
         self.minima_shelve = None
 
@@ -65,7 +67,13 @@ class Database():
             struct1.atoms.set_momenta(None)
             struct1.atoms.info['energy'] = struct.e_pot
             struct1.atoms.info['label'] = label
-            bisect.insort(self.unique_minima_sorted, struct1)
+            # bisect.insort(self.unique_minima_sorted, struct1)
+            index = bisect.bisect_left(self.unique_minima_sorted, struct1)
+            self.unique_minima_sorted.insert(index, struct1)
+
+            if index < self.output_n_lowest_minima:
+                self._write_poslow(self.output_n_lowest_minima, self.minima_path)
+
             self.minima_shelve[str(label)] = struct1
         return
 
@@ -141,7 +149,7 @@ class Database():
             else:
                 filename += '.xyz'
             filename = path + filename
-            write(filename,s.atoms)
+            s.write(filename, append=False)
             i_poslow += 1
             if i_poslow-1 > n_poslow:
                 break
