@@ -128,8 +128,6 @@ class MinimaHoppingGraph:
         self.trajectoryDict.sync()
 
     def _getEdgeString(self, initialStuctureLabel, structureLabel):
-        #minimum = min(structureLabel, initialStuctureLabel)
-        #maximum = max(structureLabel, initialStuctureLabel)
         edgeString = str(initialStuctureLabel) + ',' + str(structureLabel)
         return edgeString
 
@@ -139,13 +137,8 @@ class MinimaHoppingGraph:
     def getTrajectoryList(self, a, b):
         path = self.shortestPath(a, b)
         TList = []
-        #print(dict(self.trajectoryDict))
         for i in range(1, len(path)):
-            self.trajectoryDict[self._getEdgeString(path[i], path[i-1])]
-            #temp_trajectory = self.trajectoryDict[self._getEdgeString(path[i-1], path[i])]
-            #print(temp_trajectory)
             TList = TList + copy.deepcopy(self.trajectoryDict[self._getEdgeString(path[i - 1], path[i])])
-            #print(i-1, i)
         return TList
 
     def draw(self):
