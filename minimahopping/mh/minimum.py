@@ -2,6 +2,7 @@ import numpy as np
 from scipy import optimize
 from copy import deepcopy
 from minimahopping.omfp.OverlapMatrixFingerprint import OverlapMatrixFingerprint as OMFP
+from ase.io import write
 
 class Minimum():
     """ 
@@ -64,6 +65,16 @@ class Minimum():
 
         fp_dist /= len(self.atoms)
         return fp_dist
+
+    def write(self, filename :str, append = False, info_dict: dict = {}):
+        temp_atoms = self.atoms.copy()
+        temp_atoms.info = {}
+        temp_atoms.set_momenta(None)
+        temp_atoms.info['energy'] = self.e_pot
+        temp_atoms.info['label'] = self.label
+        temp_atoms.info = temp_atoms.info | info_dict
+        write(filename, temp_atoms, append=append)
+
 
     def _costmatrix(self, desc1, desc2):
         """
