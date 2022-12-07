@@ -15,6 +15,7 @@ class MinimaHoppingGraph:
         self.restart = restart
         self.trajectoryDict = None
         self.graph = None
+        self.lucky_counter = 0
 
     def __enter__(self):
         return self.read_from_disk()
@@ -50,7 +51,7 @@ class MinimaHoppingGraph:
         """
         Writes the graph to the disk and updates the trajectory data shelve.
         """
-        self.trajectoryDict.sync()
+        # self.trajectoryDict.sync()
         graph_pickle = open (self.graphFileName, "wb")
         pickle.dump(self.graph, graph_pickle)
         graph_pickle.close()
@@ -69,11 +70,11 @@ class MinimaHoppingGraph:
         reverse_trajectory = copy.deepcopy(trajectory)
         reverse_trajectory.reverse()
 
+        restart_file_update_necessary = True
+
         if not self.graph.has_node(structureLabel):
             if self.graph.size() == 0:
                 self.graph.add_node(initialStuctureLabel, energy = e_old)
-            else:
-                pass
             self.graph.add_node(structureLabel, energy = e_new)
 
         if self.graph.has_edge(initialStuctureLabel, structureLabel):
@@ -82,9 +83,13 @@ class MinimaHoppingGraph:
                 self.graph.remove_edge(structureLabel, initialStuctureLabel)
                 self._add_edge(initialStuctureLabel, structureLabel, weight=weight_old, trajectory=mt)
                 self._add_edge(structureLabel, initialStuctureLabel, weight=weight_new, trajectory=reverse_trajectory)
+            else:
+                restart_file_update_necessary = False
         else: 
             self._add_edge(initialStuctureLabel, structureLabel, weight=weight_old, trajectory=mt)
             self._add_edge(structureLabel, initialStuctureLabel, weight=weight_new, trajectory=reverse_trajectory)
+        if restart_file_update_necessary:
+            self.write_restart_files()
 
     def get_lowest_energy(self):
         emin = float("inf")
