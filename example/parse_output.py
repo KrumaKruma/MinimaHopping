@@ -6,7 +6,7 @@ import pydot
 import pygraphviz
 
 
-from minimahopping.graph import graph
+from minimahopping.graph.graph import graph
 
 
 def draw_pygraphviz(g, filename, layout='fdp'):
