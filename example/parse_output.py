@@ -19,16 +19,16 @@ def draw_pygraphviz(g, filename, layout='fdp'):
 
 g = graph.MinimaHoppingGraph('output/restart/graph.dat', 'output/restart/trajectory.dat', True)
 g.read_from_disk()
-n = 28
-# l = g.shortestPath(0, n)
-# tl = g.getTrajectoryList(0, n)
+n = 13
+l = g.shortestPath(0, n)
+tl = g.getTrajectoryList(0, n)
 
-# print(l)
+print(l)
 
-# f = open('output/good_trajectory.extxyz', 'w')
-# f.close()
+f = open('output/good_trajectory.extxyz', 'w')
+f.close()
 
-# write('output/good_trajectory.extxyz', tl, append = True)
+write('output/good_trajectory.extxyz', tl, append = True)
 
 emin, ind = g.get_lowest_energy()
 

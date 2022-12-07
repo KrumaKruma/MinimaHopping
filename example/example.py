@@ -16,11 +16,7 @@ def main():
     calculator = EAM(potential="Na_v2.eam.fs")
     initial_configuration.calc = calculator
     mh = Minimahopping(initial_configuration, verbose_output=True, T0=2000, dt=0.1)
-    mh(totalsteps=10)
-
-
-
-
+    mh(totalsteps=30)
 
 
 if __name__ == '__main__':
