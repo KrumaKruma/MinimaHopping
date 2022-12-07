@@ -51,7 +51,6 @@ class Minimahopping:
                         new_start = False,
                         run_time = 'infinite', 
                         use_intermediate_mechanism = False,
-                        restart_interval = 1,
                         overwriteParametersOnRestart = False):
         """Initialize with an ASE atoms object and keyword arguments."""
 
@@ -103,7 +102,6 @@ class Minimahopping:
                 "exclude" : exclude,
                 "run_time" : run_time,
                 "use_intermediate_mechanism" : use_intermediate_mechanism,
-                "restart_interval": restart_interval,
             }
 
         # Initialization of global counters        
@@ -157,11 +155,14 @@ class Minimahopping:
                         if escaped_minimum.e_pot < intermediate_minimum.e_pot:
                             intermediate_minimum = escaped_minimum.__deepcopy__()
                             intermediate_minimum_is_escaped_minimum = True
+
                     # accept minimum if necessary
-                    current_minimum, is_accepted =  self._acc_rej_step(current_minimum, intermediate_minimum)
+                    is_accepted =  self._accept_reject_step(current_minimum, intermediate_minimum)
 
                     # write log messages
                     if is_accepted:
+                        current_minimum = intermediate_minimum.__deepcopy__()
+                        intermediate_minimum.write(self._outpath + "accepted_minima.extxyz", append=True)
                         if intermediate_minimum_is_escaped_minimum:
                             status = "Accepted minimum after escaping"
                             self._history_log(escaped_minimum, status, escaped_minimum.n_visit)
@@ -179,15 +180,10 @@ class Minimahopping:
                     print(log_msg)
 
                     # adjust the temperature according to the number of visits
-                    self._adj_temperature(escaped_minimum, escaped_minimum.n_visit)
-                    escaped_minimum.write(self._outpath + "min.extxyz", append=True)
+                    self._adj_temperature(escaped_minimum.n_visit)
                     counter += 1
-                    if (counter - last_restart >= self.parameter_dictionary['restart_interval']):
-                        t1 = time.time()
-                        self._write_restart(escaped_minimum)
-                        t2 = time.time()
-                        print("RESTART TIME, ", t2 - t1,  file=open('toto', 'a'))
-                        last_restart = counter
+                    self._write_restart(escaped_minimum, intermediate_minimum, is_accepted)
+
 
                 print("DONE")
                 print("=================================================================")
@@ -204,17 +200,18 @@ class Minimahopping:
         return
 
 
-    def _write_restart(self, current_minimum: Minimum):
+    def _write_restart(self, escaped_minimum: Minimum, intermediate_minimum: Minimum, isAccepted: bool):
         self.mh_graph.write_restart_files()
         self._last_restart = time.time()
         f = open(self.restart_path+"params.json", "w")
         json.dump(self.parameter_dictionary,f)
         f.close()
-        current_minimum.write(self.restart_path + "poscur.extxyz", append=False)
+        if isAccepted:
+            intermediate_minimum.write(self.restart_path + "poscur.extxyz", append=False)
+        escaped_minimum.write(self._outpath + "all_minima.extxyz", append=True)
+        if escaped_minimum.n_visit == 1:
+            escaped_minimum.write(self._outpath + "all_minima_no_duplicates.extxyz", append=True)
         
-        # write the lowest n minima to files
-        # self.data._write_poslow(self.parameter_dictionary["output_n_lowest_minima"] ,self._minima_path)
-
 
     def _startup(self, atoms):
         print("=================================================================")
@@ -279,8 +276,7 @@ class Minimahopping:
             struct_cur = self.data.unique_minima_sorted[0].__copy__()
             struct_cur.atoms.calc = calc
             atoms = struct_cur.atoms
-            write(self._outpath + "acc.extxyz", atoms, append=True)
-            #write(self.restart_path + "poscur.extxyz", atoms)
+            self._write_restart(self.data.unique_minima_sorted[0], self.data.unique_minima_sorted[0], True)
 
 
         self.data.addElement(struct_cur)
@@ -415,8 +411,6 @@ class Minimahopping:
             _escape_energy = struct.__compareto__(proposed_structure)
             _escape = struct.__equals__(proposed_structure)
 
-            write(self._outpath + 'locm.extxyz', atoms, append=True)
-
             _i_steps += 1
             self._n_min += 1
         
@@ -436,7 +430,7 @@ class Minimahopping:
 
 
 
-    def _acc_rej_step(self, struct_cur, struct):
+    def _accept_reject_step(self, struct_cur: Minimum, struct: Minimum):
         _e_pot_cur = struct_cur.e_pot
         _e_pot = struct.e_pot
 
@@ -444,7 +438,6 @@ class Minimahopping:
 
         if _e_pot - _e_pot_cur < self.parameter_dictionary["energy_difference_to_accept"]:
             self.parameter_dictionary["energy_difference_to_accept"] *= self.parameter_dictionary['alpha_accept']
-            struct_cur = struct.__deepcopy__()
             is_accepted = True
             ediff_acc = _e_pot - _e_pot_cur
         else:
@@ -457,17 +450,16 @@ class Minimahopping:
             log_msg = "  Minimum was accepted:  Enew - Ecur = {:1.5f} < {:1.5f} = Ediff".format(ediff_acc,
                                                                                                 _ediff_in)
             print(log_msg)
-            write(self._outpath + "acc.extxyz", struct_cur.atoms, append=True)
         else:
             log_msg = "  Minimum was rejected:  Enew - Ecur = {:1.5f} > {:1.5f} = Ediff".format(ediff_rej,
                                                                                                 _ediff_in)
             print(log_msg)
 
         self.parameter_dictionary["energy_difference_to_accept"] = self.parameter_dictionary["energy_difference_to_accept"]
-        return struct_cur, is_accepted
+        return is_accepted
 
 
-    def _adj_temperature(self,struct, n_visits):
+    def _adj_temperature(self, n_visits):
         if n_visits > 1:
             self._n_notunique += 1
             if self.parameter_dictionary["enhanced_feedback"]:
