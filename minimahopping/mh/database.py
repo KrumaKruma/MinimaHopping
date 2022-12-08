@@ -72,12 +72,13 @@ class Database():
                 self._write_poslow(self.output_n_lowest_minima, self.minima_path)
 
             self.minima_shelve[str(label)] = struct1
-        return
+        return self.unique_minima_sorted[index].n_visit, self.unique_minima_sorted[index].label
 
     def addElementandConnectGraph(self, currentMinimum: minimum.Minimum, escapedMinimum: minimum.Minimum, trajectory, epot_max):
-        self.addElement(escapedMinimum)
+        n_vistit, label = self.addElement(escapedMinimum)
         if self.write_graph_output:
             self.graph.addStructure(currentMinimum.label, escapedMinimum.label, trajectory, currentMinimum.e_pot, escapedMinimum.e_pot, epot_max)
+        return n_vistit, label
 
     def get_element(self, index: int):
         return self.unique_minima_sorted[index].__copy__()
