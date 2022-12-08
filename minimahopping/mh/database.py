@@ -48,7 +48,7 @@ class Database():
 
 
     def addElement(self,struct: minimum.Minimum):
-        index = self.get_element(struct=struct)
+        index = self.get_element_index(struct=struct)
         already_found = self.contains(index=index)
 
         if already_found:
@@ -79,8 +79,10 @@ class Database():
         if self.write_graph_output:
             self.graph.addStructure(currentMinimum.label, escapedMinimum.label, trajectory, currentMinimum.e_pot, escapedMinimum.e_pot, epot_max)
 
+    def get_element(self, index: int):
+        return self.unique_minima_sorted[index].__copy__()
 
-    def get_element(self, struct: minimum.Minimum):
+    def get_element_index(self, struct: minimum.Minimum):
         
         indices = self.get_index_energyrange(struct)
 

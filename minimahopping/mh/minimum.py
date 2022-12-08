@@ -8,7 +8,7 @@ class Minimum():
     """ 
     Minimum class for managing the database of the minima hopping. 
     """
-    def __init__(self, atoms, epot, n_visit, s, p, width_cutoff, maxnatsphere, T, ediff, label, exclude=[]):
+    def __init__(self, atoms, epot, s, p, width_cutoff, maxnatsphere, T, ediff, n_visit = None, label = None, exclude=[]):
         self.atoms = deepcopy(atoms)
         self.e_pot = epot
         self.fp = self._get_OMFP(s=s, p=p, width_cutoff=width_cutoff, maxnatsphere=maxnatsphere, exclude=exclude)
@@ -32,10 +32,10 @@ class Minimum():
         return self.e_pot > other.e_pot
 
     def __copy__(self,):
-        return Minimum(self.atoms.copy(), self.e_pot,self.n_visit,self.s, self.p, self.width_cutoff, self.maxnatsphere, self.temperature, self.ediff, self.label, self.exclude)
+        return Minimum(self.atoms.copy(), self.e_pot, self.s, self.p, self.width_cutoff, self.maxnatsphere, self.temperature, self.ediff, self.n_visit, self.label, self.exclude)
 
     def __deepcopy__(self,):
-        return Minimum(self.atoms, self.e_pot,self.n_visit,self.s, self.p, self.width_cutoff, self.maxnatsphere, self.temperature, self.ediff, self.label, self.exclude)
+        return Minimum(self.atoms, self.e_pot ,self.s, self.p, self.width_cutoff, self.maxnatsphere, self.temperature, self.ediff, self.n_visit, self.label, self.exclude)
 
     def __compareto__(self, other):
         return abs(self.e_pot - other.e_pot)

@@ -10,11 +10,9 @@ from minimahopping.md.md import MD
 from minimahopping.opt.optim import Opt
 from minimahopping.mh.minimum import Minimum
 from minimahopping.mh.cell_atom import Cell_atom
-from minimahopping.mh.database import Database
 import time
 import json
 import minimahopping.mh.file_handling as file_handling 
-import minimahopping.graph.graph as graph
 
 """
 MH Software written by Marco Krummenacher (marco.krummenacher@unibas.ch)
@@ -25,6 +23,25 @@ Parts of the software were originally developped (some in Fortran) from other pe
   -- OMFP in python: Jonas Finkler
 """
 
+
+def importer(name, root_package=False, relative_globals=None, level=0):
+    """ We only import modules, functions can be looked up on the module.
+    Usage: 
+
+    from foo.bar import baz
+    >>> baz = importer('foo.bar.baz')
+
+    import foo.bar.baz
+    >>> foo = importer('foo.bar.baz', root_package=True)
+    >>> foo.bar.baz
+
+    from .. import baz (level = number of dots)
+    >>> baz = importer('baz', relative_globals=globals(), level=2)
+    """
+    return __import__(name, locals=None, # locals has no use
+                      globals=relative_globals, 
+                      fromlist=[] if root_package else [None],
+                      level=level)
 
 class Minimahopping:
     def __init__(self, initial_configuration : ase.atom.Atom,
@@ -52,7 +69,8 @@ class Minimahopping:
                         run_time = 'infinite', 
                         use_intermediate_mechanism = False,
                         overwriteParametersOnRestart = False,
-                        write_graph_output = True):
+                        write_graph_output = True,
+                        use_MPI = False):
         """Initialize with an ASE atoms object and keyword arguments."""
 
         self.initial_configuration = initial_configuration
@@ -61,16 +79,20 @@ class Minimahopping:
             from mpi4py import MPI
             self.mpiRank = MPI.COMM_WORLD.Get_rank()
             self.mpiSize = MPI.COMM_WORLD.Get_size()
-            print('rank,', self.mpiRank, ' size', self.mpiSize)
         except ImportError:
+            if use_MPI:
+                print("use_MPI was set to true but mpi4py is not installed. Install mpi4py and start again.")
+                quit()
             self.mpiRank = 0
             self.mpiSize = 1
         
         if self.mpiSize == 1:
+            self.database = importer("minimahopping.mh.database")
             self._outpath = 'output/' 
             self.restart_path = self._outpath + "restart/"
             self._minima_path = 'minima/'
         else:
+            self.database = importer("minimahopping.MPI_databse.mpi_database_worker")
             self._outpath = 'output/worker_' + str(self.mpiRank) + '/' 
             self.restart_path = self._outpath + "restart/"
             self._minima_path = 'minima/worker_' + str(self.mpiRank) + '/' 
@@ -103,7 +125,8 @@ class Minimahopping:
                 "exclude" : exclude,
                 "run_time" : run_time,
                 "use_intermediate_mechanism" : use_intermediate_mechanism,
-                "write_graph_output" : write_graph_output
+                "write_graph_output" : write_graph_output,
+                "use_MPI": use_MPI
             }
 
         # Initialization of global counters        
@@ -116,7 +139,7 @@ class Minimahopping:
         counter = 0
 
         # initialize database
-        with Database(self.parameter_dictionary["energy_threshold"], self.parameter_dictionary["fingerprint_threshold"]\
+        with self.database.Database(self.parameter_dictionary["energy_threshold"], self.parameter_dictionary["fingerprint_threshold"]\
                 , self.parameter_dictionary["output_n_lowest_minima"], self.isRestart, self.restart_path, self._minima_path\
                 , self.parameter_dictionary["write_graph_output"])\
                 as self.data:
@@ -230,7 +253,6 @@ class Minimahopping:
                 atom.set_positions(_positions)
                 atom.set_cell(_lattice)
                 struct = Minimum(atom,
-                            n_visit=1,
                             s = self.parameter_dictionary['n_S_orbitals'],
                             p = self.parameter_dictionary["n_P_orbitals"], 
                             width_cutoff = self.parameter_dictionary["width_cutoff"],
@@ -238,11 +260,10 @@ class Minimahopping:
                             epot = atom.get_potential_energy(),
                             T=self.parameter_dictionary['T'],
                             ediff=self.parameter_dictionary["energy_difference_to_accept"],
-                            label=0,
                             exclude= self.parameter_dictionary["exclude"])     
                 self.data.addElement(struct)
             # add input structure to database after optimization
-            struct_cur = self.data.unique_minima_sorted[0].__copy__()
+            struct_cur = self.data.get_element(0)
             struct_cur.atoms.calc = calc
             self._write_restart(self.data.unique_minima_sorted[0], self.data.unique_minima_sorted[0], True)
         else:
@@ -254,7 +275,6 @@ class Minimahopping:
             atoms.calc = calc
             
             struct_cur = Minimum(atoms,
-                        n_visit=1,
                         s = self.parameter_dictionary['n_S_orbitals'],
                         p = self.parameter_dictionary["n_P_orbitals"], 
                         width_cutoff = self.parameter_dictionary["width_cutoff"],
@@ -262,12 +282,14 @@ class Minimahopping:
                         epot = atoms.get_potential_energy(),
                         T=self.parameter_dictionary['T'],
                         ediff=self.parameter_dictionary["energy_difference_to_accept"],
-                        label=-1,
                         exclude= self.parameter_dictionary["exclude"])
         
-            index = self.data.get_element(struct_cur)
-            struct_cur.set_label(self.data.unique_minima_sorted[index].label)
-            struct_cur.n_visit = self.data.unique_minima_sorted[index].n_visit
+            database_index = self.data.get_element_index(struct_cur)
+            if database_index == -1:
+                print("restart structure not in database, quitting")
+                quit()
+            struct_cur = self.data.get_element(database_index)
+            struct_cur.atoms = atoms
 
         status = 'Initial'
         self._history_log(struct_cur, status, n_visits=struct_cur.n_visit)
@@ -383,7 +405,6 @@ class Minimahopping:
             self._check_energy_threshold()
 
             proposed_structure = Minimum(atoms,
-                        n_visit=1,
                         s = self.parameter_dictionary['n_S_orbitals'],
                         p = self.parameter_dictionary["n_P_orbitals"], 
                         width_cutoff = self.parameter_dictionary["width_cutoff"],
@@ -391,7 +412,6 @@ class Minimahopping:
                         epot = atoms.get_potential_energy(),
                         T=self.parameter_dictionary['T'],
                         ediff=self.parameter_dictionary["energy_difference_to_accept"],
-                        label=0,
                         exclude= self.parameter_dictionary["exclude"])
 
             # check if proposed structure is the same to the initial structure
