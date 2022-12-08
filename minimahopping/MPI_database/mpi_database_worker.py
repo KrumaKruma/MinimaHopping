@@ -1,5 +1,6 @@
 import minimahopping.mh.minimum as minimum
-import minimahopping.graph.graph
+from mpi4py import MPI
+
 
 class Database():
     def __init__(self,energy_threshold, minima_threshold, output_n_lowest_minima, is_restart = False, outpath='./', minima_path= "lowest_minima/", write_graph_output = True):
@@ -11,6 +12,8 @@ class Database():
         self.minima_path = minima_path
         self.write_graph_output = write_graph_output
 
+        self.comm_world = MPI.COMM_WORLD
+
     def __enter__(self):
         return self
 
@@ -18,6 +21,10 @@ class Database():
         pass
 
     def addElement(self,struct: minimum.Minimum):
+        self.comm_world.send(minimum, dest=0)
+        n_visit,label = self.comm_world.recv(source=0)
+        struct.n_visit = n_visit
+        struct.label = label
         pass
 
     def addElementandConnectGraph(self, currentMinimum: minimum.Minimum, escapedMinimum: minimum.Minimum, trajectory, epot_max):
