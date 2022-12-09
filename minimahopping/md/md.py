@@ -12,7 +12,6 @@ class MD():
     '''
     def __init__(self, atoms, outpath, cell_atoms=None, dt=0.001, n_max=3, verbose=True):
         self._atoms = deepcopy(atoms)
-        self._atoms_old = deepcopy(atoms)
         self._dt = dt
         self._n_max = n_max
         self._verbose = verbose
@@ -30,28 +29,35 @@ class MD():
         '''
         Running the MD over n_max maxima. If this is not reached after 10'000 steps the MD stops
         '''
-        self._initialize()
-        self._is_one_cluster = True
+        atoms = self._atoms
+        positions_old = atoms.get_positions() # initial positions to calcluate the shift in the md to decide when to add to trajectory
+        cell_atoms = self._cell_atoms
+        e_pot_old, forces_old, lattice_force = self._initialize(atoms=atoms)
+        is_one_cluster = True
         for i in range(10000):
-            self._verlet_step()
+            forces_new, positions_traj = self._verlet_step(atoms, cell_atoms, e_pot_old, forces_old, lattice_force, positions_old)
             self._i_steps += 1
-            self._check()
-            self._calc_etot_and_ekin()
+            e_pot_new = self._check(atoms, e_pot_old)
+            self._calc_etot_and_ekin(atoms, cell_atoms, e_pot_new)
             
             if self._i_steps%5 == 0:
-                positions = self._atoms.get_positions()
-                elements = self._atoms.get_atomic_numbers()
-                self._is_one_cluster = dbscan.one_cluster(positions, elements)
-                if not self._is_one_cluster:
-                    velocities = self._atoms.get_velocities()
-                    masses = self._atoms.get_masses()
+                positions = atoms.get_positions()
+                elements = atoms.get_atomic_numbers()
+                is_one_cluster = dbscan.one_cluster(positions, elements)
+                if not is_one_cluster:
+                    velocities = atoms.get_velocities()
+                    masses = atoms.get_masses()
                     velocities = dbscan.adjust_velocities(positions, velocities, elements, masses)
-                    self._atoms.set_velocities(velocities)
+                    atoms.set_velocities(velocities)
 
 
 
             if self._verbose:
                 self._write()
+
+            forces_old = forces_new
+            e_pot_old = e_pot_new
+            positions_old = positions_traj
 
             if self._i_max > self._n_max:
                 if self._is_one_cluster:
@@ -59,15 +65,15 @@ class MD():
 
 
         self._adjust_dt()
-        temp = deepcopy(self._atoms)
+        temp = deepcopy(atoms)
         self._trajectory.append(temp.copy())
         if self._cell_atoms is not None:
-            return self._atoms.get_positions(), self._atoms.get_cell(), self._dt, self._trajectory, self._epot_max
+            return atoms.get_positions(), atoms.get_cell(), self._dt, self._trajectory, self._epot_max
         else:
-            return self._atoms.get_positions(), self._dt, self._trajectory, self._epot_max
+            return atoms.get_positions(), self._dt, self._trajectory, self._epot_max
 
 
-    def _initialize(self,):
+    def _initialize(self, atoms):
         '''
         Initialization of the MD before the iterative part starts
         '''
@@ -78,57 +84,61 @@ class MD():
             msg = 'STEP      EPOT          EKIN          ETOT               DT\n'
             f.write(msg)
             f.close()
-        self._masses = self._atoms.get_masses()[:, np.newaxis]/ self._atoms.get_masses()[:, np.newaxis]  # for the moment no masses
-        self._forces = self._atoms.get_forces()
-        self._e_pot = self._atoms.get_potential_energy()
+        self._masses = atoms.get_masses()[:, np.newaxis]/ self._atoms.get_masses()[:, np.newaxis]  # masses in the md are set to 1
+        forces = atoms.get_forces()
+        e_pot = atoms.get_potential_energy()
         self._sign_old = -1
         self._n_change = 0
         self._i_steps = 0
+        lattice_force = 0.
         if self._cell_atoms is not None:
             self._cell_masses = self._cell_atoms.masses[:, np.newaxis]
-            _stress_tensor = self._atoms.get_stress(voigt=False,apply_constraint=False)
-            _lattice = self._atoms.get_cell()
-            self._lattice_force = lat_opt.lattice_derivative(_stress_tensor, _lattice)
+            stress_tensor = self._atoms.get_stress(voigt=False,apply_constraint=False)
+            lattice = self._atoms.get_cell()
+            lattice_force = lat_opt.lattice_derivative(stress_tensor, lattice)
         self._etot_max = -1e10
         self._epot_max = -1e10
         self._etot_min = 1e10
         self._epot_min = 1e10
         self._i_max = 0
         self._calc_etot_and_ekin()
-        self._target_e_kin = self._e_kin
+
+        return e_pot, forces, lattice_force
 
 
-    def _verlet_step(self):
+    def _verlet_step(self, atoms, cell_atoms,e_pot, forces, lattice_force, positions_old):
         '''
         Performing one Verlet step
         '''
-        _velocities = self._atoms.get_velocities()
+        velocities = atoms.get_velocities()
 
-        _positions = self._atoms.get_positions()
-        self._atoms.set_positions(_positions + self._dt * _velocities + 0.5 * self._dt * self._dt * (self._forces / self._masses))
-
-        if self._cell_atoms is not None:
-            self._update_lattice_positions()
-
-        _forces_new = self._atoms.get_forces()
-        self._atoms.set_velocities(_velocities + 0.5 * self._dt * ((self._forces + _forces_new) / self._masses))
-        self._forces = _forces_new
+        positions = atoms.get_positions()
+        atoms.set_positions(positions + self._dt * velocities + 0.5 * self._dt * self._dt * (forces / self._masses))
 
         if self._cell_atoms is not None:
-            self._update_lattice_velocities()
+            self._update_lattice_positions(atoms, cell_atoms, lattice_force)
 
-        if self._check_coordinate_shift():
-            temp = deepcopy(self._atoms)
+        forces_new = atoms.get_forces()
+        atoms.set_velocities(velocities + 0.5 * self._dt * ((forces + forces_new) / self._masses))
+        
+        if self._cell_atoms is not None:
+            lattice_force = self._update_lattice_velocities(atoms, cell_atoms, lattice_force)
+
+        positions_current, is_add_to_trajectory = self._check_coordinate_shift(positions_old)
+        if is_add_to_trajectory:
+            temp = deepcopy(atoms)
             self._trajectory.append(temp.copy())
 
-        _e_pot = self._atoms.get_potential_energy()
+        _e_pot = atoms.get_potential_energy()
         if _e_pot > self._epot_max:
             self._epot_max = _e_pot
         if _e_pot < self._epot_min:
             self._epot_min = _e_pot
 
+        return forces_new, lattice_force, positions_current
 
-    def _check(self):
+
+    def _check(self, atoms, e_pot):
         '''
         Check if a new maximum is found or if 10000 steps are reached
         '''
@@ -137,28 +147,28 @@ class MD():
             warnings.warn(warning_msg, UserWarning)
             self._n_change = self._n_max
         else:
-            _e_pot_new = self._atoms.get_potential_energy()
-            sign = int(np.sign(self._e_pot - _e_pot_new))
+            e_pot_new = atoms.get_potential_energy()
+            sign = int(np.sign(e_pot - e_pot_new))
             if self._sign_old != sign:
                 self._sign_old = sign
                 self._n_change += 1
                 if self._n_change%2 == 0:
                     self._i_max += 1
-            self._e_pot = _e_pot_new
+        return e_pot_new
 
 
-    def _calc_etot_and_ekin(self):
-        _e_kin = 0.5 * np.sum(self._masses * self._atoms.get_velocities() * self._atoms.get_velocities())
-        if self._cell_atoms is not None:
-            _e_kin = _e_kin + 0.5 * np.sum(self._cell_masses * self._cell_atoms.velocities * self._cell_atoms.velocities)
-        self._e_kin = _e_kin
-        self._e_tot = self._e_kin + self._e_pot
+    def _calc_etot_and_ekin(self, atoms, cell_atoms, e_pot):
+        _e_kin = 0.5 * np.sum(self._masses * atoms.get_velocities() * atoms.get_velocities())
+        if cell_atoms is not None:
+            _e_kin = _e_kin + 0.5 * np.sum(self._cell_masses * cell_atoms.velocities * cell_atoms.velocities)
+        e_kin = _e_kin
+        e_tot = e_kin + e_pot
 
-        if self._e_tot > self._etot_max:
-            self._etot_max = self._e_tot
+        if e_tot > self._etot_max:
+            self._etot_max = e_tot
 
-        if self._e_tot < self._etot_min:
-            self._etot_min = self._e_tot
+        if e_tot < self._etot_min:
+            self._etot_min = e_tot
 
 
     def _adjust_dt(self):
@@ -189,42 +199,43 @@ class MD():
         write(self._outpath + "MD.extxyz", self._atoms, append=True)
 
 
-    def _check_coordinate_shift(self,):
-        positions_old = self._atoms_old.get_positions()
-        positions_cur = self._atoms.get_positions()
+    def _check_coordinate_shift(self, atoms, positions_old):
+        positions_cur = atoms.get_positions()
         pos_diff = np.abs(positions_cur-positions_old)
         max_diff = np.max(pos_diff)
         if max_diff > 0.01:
             append_traj = True
             self._atoms_old = deepcopy(self._atoms)
+            positions_current = positions_cur
         else:
+            positions_current = positions_old
             append_traj = False
-        return append_traj
+        return positions_current ,append_traj
 
 
-    def _update_lattice_positions(self):
+    def _update_lattice_positions(self, atoms, cell_atoms, lattice_force):
         '''
         Update of the lattice postions and moving the atoms accordingly
         '''
-        _positions = self._atoms.get_positions()
-        _lattice = self._cell_atoms.positions
-        _reduced_positions = lat_opt.cart2frac(_positions, _lattice)
-        self._cell_atoms.positions = self._cell_atoms.positions + self._dt * self._cell_atoms.velocities + 0.5 * self._dt * self._dt * (self._lattice_force / self._cell_masses)
-        self._atoms.set_cell(self._cell_atoms.positions, scale_atoms=False, apply_constraint=False)
-        _lattice = self._cell_atoms.positions
-        _positions = lat_opt.frac2cart(_reduced_positions, _lattice)
-        self._atoms.set_positions(_positions)
+        positions = atoms.get_positions()
+        lattice = cell_atoms.positions
+        reduced_positions = lat_opt.cart2frac(positions, lattice)
+        cell_atoms.positions = cell_atoms.positions + self._dt * cell_atoms.velocities + 0.5 * self._dt * self._dt * (lattice_force / self._cell_masses)
+        atoms.set_cell(cell_atoms.positions, scale_atoms=False, apply_constraint=False)
+        lattice = cell_atoms.positions
+        positions = lat_opt.frac2cart(reduced_positions, lattice)
+        atoms.set_positions(positions)
 
 
-    def _update_lattice_velocities(self,):
+    def _update_lattice_velocities(self,atoms, cell_atoms, lattice_force):
         '''
         Update the lattice velocities
         '''
-        _stress_tensor = self._atoms.get_stress(voigt=False, apply_constraint=False)
-        _lattice = self._atoms.get_cell()
-        _lattice_force_new = lat_opt.lattice_derivative(_stress_tensor, _lattice)
-        self._cell_atoms.velocities = self._cell_atoms.velocities + 0.5 * self._dt * ((self._lattice_force + _lattice_force_new) / self._cell_masses)
-        self._lattice_force = _lattice_force_new
+        stress_tensor = atoms.get_stress(voigt=False, apply_constraint=False)
+        lattice = atoms.get_cell()
+        lattice_force_new = lat_opt.lattice_derivative(stress_tensor, lattice)
+        cell_atoms.velocities = cell_atoms.velocities + 0.5 * self._dt * ((lattice_force + lattice_force_new) / self._cell_masses)
+        return lattice_force_new
 
 
 
