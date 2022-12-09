@@ -6,8 +6,7 @@ from ase.io import read, write
 
 def main():
 
-    atoms = Icosahedron('Na', 2, latticeconstant=None)
-    write("test.extxyz", atoms)
+    atoms = Icosahedron('Na', 3, latticeconstant=None)
     calculator = EAM(potential="Na_v2.eam.fs")
     atoms.calc = calculator
 
@@ -15,7 +14,7 @@ def main():
     fnrm =  0.001
     adjust = adjust_fp(fmax=fnrm, 
                     iterations=100, 
-                    temperature=2000, 
+                    temperature=500, 
                     dt=0.1, 
                     md_min=1, 
                     ns_orb=1, 

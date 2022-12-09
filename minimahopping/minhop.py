@@ -292,7 +292,7 @@ class Minimahopping:
             self.restart_dict = json.load(f)
             f.close()
 
-            if self.dt is None:
+            if self._dt is None:
                 self._dt = self.restart_dict["dt"]
             
             if self._temperature is None:
