@@ -82,6 +82,7 @@ class SQNM:
         self.res = np.zeros(nhist_max)
         self.gainratio = 0.0
         self.nhist = 0
+        self.dim_subsp = 0.0
 
     def sqnm_step(self, x, f_of_x, df_dx):
         """ Calculates a set of new coordinates based on the function value and derivatives provide on input.
@@ -141,6 +142,7 @@ class SQNM:
 
             # remove noisy directions from subspace
             dim_subsp = sum(self.s_eval[:self.nhist] / self.s_eval[self.nhist - 1] > self.eps_subsp)
+            self.dim_subsp = dim_subsp
             #dim_subsp = min(1, dim_subsp)
             self.s_eval[:dim_subsp] = self.s_eval[(self.nhist - dim_subsp):self.nhist]
             self.s_evec[:, :dim_subsp] = self.s_evec[:, (self.nhist - dim_subsp):self.nhist]

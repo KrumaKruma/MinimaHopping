@@ -32,13 +32,13 @@ class MD():
         atoms = self._atoms
         positions_old = atoms.get_positions() # initial positions to calcluate the shift in the md to decide when to add to trajectory
         cell_atoms = self._cell_atoms
-        e_pot_old, forces_old, lattice_force = self._initialize(atoms=atoms)
+        e_pot_old, forces_old, lattice_force = self._initialize(atoms=atoms, cell_atoms=cell_atoms)
         is_one_cluster = True
         for i in range(10000):
-            forces_new, positions_traj = self._verlet_step(atoms, cell_atoms, e_pot_old, forces_old, lattice_force, positions_old)
+            forces_new, lattice_force_new, positions_traj = self._verlet_step(atoms, cell_atoms, e_pot_old, forces_old, lattice_force, positions_old)
             self._i_steps += 1
             e_pot_new = self._check(atoms, e_pot_old)
-            self._calc_etot_and_ekin(atoms, cell_atoms, e_pot_new)
+            e_pot, e_kin, e_tot = self._calc_etot_and_ekin(atoms, cell_atoms, e_pot_new)
             
             if self._i_steps%5 == 0:
                 positions = atoms.get_positions()
@@ -53,14 +53,15 @@ class MD():
 
 
             if self._verbose:
-                self._write()
+                self._write(e_pot, e_kin, e_tot)
 
             forces_old = forces_new
+            lattice_force = lattice_force_new
             e_pot_old = e_pot_new
             positions_old = positions_traj
 
             if self._i_max > self._n_max:
-                if self._is_one_cluster:
+                if is_one_cluster:
                     break
 
 
@@ -73,7 +74,7 @@ class MD():
             return atoms.get_positions(), self._dt, self._trajectory, self._epot_max
 
 
-    def _initialize(self, atoms):
+    def _initialize(self, atoms, cell_atoms):
         '''
         Initialization of the MD before the iterative part starts
         '''
@@ -91,17 +92,17 @@ class MD():
         self._n_change = 0
         self._i_steps = 0
         lattice_force = 0.
-        if self._cell_atoms is not None:
-            self._cell_masses = self._cell_atoms.masses[:, np.newaxis]
-            stress_tensor = self._atoms.get_stress(voigt=False,apply_constraint=False)
-            lattice = self._atoms.get_cell()
+        if cell_atoms is not None:
+            self._cell_masses = cell_atoms.masses[:, np.newaxis]
+            stress_tensor = atoms.get_stress(voigt=False,apply_constraint=False)
+            lattice = atoms.get_cell()
             lattice_force = lat_opt.lattice_derivative(stress_tensor, lattice)
         self._etot_max = -1e10
         self._epot_max = -1e10
         self._etot_min = 1e10
         self._epot_min = 1e10
         self._i_max = 0
-        self._calc_etot_and_ekin()
+        self._calc_etot_and_ekin(atoms, cell_atoms, e_pot)
 
         return e_pot, forces, lattice_force
 
@@ -124,7 +125,7 @@ class MD():
         if self._cell_atoms is not None:
             lattice_force = self._update_lattice_velocities(atoms, cell_atoms, lattice_force)
 
-        positions_current, is_add_to_trajectory = self._check_coordinate_shift(positions_old)
+        positions_current, is_add_to_trajectory = self._check_coordinate_shift(atoms, positions_old)
         if is_add_to_trajectory:
             temp = deepcopy(atoms)
             self._trajectory.append(temp.copy())
@@ -170,6 +171,8 @@ class MD():
         if e_tot < self._etot_min:
             self._etot_min = e_tot
 
+        return e_pot, e_kin, e_tot
+
 
     def _adjust_dt(self):
         _defcon = (self._etot_max - self._etot_min)#/(3 * self._nat)
@@ -180,7 +183,7 @@ class MD():
             self._dt *= 1./1.05
 
 
-    def _write(self):
+    def _write(self, e_pot, e_kin, e_tot):
         '''
         Write each MD step into a file and print epot, ekin and etot. The file is overwritten each time the MD is
         started
@@ -188,9 +191,9 @@ class MD():
         _i = self._i_steps
 
         md_msg = "{:4d}      {:1.5f}      {:1.5f}       {:1.8f}       {:1.5f}\n".format(_i,
-                                                                                             self._e_pot,
-                                                                                             self._e_kin,
-                                                                                             self._e_tot,
+                                                                                             e_pot,
+                                                                                             e_kin,
+                                                                                             e_tot,
                                                                                              self._dt)
 
         f = open(self._outpath+"MD_log.dat", "a")
