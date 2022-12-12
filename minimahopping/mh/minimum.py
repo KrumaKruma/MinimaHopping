@@ -73,7 +73,7 @@ class Minimum():
         temp_atoms.info['energy'] = self.e_pot
         temp_atoms.info['label'] = self.label
         temp_atoms.info = temp_atoms.info | info_dict
-        write(filename, temp_atoms, append=append)
+        write(filename, temp_atoms, append=append, parallel=False)
 
 
     def _costmatrix(self, desc1, desc2):
