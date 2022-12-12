@@ -1,6 +1,6 @@
 import numpy as np
 import warnings
-from ase.io import read, write
+from ase.io import read
 import ase.atom
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
 import minimahopping.mh.lattice_operations as lat_opt
@@ -13,6 +13,7 @@ from minimahopping.mh.cell_atom import Cell_atom
 import time
 import json
 import minimahopping.mh.file_handling as file_handling 
+import minimahopping.MPI_database.mpi_database_master as MPI_server
 
 """
 MH Software written by Marco Krummenacher (marco.krummenacher@unibas.ch)
@@ -86,16 +87,27 @@ class Minimahopping:
             self.mpiRank = 0
             self.mpiSize = 1
         
-        if self.mpiSize == 1:
+        if self.mpiSize == 1 or not use_MPI:
+            self.isMaster = False
             self.database = importer("minimahopping.mh.database")
             self._outpath = 'output/' 
             self.restart_path = self._outpath + "restart/"
             self._minima_path = 'minima/'
         else:
-            self.database = importer("minimahopping.MPI_databse.mpi_database_worker")
-            self._outpath = 'output/worker_' + str(self.mpiRank) + '/' 
-            self.restart_path = self._outpath + "restart/"
-            self._minima_path = 'minima/worker_' + str(self.mpiRank) + '/' 
+            if self.mpiRank == 0:
+                self.isMaster = True
+                self._outpath = 'output/master/'
+                self.restart_path = self._outpath + "restart/"
+                self._minima_path = 'minima/'
+                
+            else:
+                self.isMaster = False
+                self.database = importer("minimahopping.MPI_database.mpi_database_worker")
+                self._outpath = 'output/worker_' + str(self.mpiRank) + '/' 
+                self.restart_path = self._outpath + "restart/"
+                self._minima_path = 'minima/worker_' + str(self.mpiRank) + '/'
+                
+
 
         self.isRestart = self.checkIfRestart(new_start)
 
@@ -129,6 +141,11 @@ class Minimahopping:
                 "use_MPI": use_MPI
             }
 
+        if self.isMaster:
+            f = open(self.restart_path+"params.json", "w")
+            json.dump(self.parameter_dictionary,f)
+            f.close()
+
         # Initialization of global counters        
         self._n_min = 1
         self._n_notunique = 0
@@ -138,6 +155,16 @@ class Minimahopping:
     def __call__(self, totalsteps = None):
         counter = 0
 
+        if self.parameter_dictionary['use_MPI'] and self.mpiRank == 0:
+            print('starting mpi server on rank', self.mpiRank)
+            MPI_server.MPI_database_server_loop(self.parameter_dictionary['energy_threshold'], self.parameter_dictionary['fingerprint_threshold']
+                , self.parameter_dictionary['output_n_lowest_minima'], self.isRestart, self.restart_path, self._minima_path
+                , self.parameter_dictionary['write_graph_output'])
+            print('this shoul never be called')
+            quit()
+        else:
+            time.sleep(1)
+            print('Worker starting work ', self.mpiRank)
         # initialize database
         with self.database.Database(self.parameter_dictionary["energy_threshold"], self.parameter_dictionary["fingerprint_threshold"]\
                 , self.parameter_dictionary["output_n_lowest_minima"], self.isRestart, self.restart_path, self._minima_path\
@@ -260,18 +287,18 @@ class Minimahopping:
                             epot = atom.get_potential_energy(),
                             T=self.parameter_dictionary['T'],
                             ediff=self.parameter_dictionary["energy_difference_to_accept"],
-                            exclude= self.parameter_dictionary["exclude"])     
+                            exclude= self.parameter_dictionary["exclude"])
                 self.data.addElement(struct)
             # add input structure to database after optimization
             struct_cur = self.data.get_element(0)
             struct_cur.atoms.calc = calc
-            self._write_restart(self.data.unique_minima_sorted[0], self.data.unique_minima_sorted[0], True)
+            self._write_restart(struct_cur, struct_cur, True)
         else:
             print('  Restart MH run')
 
             # Read current structure
             filename = self.restart_path + "poscur.extxyz"
-            atoms = read(filename)
+            atoms = read(filename, parallel= False)
             atoms.calc = calc
             
             struct_cur = Minimum(atoms,
@@ -343,7 +370,7 @@ class Minimahopping:
                 print(log_msg)
 
             # set the temperature according to Boltzmann distribution
-            MaxwellBoltzmannDistribution(atoms, temperature_K=self.parameter_dictionary['T'])
+            MaxwellBoltzmannDistribution(atoms, temperature_K=self.parameter_dictionary['T'], communicator='serial')
 
             # in case of periodic system do variable cell shape md and optimization
             if True in atoms.pbc:
@@ -500,7 +527,7 @@ class Minimahopping:
             warnings.warn(_warning_msg, UserWarning)
 
     def checkIfRestart(self, isNewStart):
-        isRestart = file_handling.restart(self._outpath, self.restart_path, self._minima_path)
+        isRestart = file_handling.restart(self._outpath, self.restart_path, self._minima_path, self.isMaster)
         # Check if new start is desired
         if isNewStart:
             isRestart = False
