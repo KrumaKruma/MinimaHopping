@@ -15,10 +15,11 @@ def main():
 
     calculator = EAM(potential="Na_v2.eam.fs")
     initial_configuration.calc = calculator
-    mh = Minimahopping(initial_configuration, verbose_output=True, T0=2000, dt=0.1)
-    mh(totalsteps=5)
+    mh = Minimahopping(initial_configuration, verbose_output=True, T0=2000, dt=0.1, use_MPI=True)
+    mh(totalsteps=2)
 
 
 if __name__ == '__main__':
     main()
+    quit()
 
