@@ -40,8 +40,8 @@ class Minimahopping:
                         maxnatsphere = 100, 
                         exclude = [],
                         dt = None,
-                        mdmin = 2,
-                        fmax = 0.001, 
+                        mdmin = 20,
+                        fmax = 0.01, 
                         enhanced_feedback = False,
                         energy_threshold = 0.001, #5 the noise
                         n_poslow = 30,
@@ -234,6 +234,7 @@ class Minimahopping:
 
         for atom in atoms:
             calc = atom.calc
+            self.calc = calc
             _positions, _lattice = self._restart_opt(atom,)
             atom.set_positions(_positions)
             atom.set_cell(_lattice)
@@ -345,7 +346,7 @@ class Minimahopping:
         self.data.addElement(struct_cur)
         status = 'Initial'
         self._history_log(struct_cur, status, n_visits=struct_cur.n_visit)
-
+        write("OPTIMIZED.extxyz", atoms)
         print("DONE")
         print("=================================================================")
         return struct_cur
@@ -375,7 +376,8 @@ class Minimahopping:
         """
         _escape = 0.0
         _escape_energy = 0.0
-        atoms = deepcopy(struct.atoms)
+        atoms = struct.atoms.copy()
+        atoms.calc = self.calc
         _beta_s = 1.05
         _i_steps = 0
         while _escape < self._minima_threshold or _escape_energy < self._energy_threshold:
@@ -400,16 +402,16 @@ class Minimahopping:
                 self._cell_atoms.set_velocities_boltzmann(temperature=self._temperature)
 
                 # softening of the velocities
-                softening = Softening(atoms, self._cell_atoms)
+                softening = Softening(atoms, self.calc, self._cell_atoms)
                 _velocities, _cell_velocities = softening.run(self._n_soft)
                 atoms.set_velocities(_velocities)
                 self._cell_atoms.velocities = _cell_velocities
 
                 print("    VCS MD Start")
 
-                md = MD(atoms=atoms, outpath=self._outpath, cell_atoms=self._cell_atoms, dt=self._dt, n_max=self._mdmin, verbose=self._verbose)
+                md = MD(atoms=atoms, calculator=self.calc, outpath=self._outpath, cell_atoms=self._cell_atoms, dt=self._dt, n_max=self._mdmin, verbose=self._verbose)
                 _positions, _cell , self._dt, _md_trajectory, _epot_max = md.run()
-
+                quit()
                 log_msg = "    VCS MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f}".format(md._i_steps, self._mdmin, self._dt)
                 print(log_msg)
                 atoms.set_positions(_positions)

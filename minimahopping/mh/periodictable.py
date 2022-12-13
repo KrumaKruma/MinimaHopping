@@ -40,6 +40,9 @@ elementSymbols = [' ', 'H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne', 'Na
 def getRcov_n(el):
     return rcovs[elementSymbols[el]]
 
+def getRcov_s(el):
+    return rcovs[el]
+
 def get_rcov_dict():
     return rcovs
 

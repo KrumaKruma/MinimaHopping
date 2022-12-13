@@ -10,8 +10,9 @@ class MD():
     Velocity Verlet MD which visits n_max maxima for clusters and variable cell shape velocity Verlet MD for bulk
     systems
     '''
-    def __init__(self, atoms, outpath, cell_atoms=None, dt=0.001, n_max=3, verbose=True):
-        self._atoms = deepcopy(atoms)
+    def __init__(self, atoms, calculator,outpath, cell_atoms=None, dt=0.001, n_max=3, verbose=True):
+        self._atoms = atoms.copy()
+        self._atoms.calc = calculator
         self._dt = dt
         self._n_max = n_max
         self._verbose = verbose
@@ -127,7 +128,7 @@ class MD():
 
         positions_current, is_add_to_trajectory = self._check_coordinate_shift(atoms, positions_old)
         if is_add_to_trajectory:
-            temp = deepcopy(atoms)
+            temp = atoms.copy()
             self._trajectory.append(temp.copy())
 
         _e_pot = atoms.get_potential_energy()
@@ -200,6 +201,8 @@ class MD():
         f.write(md_msg)
         f.close()
         write(self._outpath + "MD.extxyz", self._atoms, append=True)
+        filename = self._outpath + "MD"+str(_i).zfill(6)+".ascii"
+        write(filename, self._atoms)
 
 
     def _check_coordinate_shift(self, atoms, positions_old):
@@ -208,7 +211,7 @@ class MD():
         max_diff = np.max(pos_diff)
         if max_diff > 0.01:
             append_traj = True
-            self._atoms_old = deepcopy(self._atoms)
+            self._atoms_old = self._atoms.copy()
             positions_current = positions_cur
         else:
             positions_current = positions_old

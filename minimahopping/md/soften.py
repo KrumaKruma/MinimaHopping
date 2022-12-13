@@ -2,14 +2,17 @@ import numpy as np
 from copy import deepcopy
 import minimahopping.mh.lattice_operations as lat_opt
 
+import minimahopping.biomode.biomode as biomode 
+
 class Softening():
     """
     Softening the velocites along the softest modes of the postitions and the lattice in case of periodic boundary
     conditions.
     Reference fortran implementation originally written by Hannes Huber
     """
-    def __init__(self, atoms, cell_atoms = None):
-        self._atoms = deepcopy(atoms)
+    def __init__(self, atoms, calculator, cell_atoms = None):
+        self._atoms = atoms.copy()
+        self._atoms.calc = calculator
         if cell_atoms is not None:
             self._cell_atoms = deepcopy(cell_atoms)
             self._alpha_pos = 1e-3
@@ -94,6 +97,10 @@ class Softening():
         _e_pot = self._atoms.get_potential_energy()
         self._forces = self._atoms.get_forces()
 
+        # atomnames = self._atoms.get_chemical_symbols()
+        # lattice = self._atoms.get_cell()
+        # forces_covalent, forces_rest = biomode.split_bond_forces(_positions, atomnames, lattice, self._forces)
+        # self._forces = forces_rest
         # Only a parameter for check
         _fd2 = 2* (_e_pot - self._e_pot_in) / self._eps_dd ** 2
 
@@ -127,6 +134,7 @@ class Softening():
         self._res = np.sqrt(self._res)
 
         # print(_tt, self._res, self._curve , _fd2, _e_pot - self._e_pot_in)
+
 
         self._pos = self._pos + self._alpha_pos * self._forces
         self._velocities = self._pos - self._pos_in

@@ -8,7 +8,7 @@ class Minimum():
     Minimum class for managing the database of the minima hopping. 
     """
     def __init__(self, atoms, epot, n_visit, s, p, width_cutoff, maxnatsphere, T, ediff, label, exclude=[]):
-        self.atoms = deepcopy(atoms)
+        self.atoms = atoms.copy()
         self.e_pot = epot
         self.fp = self._get_OMFP(s=s, p=p, width_cutoff=width_cutoff, maxnatsphere=maxnatsphere, exclude=exclude)
         self.temperature = T
