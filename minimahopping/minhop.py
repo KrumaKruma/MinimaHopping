@@ -49,10 +49,10 @@ class Minimahopping:
                         T0 = 1000,
                         beta_decrease = 1./1.02,
                         beta_increase = 1.02,
-                        Ediff0 = .5,
+                        Ediff0 = .1,
                         alpha_accept = 1/1.02,
                         alpha_reject = 1.02,
-                        n_soft = 50,
+                        n_soft = 20,
                         n_S_orbitals = 1, 
                         n_P_orbitals = 1, 
                         width_cutoff = 3.5, 
@@ -524,6 +524,8 @@ class Minimahopping:
                 self.parameter_dictionary['T'] = self.parameter_dictionary['T'] * self.parameter_dictionary['beta_increase'] * (1. + 1. * np.log(float(n_visits)))
             else:
                 self.parameter_dictionary['T'] = self.parameter_dictionary['T'] * self.parameter_dictionary['beta_increase']
+        else:
+            self.parameter_dictionary['T'] = self.parameter_dictionary['T'] * self.parameter_dictionary['beta_decrease']
 
 
     def _history_log(self, struct, status, n_visits = 0):
