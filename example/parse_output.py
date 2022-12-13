@@ -17,11 +17,13 @@ def draw_pygraphviz(g, filename, layout='fdp'):
     # g.write('file.dot')
     
 
-g = graph.MinimaHoppingGraph('output/restart/graph.dat', 'output/restart/trajectory.dat', True)
+g = graph.MinimaHoppingGraph('output/master/restart/graph.dat', 'output/master/restart/trajectory.dat', True)
 g.read_from_disk()
-n = 13
-l = g.shortestPath(0, n)
-tl = g.getTrajectoryList(0, n)
+n1 = 289
+n2 = 432
+print('size', g.graph.size())
+l = g.shortestPath(n1, n2)
+tl = g.getTrajectoryList(n1, n2)
 
 print(l)
 
@@ -36,8 +38,8 @@ g.shift_energy_to_zero()
 
 stripped_graph = g.remove_leaves()
 
-draw_pygraphviz(nx.nx_agraph.to_agraph(stripped_graph), 'no_leaves.pdf')
-draw_pygraphviz(nx.nx_agraph.to_agraph(g.graph), 'with_leaves.pdf')
+draw_pygraphviz(nx.nx_agraph.to_agraph(stripped_graph), 'no_leaves.pdf', layout='fdp')
+draw_pygraphviz(nx.nx_agraph.to_agraph(g.graph), 'with_leaves.pdf', layout='fdp')
 
 # graph.write('file.dot')
 
