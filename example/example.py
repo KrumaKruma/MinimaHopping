@@ -10,6 +10,7 @@ def main():
 
     # initial_configuration = wulff_construction('Na', surfaces=[(1, 0, 0), (0, 1, 0),(0, 0, 1)], energies=[0.001, 0.001, 0.25],
     #                         size=55, # maximum number of atoms
+    #                         structure='bcc', rounding='above')
 
     initial_configuration = wulff_construction('Na', surfaces=[(1, 0, 0), (0, 1, 0),(0, 0, 1)], energies=[0.001, 0.001, 0.15],
                             size=13, # maximum number of atoms
@@ -18,7 +19,7 @@ def main():
 
     calculator = EAM(potential="Na_v2.eam.fs")
     initial_configuration.calc = calculator
-    mh = Minimahopping(initial_configuration, verbose_output=True, T0=2000, dt=0.1, use_MPI=True)
+    mh = Minimahopping(initial_configuration, verbose_output=True, T0=2000, dt=0.1, use_MPI=False)
     mh(totalsteps=5)
 
 
