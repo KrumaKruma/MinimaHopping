@@ -47,28 +47,28 @@ def importer(name, root_package=False, relative_globals=None, level=0):
 class Minimahopping:
     def __init__(self, initial_configuration : ase.atom.Atom,
                         T0 = 1000,
-                        beta_decrease = 1./1.05,
-                        beta_increase = 1.05,
-                        Ediff0 = .01,
-                        alpha_accept = 0.95,
-                        alpha_reject = 1.05,
-                        n_soft = 20,
+                        beta_decrease = 1./1.02,
+                        beta_increase = 1.02,
+                        Ediff0 = .5,
+                        alpha_accept = 1/1.02,
+                        alpha_reject = 1.02,
+                        n_soft = 50,
                         n_S_orbitals = 1, 
                         n_P_orbitals = 1, 
                         width_cutoff = 3.5, 
                         maxnatsphere = 100, 
                         exclude = [],
                         dt = 0.01,
-                        mdmin = 2,
+                        mdmin = 5,
                         fmax = 0.001, 
                         enhanced_feedback = False,
-                        energy_threshold = 0.001, #5 the noise
+                        energy_threshold = 0.0001, #5 the noise
                         output_n_lowest_minima = 20,
                         fingerprint_threshold = 1e-3,
                         verbose_output = True,
                         new_start = False,
                         run_time = 'infinite', 
-                        use_intermediate_mechanism = False,
+                        use_intermediate_mechanism = True,
                         overwriteParametersOnRestart = False,
                         write_graph_output = True,
                         use_MPI = False):
@@ -365,7 +365,7 @@ class Minimahopping:
                 self._n_same += 1
                 status = 'Same'
                 self._history_log(proposed_structure, status)
-                self.parameter_dictionary['T'] *= _beta_s
+                self.parameter_dictionary['T'] *= self.parameter_dictionary['beta_increase']
                 log_msg = "    Same minimum found with fpd {:1.2e} {:d} time(s). Increase temperature to {:1.5f}".format(_escape, self._n_same, self.parameter_dictionary['T'])
                 print(log_msg)
 
