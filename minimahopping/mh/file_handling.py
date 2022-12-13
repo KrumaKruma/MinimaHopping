@@ -36,7 +36,7 @@ def restart(outpath, restart_path, minima_path, is_master):
 def checkfiles(restart_path, is_master):
     is_files = True
     if is_master:
-        is_database = os.path.exists(restart_path + "minima.pickle.shelve.dat")
+        is_database = os.path.exists(restart_path + "minima.pickle.shelve.dat") or os.path.exists(restart_path + "minima.pickle.shelve.dat.dat")
         if not is_database:
             msg = "No database file detected. New MH run is started " + restart_path + "minima.pickle.shelve.dat"
             warnings.warn(msg, UserWarning)
