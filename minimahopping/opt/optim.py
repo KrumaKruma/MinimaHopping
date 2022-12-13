@@ -39,8 +39,8 @@ class Opt():
         _pbc = list(set(self._atoms.pbc))
         assert len(_pbc) == 1, "mixed boundary conditions"
         if self._verbose:
-            write(self._outpath + "OPT.extxyz", self._atoms)
-            f = open(self._outpath + "OPT_log.dat", "w")
+            write(self._outpath + "geometry_optimization_trajectory.extxyz", self._atoms, parallel=False)
+            f = open(self._outpath + "geometry_optimization_log.dat", "w")
             msg = 'STEP      ETOT              MAX_FORCE       GAIN_RATIO       STEPSIZE           DIM_SUPSP         MAX_DISP\n'
             f.write(msg)
             f.close()
@@ -180,17 +180,17 @@ class Opt():
                                                                                                                                     self._optim.optimizer.alpha,
                                                                                                                                     self._optim.optimizer.dim_subsp,
                                                                                                                                     self.max_disp)
-        f = open(self._outpath+"OPT_log.dat", "a")
+        f = open(self._outpath+"geometry_optimization_log.dat", "a")
         f.write(opt_msg)
         f.close()
-        write(self._outpath + "OPT.extxyz", self._atoms, append=True)
+        write(self._outpath + "geometry_optimization_trajectory.extxyz", self._atoms, append=True, parallel=False)
 
     def _check_coordinate_shift(self, ):
         positions_old = self._atoms_old.get_positions()
         positions_cur = self._atoms.get_positions()
         pos_diff = np.abs(positions_cur - positions_old)
         max_diff = np.max(pos_diff)
-        if max_diff > 0.01:
+        if max_diff > 0.1:
             append_traj = True
             self._atoms_old = self._atoms.copy()
         else:

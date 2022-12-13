@@ -9,12 +9,13 @@ import copy
 
 class MinimaHoppingGraph:
     
-    def __init__(self, graphFileName, trajectoryDatabaseName, restart) -> None:
+    def __init__(self, graphFileName, trajectoryDatabaseName, is_restart) -> None:
         self.graphFileName = graphFileName
         self.trajectoryDatabaseName = trajectoryDatabaseName
-        self.restart = restart
+        self.is_restart = is_restart
         self.trajectoryDict = None
         self.graph = None
+        self.lucky_counter = 0
 
     def __enter__(self):
         return self.read_from_disk()
@@ -23,7 +24,7 @@ class MinimaHoppingGraph:
         self.write_to_disk()
 
     def read_from_disk(self):
-        if self.restart:
+        if self.is_restart:
             graph_pickle = open(self.graphFileName, "rb")
             self.graph = pickle.load(graph_pickle)
             graph_pickle.close()
@@ -50,7 +51,7 @@ class MinimaHoppingGraph:
         """
         Writes the graph to the disk and updates the trajectory data shelve.
         """
-        self.trajectoryDict.sync()
+        # self.trajectoryDict.sync()
         graph_pickle = open (self.graphFileName, "wb")
         pickle.dump(self.graph, graph_pickle)
         graph_pickle.close()
@@ -63,17 +64,19 @@ class MinimaHoppingGraph:
         weight_new = e_max - e_new
         if weight_new < 0:
             weight_new = float('inf')
+            return
         if weight_old < 0:
             weight_old = float('inf')
+            return
         mt = copy.deepcopy(trajectory)
         reverse_trajectory = copy.deepcopy(trajectory)
         reverse_trajectory.reverse()
 
+        restart_file_update_necessary = True
+
         if not self.graph.has_node(structureLabel):
             if self.graph.size() == 0:
                 self.graph.add_node(initialStuctureLabel, energy = e_old)
-            else:
-                pass
             self.graph.add_node(structureLabel, energy = e_new)
 
         if self.graph.has_edge(initialStuctureLabel, structureLabel):
@@ -82,9 +85,13 @@ class MinimaHoppingGraph:
                 self.graph.remove_edge(structureLabel, initialStuctureLabel)
                 self._add_edge(initialStuctureLabel, structureLabel, weight=weight_old, trajectory=mt)
                 self._add_edge(structureLabel, initialStuctureLabel, weight=weight_new, trajectory=reverse_trajectory)
+            else:
+                restart_file_update_necessary = False
         else: 
             self._add_edge(initialStuctureLabel, structureLabel, weight=weight_old, trajectory=mt)
             self._add_edge(structureLabel, initialStuctureLabel, weight=weight_new, trajectory=reverse_trajectory)
+        if restart_file_update_necessary:
+            self.write_restart_files()
 
     def get_lowest_energy(self):
         emin = float("inf")
@@ -111,8 +118,8 @@ class MinimaHoppingGraph:
             for i in remove:
                 for v in graph_copy.neighbors(i):
                     # print(i, graph_copy.edges(i), v)
-                    graph_copy.nodes[v]['width'] = graph_copy.nodes[v]['width'] + 0.05
-                    graph_copy.nodes[v]['height'] = graph_copy.nodes[v]['height'] + 0.05
+                    graph_copy.nodes[v]['width'] = graph_copy.nodes[v]['width'] + 0.05 / graph_copy.nodes[v]['width']
+                    graph_copy.nodes[v]['height'] = graph_copy.nodes[v]['height'] + 0.05 / graph_copy.nodes[v]['height']
             graph_copy.remove_nodes_from(remove)
         return graph_copy
     
@@ -123,8 +130,6 @@ class MinimaHoppingGraph:
         self.trajectoryDict.sync()
 
     def _getEdgeString(self, initialStuctureLabel, structureLabel):
-        #minimum = min(structureLabel, initialStuctureLabel)
-        #maximum = max(structureLabel, initialStuctureLabel)
         edgeString = str(initialStuctureLabel) + ',' + str(structureLabel)
         return edgeString
 
@@ -134,13 +139,8 @@ class MinimaHoppingGraph:
     def getTrajectoryList(self, a, b):
         path = self.shortestPath(a, b)
         TList = []
-        #print(dict(self.trajectoryDict))
         for i in range(1, len(path)):
-            self.trajectoryDict[self._getEdgeString(path[i], path[i-1])]
-            #temp_trajectory = self.trajectoryDict[self._getEdgeString(path[i-1], path[i])]
-            #print(temp_trajectory)
             TList = TList + copy.deepcopy(self.trajectoryDict[self._getEdgeString(path[i - 1], path[i])])
-            #print(i-1, i)
         return TList
 
     def draw(self):

@@ -19,7 +19,7 @@ class Softening():
             self._alpha_lat = 1e-3
         else:
             self._cell_atoms = cell_atoms
-            self._alpha_pos = 1e-1
+            self._alpha_pos = 1e-3
 
         self._eps_dd = 1e-2
 

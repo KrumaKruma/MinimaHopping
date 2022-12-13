@@ -64,15 +64,13 @@ class adjust_fp():
                 atom.set_positions(_positions)
 
             mini = Minimum(atom,
-                        n_visit=1,
                         s = self._ns_orb,
                         p = self._np_orb, 
                         width_cutoff = self._width_cutoff,
                         maxnatsphere = self._maxnatsphere,
                         epot = atom.get_potential_energy(),
                         T=self._temperature,
-                        ediff=0,
-                        label=0)
+                        ediff=0)
             
             self.minimalist.append(mini)
 

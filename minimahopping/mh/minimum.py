@@ -2,6 +2,7 @@ import numpy as np
 from scipy import optimize
 from copy import deepcopy
 from minimahopping.omfp.OverlapMatrixFingerprint import OverlapMatrixFingerprint as OMFP
+from ase.io import write
 
 class Minimum():
     """ 
@@ -31,10 +32,10 @@ class Minimum():
         return self.e_pot > other.e_pot
 
     def __copy__(self,):
-        return Minimum(self.atoms.copy(), self.e_pot,self.n_visit,self.s, self.p, self.width_cutoff, self.maxnatsphere, self.temperature, self.ediff, self.label, self.exclude)
+        return Minimum(self.atoms.copy(), self.e_pot, self.s, self.p, self.width_cutoff, self.maxnatsphere, self.temperature, self.ediff, self.n_visit, self.label, self.exclude)
 
     def __deepcopy__(self,):
-        return Minimum(self.atoms, self.e_pot,self.n_visit,self.s, self.p, self.width_cutoff, self.maxnatsphere, self.temperature, self.ediff, self.label, self.exclude)
+        return Minimum(self.atoms, self.e_pot ,self.s, self.p, self.width_cutoff, self.maxnatsphere, self.temperature, self.ediff, self.n_visit, self.label, self.exclude)
 
     def __compareto__(self, other):
         return abs(self.e_pot - other.e_pot)
@@ -64,6 +65,16 @@ class Minimum():
 
         fp_dist /= len(self.atoms)
         return fp_dist
+
+    def write(self, filename :str, append = False, info_dict: dict = {}):
+        temp_atoms = self.atoms.copy()
+        temp_atoms.info = {}
+        temp_atoms.set_momenta(None)
+        temp_atoms.info['energy'] = self.e_pot
+        temp_atoms.info['label'] = self.label
+        temp_atoms.info = temp_atoms.info | info_dict
+        write(filename, temp_atoms, append=append, parallel=False)
+
 
     def _costmatrix(self, desc1, desc2):
         """

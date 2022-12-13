@@ -82,7 +82,7 @@ class SQNM:
         self.res = np.zeros(nhist_max)
         self.gainratio = 0.0
         self.nhist = 0
-        self.dim_subsp = 0.0
+        self.dim_subsp = 0
 
     def sqnm_step(self, x, f_of_x, df_dx):
         """ Calculates a set of new coordinates based on the function value and derivatives provide on input.

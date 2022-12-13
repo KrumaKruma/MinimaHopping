@@ -1,7 +1,7 @@
 import os
 import warnings
 
-def restart(outpath, restart_path, minima_path):
+def restart(outpath, restart_path, minima_path, is_master):
         
     if not os.path.exists(outpath):
         os.mkdir(outpath)
@@ -20,7 +20,7 @@ def restart(outpath, restart_path, minima_path):
 
     if is_restart and is_output:
         is_restart = True
-        is_files = checkfiles(restart_path)
+        is_files = checkfiles(restart_path, is_master)
         if not is_files:
             is_restart = False
     elif is_output and not is_restart:
@@ -33,23 +33,25 @@ def restart(outpath, restart_path, minima_path):
     return is_restart
 
 
-def checkfiles(restart_path):
+def checkfiles(restart_path, is_master):
     is_files = True
-    is_database = os.path.exists(restart_path + "data.pickle")
-    if not is_database:
-        msg = "No database file detected. New MH run is started"
-        warnings.warn(msg, UserWarning)
-        is_files = False
+    if is_master:
+        is_database = os.path.exists(restart_path + "minima.pickle.shelve")
+        if not is_database:
+            msg = "No database file detected. New MH run is started " + restart_path + "minima.pickle.shelve"
+            warnings.warn(msg, UserWarning)
+            is_files = False
     
-    is_minimum = os.path.exists(restart_path + "poscur.extxyz")
-    if not is_minimum:
-        msg = "No current minimum detected. New MH run is started"
-        warnings.warn(msg, UserWarning)
-        is_files = False
+    if not is_master:
+        is_minimum = os.path.exists(restart_path + "poscur.extxyz")
+        if not is_minimum:
+            msg = "No current minimum detected. New MH run is started " +  restart_path + "poscur.extxyz"
+            warnings.warn(msg, UserWarning)
+            is_files = False
 
     is_params = os.path.exists(restart_path + "params.json")
     if not is_params:
-        msg = "No current minimum detected. New MH run is started"
+        msg = "No current minimum detected. New MH run is started " + restart_path + "params.json"
         warnings.warn(msg, UserWarning)
         is_files = False
 

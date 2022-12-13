@@ -81,7 +81,7 @@ class MD():
         '''
         self._trajectory = []
         if self._verbose:
-            write(self._outpath + "MD.extxyz", self._atoms)
+            write(self._outpath + "MD_trajectory.extxyz", self._atoms, parallel=False)
             f = open(self._outpath + "MD_log.dat", "w")
             msg = 'STEP      EPOT          EKIN          ETOT               DT\n'
             f.write(msg)
@@ -200,16 +200,14 @@ class MD():
         f = open(self._outpath+"MD_log.dat", "a")
         f.write(md_msg)
         f.close()
-        write(self._outpath + "MD.extxyz", self._atoms, append=True)
-        filename = self._outpath + "MD"+str(_i).zfill(6)+".ascii"
-        write(filename, self._atoms)
+        write(self._outpath + "MD_trajectory.extxyz", self._atoms, append=True, parallel=False)
 
 
     def _check_coordinate_shift(self, atoms, positions_old):
         positions_cur = atoms.get_positions()
         pos_diff = np.abs(positions_cur-positions_old)
         max_diff = np.max(pos_diff)
-        if max_diff > 0.01:
+        if max_diff > 0.1:
             append_traj = True
             self._atoms_old = self._atoms.copy()
             positions_current = positions_cur
