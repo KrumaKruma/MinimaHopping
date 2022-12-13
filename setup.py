@@ -17,6 +17,7 @@ setup(
         'scipy',
         'scikit-learn',
         'networkx',
+        'mpi4py'
     ],
 )
 

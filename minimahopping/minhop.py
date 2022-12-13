@@ -274,15 +274,15 @@ class Minimahopping:
             atom.set_cell(_lattice)
 
             struct = Minimum(atom,
-                        n_visit=1,
-                        s = self._ns_orb,
-                        p = self._np_orb, 
-                        width_cutoff = self._width_cutoff,
-                        maxnatsphere = self._maxnatsphere,
+                        s = self.parameter_dictionary['n_S_orbitals'],
+                        p = self.parameter_dictionary["n_P_orbitals"], 
+                        width_cutoff = self.parameter_dictionary["width_cutoff"],
+                        maxnatsphere = self.parameter_dictionary["max_atoms_in_cutoff_sphere"],
                         epot = atom.get_potential_energy(),
-                        T=self._temperature,
-                        ediff=self._Ediff,
-                        label=0)
+                        T=self.parameter_dictionary['T'],
+                        ediff=self.parameter_dictionary["energy_difference_to_accept"],
+                        exclude= self.parameter_dictionary["exclude"])
+
             
             self.data.addElement(struct)
         # Convert given time to seconds
@@ -436,13 +436,13 @@ class Minimahopping:
             # in case of a non-periodic system do md and optimization
             else:
                 #start softening
-                softening = Softening(atoms)
+                softening = Softening(atoms, self.calc)
                 _velocities = softening.run(self.parameter_dictionary['n_softening_steps'])
                 atoms.set_velocities(_velocities)
 
                 print("    MD Start")
 
-                md = MD(atoms=atoms, outpath=self._outpath, cell_atoms=None, dt=self.parameter_dictionary['dt'], n_max=self.parameter_dictionary["mdmin"], verbose=self.parameter_dictionary["verbose_output"])
+                md = MD(atoms=atoms, calculator=self.calc, outpath=self._outpath, cell_atoms=None, dt=self.parameter_dictionary['dt'], n_max=self.parameter_dictionary["mdmin"], verbose=self.parameter_dictionary["verbose_output"])
                 _positions , self.parameter_dictionary['dt'], _md_trajectory, _epot_max = md.run()
                 atoms.set_positions(_positions)
                 log_msg = "    MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f}".format(md._i_steps, self.parameter_dictionary["mdmin"], self.parameter_dictionary['dt'])

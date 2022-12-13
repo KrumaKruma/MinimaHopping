@@ -38,7 +38,7 @@ class Database():
         
 
     def read_restart_files(self):        
-        filename = self.outpath + "minima.pickle.shelve"
+        filename = self.outpath + "minima.pickle.shelve.dat"
         self.minima_shelve = shelve.open(filename)
         if self.is_restart:
             # print('asdf', list(dict(self.minima_shelve).values()).sort())
