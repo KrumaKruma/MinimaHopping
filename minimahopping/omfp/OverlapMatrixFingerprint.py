@@ -68,7 +68,7 @@ class OverlapMatrixFingerprint:
         # This one is even faster (even without numba)
         O, perm = buildOverlapMatrix_vectorized(orbpos, orbrad, orbnames, orbidx)  # but it permutes the oder of the orbitals
         orbcuts = orbcuts[perm]  # we just apply the same permutation to the cutoff too
-        normalization = np.sqrt(np.diagonal(O)) * orbcuts # compute normalization, such that diagonal is 1 and apply cutoff function.
+        normalization = np.reciprocal(np.sqrt(np.diagonal(O))) * orbcuts # compute normalization, such that diagonal is 1 and apply cutoff function.
         O = O * np.outer(normalization, normalization)
 
         return O
