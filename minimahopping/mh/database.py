@@ -32,9 +32,9 @@ class Database():
 
 
     def __exit__(self,exc_type, exc_value, exc_traceback):
-        if self.write_graph_output:
-            self.graph.write_to_disk()
         self.minima_shelve.close()
+        if self.write_graph_output:
+            self.graph.trajectoryDict.close()
         
 
     def read_restart_files(self):        
