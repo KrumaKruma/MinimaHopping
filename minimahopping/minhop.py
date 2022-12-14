@@ -101,15 +101,16 @@ class Minimahopping:
                 self.restart_path = self._outpath + "restart/"
                 self._minima_path = 'minima/'
                 os.mkdir('output')
+                os.mkdir('minima')
                 
-            else:
+            comm = MPI.COMM_WORLD
+            comm.Barrier()
+            if self.mpiRank > 0:
                 self.isMaster = False
                 self.database = importer("minimahopping.MPI_database.mpi_database_worker")
                 self._outpath = 'output/worker_' + str(self.mpiRank) + '/' 
                 self.restart_path = self._outpath + "restart/"
                 self._minima_path = 'minima/worker_' + str(self.mpiRank) + '/'
-            MPI.barrier(MPI.COMM_WORLD)
-                
 
 
         self.isRestart = self.checkIfRestart(new_start)
