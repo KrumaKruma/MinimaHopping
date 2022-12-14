@@ -73,7 +73,7 @@ class Minimum():
         temp_atoms.info['energy'] = self.e_pot
         temp_atoms.info['label'] = self.label
         temp_atoms.info['n_visit'] = self.n_visit
-        temp_atoms.info = info_dict.update(temp_atoms.info)
+        temp_atoms.info.update(info_dict)
         write(filename, temp_atoms, append=append, parallel=False)
 
 
