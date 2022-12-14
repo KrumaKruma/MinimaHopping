@@ -14,6 +14,7 @@ import time
 import json
 import minimahopping.mh.file_handling as file_handling 
 import minimahopping.MPI_database.mpi_database_master as MPI_server
+import os
 
 """
 MH Software written by Marco Krummenacher (marco.krummenacher@unibas.ch)
@@ -99,6 +100,7 @@ class Minimahopping:
                 self._outpath = 'output/master/'
                 self.restart_path = self._outpath + "restart/"
                 self._minima_path = 'minima/'
+                os.mkdir('output')
                 
             else:
                 self.isMaster = False
