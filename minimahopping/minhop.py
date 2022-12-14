@@ -108,6 +108,7 @@ class Minimahopping:
                 self._outpath = 'output/worker_' + str(self.mpiRank) + '/' 
                 self.restart_path = self._outpath + "restart/"
                 self._minima_path = 'minima/worker_' + str(self.mpiRank) + '/'
+            MPI.barrier(MPI.COMM_WORLD)
                 
 
 
