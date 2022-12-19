@@ -72,7 +72,9 @@ class Minimahopping:
                         use_intermediate_mechanism = True,
                         overwriteParametersOnRestart = False,
                         write_graph_output = True,
-                        use_MPI = False):
+                        use_MPI = False,
+                        totalWorkers = None
+                        ):
         """Initialize with an ASE atoms object and keyword arguments."""
 
         self.initial_configuration = initial_configuration
@@ -88,20 +90,27 @@ class Minimahopping:
             self.mpiRank = 0
             self.mpiSize = 1
         
-        if self.mpiSize == 1 or not use_MPI:
+        self._minima_path = 'minima/'
+        if self.mpiSize == 1 or not use_MPI: # no mpi should be used
             self.isMaster = False
             self.database = importer("minimahopping.mh.database")
             self._outpath = 'output/' 
             self.restart_path = self._outpath + "restart/"
-            self._minima_path = 'minima/'
-        else:
+            # self._minima_path = 'minima/'
+        else: # mpi parallelized simulation
+            if totalWorkers is None:
+                print("""In an mpi simulation, the total number of workers parameter must be set to the correct number""")
+                MPI.COMM_WORLD.Abort()
+            
             if self.mpiRank == 0:
                 self.isMaster = True
                 self._outpath = 'output/master/'
                 self.restart_path = self._outpath + "restart/"
-                self._minima_path = 'minima/'
-                os.mkdir('output')
-                os.mkdir('minima')
+                # self._minima_path = 'minima/'
+                if not os.path.exists("output"):
+                    os.mkdir('output')
+                if not os.path.exists(self._minima_path):
+                    os.mkdir(self._minima_path)
                 
             comm = MPI.COMM_WORLD
             comm.Barrier()
@@ -110,7 +119,7 @@ class Minimahopping:
                 self.database = importer("minimahopping.MPI_database.mpi_database_worker")
                 self._outpath = 'output/worker_' + str(self.mpiRank) + '/' 
                 self.restart_path = self._outpath + "restart/"
-                self._minima_path = 'minima/worker_' + str(self.mpiRank) + '/'
+                # self._minima_path = 'minima/worker_' + str(self.mpiRank) + '/'
 
 
         self.isRestart = self.checkIfRestart(new_start)
@@ -142,7 +151,8 @@ class Minimahopping:
                 "run_time" : run_time,
                 "use_intermediate_mechanism" : use_intermediate_mechanism,
                 "write_graph_output" : write_graph_output,
-                "use_MPI": use_MPI
+                "use_MPI": use_MPI,
+                "totalWorkers": totalWorkers
             }
 
         if self.isMaster:
@@ -158,14 +168,24 @@ class Minimahopping:
 
     def __call__(self, totalsteps = None):
         counter = 0
+        if totalsteps is None:
+            print('provide integer for the total number of minima hopping steps')
+            quit()
+        
+        if self.parameter_dictionary['use_MPI']: # in mpi simulation clients will do infinitely many steps and are stopped by the server
+            totalsteps = np.inf
 
         if self.parameter_dictionary['use_MPI'] and self.mpiRank == 0:
             print('starting mpi server on rank', self.mpiRank)
             MPI_server.MPI_database_server_loop(self.parameter_dictionary['energy_threshold'], self.parameter_dictionary['fingerprint_threshold']
                 , self.parameter_dictionary['output_n_lowest_minima'], self.isRestart, self.restart_path, self._minima_path
-                , self.parameter_dictionary['write_graph_output'])
-            print('this shoul never be called')
-            quit()
+                , self.parameter_dictionary['write_graph_output'], totalWorkers=self.parameter_dictionary["totalWorkers"], maxTimeHours=self._get_sec() / 3600)
+            print('All clients have left and the server will shut down as well.')
+            print("sending mpi_abort to comm_world to make sure that all clients stop working")
+            time.sleep(5)
+            from mpi4py import MPI
+            MPI.COMM_WORLD.Abort()
+            # quit()
         else:
             time.sleep(1)
             print('Worker starting work ', self.mpiRank)
@@ -192,7 +212,7 @@ class Minimahopping:
                     print("  ---------------------------------------------------------------")
                     print("  New minimum found!")
 
-                    self.data.addElementandConnectGraph(current_minimum, escaped_minimum, md_trajectory + opt_trajectory, epot_max)
+                    n_visit, label, continueSimulation = self.data.addElementandConnectGraph(current_minimum, escaped_minimum, md_trajectory + opt_trajectory, epot_max)
 
                     # write output
                     self._hoplog(escaped_minimum)
@@ -235,6 +255,9 @@ class Minimahopping:
                     self._adj_temperature(escaped_minimum.n_visit)
                     counter += 1
                     self._write_restart(escaped_minimum, intermediate_minimum, is_accepted)
+                    if not continueSimulation:
+                        print("Client got shut down signal from server and is shutting down.")
+                        return
 
                 print("DONE")
                 print("=================================================================")
@@ -248,6 +271,10 @@ class Minimahopping:
                         return
                 
         self.print_elapsed_time(totalsteps)
+        if self.parameter_dictionary['use_MPI']:
+            print("An MPI worker is not allowed to leave the above loop because the server might freeze. Sending MPI_abort to comm_world")
+            from mpi4py import MPI
+            MPI.COMM_WORLD.Abort()
         return
 
 
@@ -267,28 +294,6 @@ class Minimahopping:
         print("=================================================================")
         print("MINIMAHOPPING SETUP START")
 
-        if not isinstance(atoms, list):
-            atoms = [deepcopy(atoms)]
-
-        for atom in atoms:
-            calc = atom.calc
-            self.calc = calc
-            _positions, _lattice = self._restart_opt(atom,)
-            atom.set_positions(_positions)
-            atom.set_cell(_lattice)
-
-            struct = Minimum(atom,
-                        s = self.parameter_dictionary['n_S_orbitals'],
-                        p = self.parameter_dictionary["n_P_orbitals"], 
-                        width_cutoff = self.parameter_dictionary["width_cutoff"],
-                        maxnatsphere = self.parameter_dictionary["max_atoms_in_cutoff_sphere"],
-                        epot = atom.get_potential_energy(),
-                        T=self.parameter_dictionary['T'],
-                        ediff=self.parameter_dictionary["energy_difference_to_accept"],
-                        exclude= self.parameter_dictionary["exclude"])
-
-            
-            self.data.addElement(struct)
         # Convert given time to seconds
         if self.parameter_dictionary["run_time"] != "infinite":
             self._run_time_sec = self._get_sec()
@@ -297,6 +302,7 @@ class Minimahopping:
         if not isinstance(atoms, list):
             atoms = [deepcopy(atoms)]
         calc = atoms[0].calc
+        self.calc = calc
 
         # Check if this is a fresh start
         if not self.isRestart:
