@@ -20,6 +20,12 @@ def main():
     calculator = EAM(potential="Na_v2.eam.fs")
     initial_configuration.calc = calculator
     mh = Minimahopping(initial_configuration, verbose_output=True, T0=2000, dt=0.1, use_MPI=False)
+
+    # mpi example that will run for two minutes and assumes that 1 process is used as the server and the rest (n-1) as clients.
+    # from mpi4py import MPI
+    # totalWorkers = MPI.COMM_WORLD.Get_size() - 1
+    # mh = Minimahopping(initial_configuration, verbose_output=False, 
+    #     T0=2000, dt=0.1, use_MPI=True, fingerprint_threshold=5e-4, run_time='0-00:02:00', totalWorkers=totalWorkers)
     mh(totalsteps=5)
 
 
