@@ -35,7 +35,7 @@ class Database():
         self.minima_shelve.close()
         if self.write_graph_output:
             self.graph.trajectoryDict.close()
-        
+
 
     def read_restart_files(self):        
         filename = self.outpath + "minima.pickle.shelve.dat"
@@ -67,18 +67,20 @@ class Database():
             struct1.atoms.info['label'] = label
             index = bisect.bisect_left(self.unique_minima_sorted, struct1)
             self.unique_minima_sorted.insert(index, struct1)
+            struct.write(self.minima_path + "all_minima_no_duplicates.extxyz", append=True)
 
             if index < self.output_n_lowest_minima:
                 self._write_poslow(self.output_n_lowest_minima, self.minima_path)
 
             self.minima_shelve[str(label)] = struct1
+        struct.write(self.minima_path + "all_minima.extxyz", append=True)
         return self.unique_minima_sorted[index].n_visit, self.unique_minima_sorted[index].label
 
     def addElementandConnectGraph(self, currentMinimum: minimum.Minimum, escapedMinimum: minimum.Minimum, trajectory, epot_max):
         n_vistit, label = self.addElement(escapedMinimum)
         if self.write_graph_output:
             self.graph.addStructure(currentMinimum.label, escapedMinimum.label, trajectory, currentMinimum.e_pot, escapedMinimum.e_pot, epot_max)
-        return n_vistit, label
+        return n_vistit, label, True # last return determines if worker should continue. Since this class is not used with mpi True must be returned
 
     def get_element(self, index: int):
         return self.unique_minima_sorted[index].__copy__()
