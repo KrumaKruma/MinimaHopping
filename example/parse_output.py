@@ -19,8 +19,8 @@ def draw_pygraphviz(g, filename, layout='fdp'):
 
 g = graph.MinimaHoppingGraph('output/master/restart/graph.dat', 'output/master/restart/trajectory.dat', True)
 g.read_from_disk()
-n1 = 289
-n2 = 432
+n1 = 0
+n2 = 77
 print('size', g.graph.size())
 l = g.shortestPath(n1, n2)
 tl = g.getTrajectoryList(n1, n2)
