@@ -2,9 +2,20 @@ from minimahopping.mh.database import Database
 from mpi4py import MPI
 import minimahopping.MPI_database.mpi_messages as message
 import time
+import numpy as np
 
 
-def MPI_database_server_loop(energy_threshold, minima_threshold, output_n_lowest_minima, is_restart = False, outpath='./', minima_path= "lowest_minima/", write_graph_output = True):
+def MPI_database_server_loop(energy_threshold, minima_threshold, output_n_lowest_minima, is_restart = False, outpath='./', minima_path= "lowest_minima/", write_graph_output = True, maxTimeHours = np.inf, totalWorkers=None):
+
+    if totalWorkers is None:
+        print("total number of workers must be given to mpi_database_serverloop. aborting...")
+        quit()
+    
+    current_workers = totalWorkers
+
+    maxTimeSeconds = maxTimeHours * 3600
+    t_start = time.time()
+
     status = MPI.Status()
     with Database(energy_threshold, minima_threshold, output_n_lowest_minima, is_restart, outpath, minima_path, write_graph_output) as db:
         comm_world = MPI.COMM_WORLD
@@ -12,7 +23,8 @@ def MPI_database_server_loop(energy_threshold, minima_threshold, output_n_lowest
         wait_time = 0
         t1 = time.time()
         while True:
-            
+            continueSimulation = time.time() - t_start < maxTimeSeconds
+
             print('server_efficiency', process_time / (process_time + wait_time+1e-5), file=open('efficiency.txt', mode='a'))
             t2 = time.time()
             process_time += t2 - t1
@@ -28,8 +40,10 @@ def MPI_database_server_loop(energy_threshold, minima_threshold, output_n_lowest
                 n_visit, label = db.addElement(data)
                 comm_world.send((n_visit, label), sender)
             elif message_tag == message.addElementandConnectGraph:
-                n_visit, label = db.addElementandConnectGraph(*data)
-                comm_world.send((n_visit, label), sender)
+                n_visit, label, temp = db.addElementandConnectGraph(*data)
+                comm_world.send((n_visit, label, continueSimulation), sender)
+                if not continueSimulation:
+                    current_workers = current_workers - 1
             elif message_tag == message.get_element_index:
                 index = db.get_element_index(data)
                 comm_world.send(index, sender)
@@ -39,3 +53,6 @@ def MPI_database_server_loop(energy_threshold, minima_threshold, output_n_lowest
             else:
                 print('tag not known, shutting down')
                 quit()
+
+            if current_workers <= 0: # Last process that is still alive. The simulation can be stopped.
+                return
