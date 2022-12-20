@@ -15,6 +15,7 @@ import json
 import minimahopping.mh.file_handling as file_handling 
 import minimahopping.MPI_database.mpi_database_master as MPI_server
 import os
+from mpi4py import MPI
 
 """
 MH Software written by Marco Krummenacher (marco.krummenacher@unibas.ch)
@@ -79,16 +80,8 @@ class Minimahopping:
 
         self.initial_configuration = initial_configuration
 
-        try:
-            from mpi4py import MPI
-            self.mpiRank = MPI.COMM_WORLD.Get_rank()
-            self.mpiSize = MPI.COMM_WORLD.Get_size()
-        except ImportError:
-            if use_MPI:
-                print("use_MPI was set to true but mpi4py is not installed. Install mpi4py and start again.")
-                quit()
-            self.mpiRank = 0
-            self.mpiSize = 1
+        self.mpiRank = MPI.COMM_WORLD.Get_rank()
+        self.mpiSize = MPI.COMM_WORLD.Get_size()
         
         self._minima_path = 'minima/'
         if self.mpiSize == 1 or not use_MPI: # no mpi should be used
@@ -166,12 +159,26 @@ class Minimahopping:
         self._n_same = 0
 
 
+    def __enter__(self):
+        self.data = self.database.Database(self.parameter_dictionary["energy_threshold"], self.parameter_dictionary["fingerprint_threshold"]\
+                , self.parameter_dictionary["output_n_lowest_minima"], self.isRestart, self.restart_path, self._minima_path\
+                , self.parameter_dictionary["write_graph_output"])
+        self.data.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        self.data.__exit__(exc_type, exc_value, exc_traceback)
+
     def __call__(self, totalsteps = None):
         counter = 0
         if totalsteps is None:
             print('provide integer for the total number of minima hopping steps')
             quit()
         
+        if self.data is None:
+            print("The minimahopping class must be accessed through a context manager.")
+            quit()
+
         if self.parameter_dictionary['use_MPI']: # in mpi simulation clients will do infinitely many steps and are stopped by the server
             totalsteps = np.inf
 
@@ -183,98 +190,92 @@ class Minimahopping:
             print('All clients have left and the server will shut down as well.')
             print("sending mpi_abort to comm_world to make sure that all clients stop working")
             time.sleep(5)
-            from mpi4py import MPI
             MPI.COMM_WORLD.Abort()
             # quit()
         else:
-            time.sleep(1)
             print('Worker starting work ', self.mpiRank)
-        # initialize database
-        with self.database.Database(self.parameter_dictionary["energy_threshold"], self.parameter_dictionary["fingerprint_threshold"]\
-                , self.parameter_dictionary["output_n_lowest_minima"], self.isRestart, self.restart_path, self._minima_path\
-                , self.parameter_dictionary["write_graph_output"])\
-                as self.data:
-            # Start up minimahopping 
-            atoms = deepcopy(self.initial_configuration)
-            current_minimum = self._startup(atoms,)  # gets an atoms object and a minimum object is returned.
-            # Start hopping loop
-            while (counter <= totalsteps):
-                is_accepted = False
-                is_first_accept_iteration = True
-                
-                # if not accepted start reject loop until a minimum has been accepted
-                msg = "START HOPPING STEP NR.  {:d}".format(counter)
-                print(msg)
-                while not is_accepted:
-                    print("  Start escape loop")
-                    print("  ---------------------------------------------------------------")
-                    escaped_minimum, epot_max, md_trajectory, opt_trajectory = self._escape(current_minimum) 
-                    print("  ---------------------------------------------------------------")
-                    print("  New minimum found!")
 
-                    n_visit, label, continueSimulation = self.data.addElementandConnectGraph(current_minimum, escaped_minimum, md_trajectory + opt_trajectory, epot_max)
+        # Start up minimahopping 
+        atoms = deepcopy(self.initial_configuration)
+        current_minimum = self._startup(atoms,)  # gets an atoms object and a minimum object is returned.
+        # Start hopping loop
+        while (counter <= totalsteps):
+            is_accepted = False
+            is_first_accept_iteration = True
+            
+            # if not accepted start reject loop until a minimum has been accepted
+            msg = "START HOPPING STEP NR.  {:d}".format(counter)
+            print(msg)
+            while not is_accepted:
+                print("  Start escape loop")
+                print("  ---------------------------------------------------------------")
+                escaped_minimum, epot_max, md_trajectory, opt_trajectory = self._escape(current_minimum) 
+                print("  ---------------------------------------------------------------")
+                print("  New minimum found!")
 
-                    # write output
-                    self._hoplog(escaped_minimum)
+                n_visit, label, continueSimulation = self.data.addElementandConnectGraph(current_minimum, escaped_minimum, md_trajectory + opt_trajectory, epot_max)
 
-                    # check if intermediate or escaped minimum should be considered for accepting.
-                    if is_first_accept_iteration or not self.parameter_dictionary["use_intermediate_mechanism"]: 
-                        # after first iteration, the escaped minimum must be considered for accecpting
+                # write output
+                self._hoplog(escaped_minimum)
+
+                # check if intermediate or escaped minimum should be considered for accepting.
+                if is_first_accept_iteration or not self.parameter_dictionary["use_intermediate_mechanism"]: 
+                    # after first iteration, the escaped minimum must be considered for accecpting
+                    intermediate_minimum = escaped_minimum.__deepcopy__()
+                    intermediate_minimum_is_escaped_minimum = True
+                    is_first_accept_iteration = False
+                else: # After several iterations, the check if the escaped or the intermediate minimum has a lower energy
+                    intermediate_minimum_is_escaped_minimum = False
+                    if escaped_minimum.e_pot < intermediate_minimum.e_pot:
                         intermediate_minimum = escaped_minimum.__deepcopy__()
                         intermediate_minimum_is_escaped_minimum = True
-                        is_first_accept_iteration = False
-                    else: # After several iterations, the check if the escaped or the intermediate minimum has a lower energy
-                        intermediate_minimum_is_escaped_minimum = False
-                        if escaped_minimum.e_pot < intermediate_minimum.e_pot:
-                            intermediate_minimum = escaped_minimum.__deepcopy__()
-                            intermediate_minimum_is_escaped_minimum = True
 
-                    # accept minimum if necessary
-                    is_accepted =  self._accept_reject_step(current_minimum, intermediate_minimum)
+                # accept minimum if necessary
+                is_accepted =  self._accept_reject_step(current_minimum, intermediate_minimum)
 
-                    # write log messages
-                    if is_accepted:
-                        current_minimum = intermediate_minimum.__deepcopy__()
-                        if intermediate_minimum_is_escaped_minimum:
-                            status = "Accepted minimum after escaping"
-                            self._history_log(escaped_minimum, status, escaped_minimum.n_visit)
-                        else:
-                            status = 'Accepted intermediate minimum'
-                            self._history_log(intermediate_minimum, status, escaped_minimum.n_visit)
-                    else:
-                        if intermediate_minimum_is_escaped_minimum:
-                            status = "Rejected -> new intermediate minimum"
-                        else:
-                            status = "Rejected"
+                # write log messages
+                if is_accepted:
+                    current_minimum = intermediate_minimum.__deepcopy__()
+                    if intermediate_minimum_is_escaped_minimum:
+                        status = "Accepted minimum after escaping"
                         self._history_log(escaped_minimum, status, escaped_minimum.n_visit)
+                    else:
+                        status = 'Accepted intermediate minimum'
+                        self._history_log(intermediate_minimum, status, escaped_minimum.n_visit)
+                else:
+                    if intermediate_minimum_is_escaped_minimum:
+                        status = "Rejected -> new intermediate minimum"
+                    else:
+                        status = "Rejected"
+                    self._history_log(escaped_minimum, status, escaped_minimum.n_visit)
 
-                    log_msg = "  New minimum has been found {:d} time(s)".format(escaped_minimum.n_visit)
-                    print(log_msg)
+                log_msg = "  New minimum has been found {:d} time(s)".format(escaped_minimum.n_visit)
+                print(log_msg)
 
-                    # adjust the temperature according to the number of visits
-                    self._adj_temperature(escaped_minimum.n_visit)
-                    counter += 1
-                    self._write_restart(escaped_minimum, intermediate_minimum, is_accepted)
-                    if not continueSimulation:
-                        print("Client got shut down signal from server and is shutting down.")
-                        return
+                # adjust the temperature according to the number of visits
+                self._adj_temperature(escaped_minimum.n_visit)
+                counter += 1
+                self._write_restart(escaped_minimum, intermediate_minimum, is_accepted)
+                if not continueSimulation:
+                    print("Client got shut down signal from server and is shutting down.")
+                    return
 
-                print("DONE")
-                print("=================================================================")
+            print("DONE")
+            print("=================================================================")
 
-                if self.parameter_dictionary["run_time"] != "infinite":
-                    if time.time() - self._time_in > self._run_time_sec:
-                        msg = 'Simulation stopped because the given time is over\n'
-                        msg += 'Run terminated after {:d} steps'.format(counter)
-                        print(msg)
-                        print("=================================================================")
-                        return
+            if self.parameter_dictionary["run_time"] != "infinite":
+                if time.time() - self._time_in > self._run_time_sec:
+                    msg = 'Simulation stopped because the given time is over\n'
+                    msg += 'Run terminated after {:d} steps'.format(counter)
+                    print(msg)
+                    print("=================================================================")
+                    return
                 
         self.print_elapsed_time(totalsteps)
-        if self.parameter_dictionary['use_MPI']:
-            print("An MPI worker is not allowed to leave the above loop because the server might freeze. Sending MPI_abort to comm_world")
-            from mpi4py import MPI
-            MPI.COMM_WORLD.Abort()
+        # if self.parameter_dictionary['use_MPI']:
+        #     print("An MPI worker is not allowed to leave the above loop because the server might freeze. Sending MPI_abort to comm_world")
+        #     from mpi4py import MPI
+        #     MPI.COMM_WORLD.Abort()
         return
 
 
