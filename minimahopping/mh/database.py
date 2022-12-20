@@ -37,7 +37,7 @@ class Database():
             self.graph.trajectoryDict.close()
 
 
-    def read_restart_files(self):        
+    def read_restart_files(self):   
         filename = self.outpath + "minima.pickle.shelve.dat"
         self.minima_shelve = shelve.open(filename)
         if self.is_restart:
