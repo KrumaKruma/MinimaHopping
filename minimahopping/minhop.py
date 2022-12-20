@@ -16,6 +16,7 @@ import minimahopping.mh.file_handling as file_handling
 import minimahopping.MPI_database.mpi_database_master as MPI_server
 import os
 from mpi4py import MPI
+from minimahopping.MPI_database import mpi_messages
 
 """
 MH Software written by Marco Krummenacher (marco.krummenacher@unibas.ch)
@@ -47,6 +48,24 @@ def importer(name, root_package=False, relative_globals=None, level=0):
                       level=level)
 
 class Minimahopping:
+    """A minima hopping object. Must be accessed through a context manager
+
+    Attributes:
+        data            database object that handles all local minima.
+        mpiRank         Rank of mpi
+        mpiSize         size of MPI_COMM_WORLD
+        _minima_path    path where database stores all minima
+        isMaster        boolean that stores whether process is master or not
+        database        library that contains databse implementation
+    """
+
+    data = None
+    mpiRank = MPI.COMM_WORLD.Get_rank()
+    mpiSize = MPI.COMM_WORLD.Get_size()
+    _minima_path = 'minima/'
+    isMaster = None
+    database = None
+
     def __init__(self, initial_configuration : ase.atom.Atom,
                         T0 = 1000,
                         beta_decrease = 1./1.02,
@@ -80,16 +99,16 @@ class Minimahopping:
 
         self.initial_configuration = initial_configuration
 
-        self.mpiRank = MPI.COMM_WORLD.Get_rank()
-        self.mpiSize = MPI.COMM_WORLD.Get_size()
         
-        self._minima_path = 'minima/'
         if self.mpiSize == 1 or not use_MPI: # no mpi should be used
             self.isMaster = False
             self.database = importer("minimahopping.mh.database")
             self._outpath = 'output/' 
             self.restart_path = self._outpath + "restart/"
             # self._minima_path = 'minima/'
+            if use_MPI:
+                print('UseMPI is true but only one rank is present. simulation will be stopped.')
+                quit()
         else: # mpi parallelized simulation
             if totalWorkers is None:
                 print("""In an mpi simulation, the total number of workers parameter must be set to the correct number""")
@@ -160,29 +179,28 @@ class Minimahopping:
 
 
     def __enter__(self):
-        self.data = self.database.Database(self.parameter_dictionary["energy_threshold"], self.parameter_dictionary["fingerprint_threshold"]\
-                , self.parameter_dictionary["output_n_lowest_minima"], self.isRestart, self.restart_path, self._minima_path\
-                , self.parameter_dictionary["write_graph_output"])
-        self.data.__enter__()
+        if self.mpiRank > 0: 
+            self.data = self.database.Database(self.parameter_dictionary["energy_threshold"], self.parameter_dictionary["fingerprint_threshold"]\
+                    , self.parameter_dictionary["output_n_lowest_minima"], self.isRestart, self.restart_path, self._minima_path\
+                    , self.parameter_dictionary["write_graph_output"])
+            self.data.__enter__()
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
-        self.data.__exit__(exc_type, exc_value, exc_traceback)
+        if self.mpiRank > 0: 
+            self.data.__exit__(exc_type, exc_value, exc_traceback)
+        if self.parameter_dictionary['use_MPI'] and not self.isMaster: # slave threads must send exit signals to master.
+            MPI.COMM_WORLD.send((mpi_messages.clientWorkDone, None), 0)
+            print('client set work done signal to server')
+
 
     def __call__(self, totalsteps = None):
         counter = 0
         if totalsteps is None:
             print('provide integer for the total number of minima hopping steps')
             quit()
-        
-        if self.data is None:
-            print("The minimahopping class must be accessed through a context manager.")
-            quit()
 
-        if self.parameter_dictionary['use_MPI']: # in mpi simulation clients will do infinitely many steps and are stopped by the server
-            totalsteps = np.inf
-
-        if self.parameter_dictionary['use_MPI'] and self.mpiRank == 0:
+        if self.isMaster:
             print('starting mpi server on rank', self.mpiRank)
             MPI_server.MPI_database_server_loop(self.parameter_dictionary['energy_threshold'], self.parameter_dictionary['fingerprint_threshold']
                 , self.parameter_dictionary['output_n_lowest_minima'], self.isRestart, self.restart_path, self._minima_path
@@ -193,7 +211,12 @@ class Minimahopping:
             MPI.COMM_WORLD.Abort()
             # quit()
         else:
+            # time.sleep(1)
             print('Worker starting work ', self.mpiRank)
+
+        if self.data is None:
+            print("The minimahopping class must be accessed through a context manager.")
+            quit()
 
         # Start up minimahopping 
         atoms = deepcopy(self.initial_configuration)
