@@ -22,6 +22,10 @@ def MPI_database_server_loop(energy_threshold, minima_threshold, output_n_lowest
         process_time = 0
         wait_time = 0
         t1 = time.time()
+
+        # this set contains the ranks of all clients that stopped working.
+        # When the size of this set is totalWorkers the server can be stopped
+        stoppedClients = set()
         while True:
             continueSimulation = time.time() - t_start < maxTimeSeconds
 
@@ -43,6 +47,11 @@ def MPI_database_server_loop(energy_threshold, minima_threshold, output_n_lowest
                 n_visit, label, temp = db.addElementandConnectGraph(*data)
                 comm_world.send((n_visit, label, continueSimulation), sender)
                 if not continueSimulation:
+                    if sender in stoppedClients:
+                        print('Server thinks client stopped working, but client is still running.')
+                        print("rank of bad client:", sender)
+                        MPI.COMM_WORLD.Abort()
+                    stoppedClients.add(sender)
                     current_workers = current_workers - 1
             elif message_tag == message.get_element_index:
                 index = db.get_element_index(data)
@@ -50,6 +59,10 @@ def MPI_database_server_loop(energy_threshold, minima_threshold, output_n_lowest
             elif message_tag == message.get_element:
                 requested_minimum = db.get_element(data)
                 comm_world.send(requested_minimum, sender)
+            elif message_tag == message.clientWorkDone:
+                if not sender in stoppedClients: # client stopped running and was not stopped by server.
+                    stoppedClients.add(sender)
+                    current_workers = current_workers - 1
             else:
                 print('tag not known, shutting down')
                 quit()
