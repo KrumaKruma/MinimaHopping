@@ -50,7 +50,7 @@ def MPI_database_server_loop(energy_threshold, minima_threshold, output_n_lowest
                     if sender in stoppedClients:
                         print('Server thinks client stopped working, but client is still running.')
                         print("rank of bad client:", sender)
-                        MPI.COMM_WORLD.Abort()
+                        return
                     stoppedClients.add(sender)
                     current_workers = current_workers - 1
             elif message_tag == message.get_element_index:
@@ -65,7 +65,7 @@ def MPI_database_server_loop(energy_threshold, minima_threshold, output_n_lowest
                     current_workers = current_workers - 1
             else:
                 print('tag not known, shutting down')
-                quit()
+                return
 
             if current_workers <= 0: # Last process that is still alive. The simulation can be stopped.
                 return
