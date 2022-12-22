@@ -8,198 +8,411 @@ from copy import deepcopy
 
 
 
-class Opt():
-    '''
-    SQNM optimization for clusters and variable cell shape SQNM for bulk systems
-    '''
-    def __init__(self, atoms, max_froce_threshold,outpath,initial_step_size=None, nhist_max=10, lattice_weight=2, alpha_min=1e-3, eps_subsop=1e-3, verbose=True):
-        self._atoms = deepcopy(atoms)
-        self._max_force_threshold = max_froce_threshold
-        self._initial_step_size = initial_step_size
-        self._nhist_max = nhist_max
-        self._lattice_weight = lattice_weight
-        self._alpha_min = alpha_min
-        self._eps_subsop = eps_subsop
-        self._verbose = verbose
-        self._outpath = outpath
+def optimization(atoms, calculator, max_force_threshold, outpath, initial_step_size=None, nhist_max=10, lattice_weight=2, alpha_min=1e-3, eps_subsp=1e-3, verbose=True):
+    # copy the atoms object and attach calculator to it
+    atoms = atoms.copy()
+    atoms.calc = calculator
 
-        self._nat = self._atoms.get_positions().shape[0]
-        self._i_step = 0
-        self.max_disp = 0
-
-        self._atoms_old = deepcopy(atoms)
-        self._trajectory = []
-
-
-
-    def run(self):
-        '''
-        Performing either variable cell shape or cluster optimization
-        '''
-        _pbc = list(set(self._atoms.pbc))
-        assert len(_pbc) == 1, "mixed boundary conditions"
-        if self._verbose:
-            write(self._outpath + "geometry_optimization_trajectory.extxyz", self._atoms, parallel=False)
-            f = open(self._outpath + "geometry_optimization_log.dat", "w")
-            msg = 'STEP      ETOT              MAX_FORCE       GAIN_RATIO       STEPSIZE           DIM_SUPSP         MAX_DISP\n'
-            f.write(msg)
-            f.close()
-        if True in _pbc:
-            self._vcs_geom_opt()
-            temp = self._atoms.copy()
-            self._trajectory.append(temp.copy())
-            return self._atoms.get_positions(), self._atoms.get_cell(), self._optim.lower_bound(), self._trajectory
-        else:
-            self._geom_opt()
-            temp = self._atoms.copy()
-            self._trajectory.append(temp.copy())
-            return self._atoms.get_positions(), self._optim.lower_bound(), self._trajectory
-
-
-
-
-    def _vcs_geom_opt(self,):
-        '''
-        variable cell shape geometry optimization
-        '''
-        if self._initial_step_size is None:
-            self._initial_step_size = -0.001
-
-        _init_lat = self._atoms.get_cell().T
-        self._optim = periodic_sqnm.periodic_sqnm(self._nat, _init_lat, self._initial_step_size, self._nhist_max, self._lattice_weight, self._alpha_min, self._eps_subsop)
-        self._max_force_comp = 100
-        while self._max_force_comp > self._max_force_threshold:
-            pos_in = self._atoms.get_positions()
-            self._vcs_optim_step()
-            self._i_step += 1
-            if self._verbose:
-                self._write()
-            if self._check_coordinate_shift():
-                temp = self._atoms.copy()
-                self._trajectory.append(temp.copy())
-            self._check()
-            pos_out = self._atoms.get_positions()
-            self.max_disp = self._get_max_disp(pos_in, pos_out)
-
-
-    def _geom_opt(self,):
-        '''
-        Cluster or fixed cell geometry optimization
-        '''
-
-        if self._initial_step_size is None:
-            self._initial_step_size = -0.001
-
-        self._optim = free_or_fixed_cell_sqnm.free_sqnm(nat=self._nat, initial_step_size=self._initial_step_size, nhist_max=self._nhist_max,alpha_min=self._alpha_min, eps_subsp=self._eps_subsop)
-        self._max_force_comp = 100
-        while self._max_force_comp > self._max_force_threshold:
-            pos_in = self._atoms.get_positions()
-            self._optim_step()
-            self._i_step += 1
-            if self._verbose:
-                self._write()
-            if self._check_coordinate_shift():
-                temp = self._atoms.copy()
-                self._trajectory.append(temp.copy())
-            self._check()
-            pos_out = self._atoms.get_positions()
-            self.max_disp = self._get_max_disp(pos_in, pos_out)
-
-
-
-    def _optim_step(self,):
-        '''
-        Cluster or fixed cell geometry optimization step
-        '''
-        _energy = self._atoms.get_potential_energy()
-        _forces = self._atoms.get_forces()
-
-        self._max_force_comp = np.max(_forces)
-
-        _pos = self._atoms.get_positions()
-
-        _pos_new = self._optim.optimizer_step(_pos.T, _energy, _forces.T)
-
-        self._atoms.set_positions(_pos_new.T)
-
-
-    def _vcs_optim_step(self):
-        '''
-        variable cell shape geometry optimization step
-        '''
-        _energy = self._atoms.get_potential_energy()
-        _forces = self._atoms.get_forces()
-        _stress_tensor = self._atoms.get_stress(voigt=False, apply_constraint=False)
-        _lattice = self._atoms.get_cell()
-        _deralat = lat_opt.lattice_derivative(_stress_tensor, _lattice)
-
-        _max_force_comp = np.max(_forces)
-        _max_deralat_comp = np.max(_deralat)
-        self._max_force_comp = np.maximum(_max_force_comp, _max_deralat_comp)
-
-        _pos = self._atoms.get_positions().T
-        _lat = self._atoms.get_cell().T
-
-        _pos_new, _lat_new = self._optim.optimizer_step(_pos, _lat, _energy, _forces.T, _deralat)
-
-        self._atoms.set_positions(_pos_new.T)
-        self._atoms.set_cell(_lat_new.T)
-
-
-    # This should not be needed anymore since this is implemented in v 1.1 of vc sqnm.
-    # def _get_init_step(self,):
-    #     _f0 = self._atoms.get_forces()
-    #     _alpha = 0.001
-    #     _x1 = self._atoms.get_positions() + _alpha*_f0
-    #     _atom = deepcopy(self._atoms)
-    #     _atom.set_positions(_x1)
-    #     _f1 = _atom.get_forces()
-    #     self._initial_step_size = 1. / (np.linalg.norm(_f1-_f0) / (_alpha*np.linalg.norm(_f0)))
-
-
-    def _check(self):
-        '''
-        Check if the geometry optimization has reached the limit of 10000 optimization steps.
-        '''
-        if self._i_step > 10000:
-            self._max_force_comp = -1
-            warning_msg = "Geometry did not converge in {:d} optimizations steps".format(self._i_step)
-            warnings.warn(warning_msg, UserWarning)
-
-
-    def _write(self):
-        '''
-        If verbose is True each optimization step is written to a file and energy and the max force component is
-        printed
-        '''
-        _energy = self._atoms.get_potential_energy()
-        opt_msg = "{:4d}     {:1.8f}       {:1.5e}     {:1.5e}      {:1.5e}        {:1.5e}       {:1.5e}\n".format(self._i_step,
-                                                                                                                                    _energy,
-                                                                                                                                    self._max_force_comp,
-                                                                                                                                    self._optim.optimizer.gainratio,
-                                                                                                                                    self._optim.optimizer.alpha,
-                                                                                                                                    self._optim.optimizer.dim_subsp,
-                                                                                                                                    self.max_disp)
-        f = open(self._outpath+"geometry_optimization_log.dat", "a")
-        f.write(opt_msg)
+    # If verbose then open the files for writing
+    if verbose:
+        write(outpath + "geometry_optimization_trajectory.extxyz", atoms, parallel=False)
+        f = open(outpath + "geometry_optimization_log.dat", "w")
+        msg = 'STEP      ETOT              MAX_FORCE       GAIN_RATIO       STEPSIZE           DIM_SUPSP         MAX_DISP\n'
+        f.write(msg)
         f.close()
-        write(self._outpath + "geometry_optimization_trajectory.extxyz", self._atoms, append=True, parallel=False)
 
-    def _check_coordinate_shift(self, ):
-        positions_old = self._atoms_old.get_positions()
-        positions_cur = self._atoms.get_positions()
-        pos_diff = np.abs(positions_cur - positions_old)
-        max_diff = np.max(pos_diff)
-        if max_diff > 0.1:
-            append_traj = True
-            self._atoms_old = self._atoms.copy()
-        else:
-            append_traj = False
-        return append_traj
+    # Run geometry optimization
+    trajectory, optimizer = geometry_optimization(atoms, max_force_threshold, outpath,initial_step_size, nhist_max, lattice_weight, alpha_min, eps_subsp, verbose)
+    positions_out = atoms.get_positions()
+    lattice_out = atoms.get_cell()
+    noise = optimizer.lower_bound()
 
-    def _get_max_disp(self,pos_in, pos_out):
-        displacements = pos_in-pos_out
-        max_disp = np.max(displacements)
-        return max_disp
+    return positions_out, lattice_out, noise, trajectory
+
+
+
+def geometry_optimization(atoms, max_force_threshold, outpath,initial_step_size, nhist_max, lattice_weight, alpha_min, eps_subsp, verbose):
+    # check if periodic boundary condition and assert that either fully periodic or non-periodic
+    _pbc = list(set(atoms.pbc))
+    assert len(_pbc) == 1, "mixed boundary conditions"
+    if True in _pbc:
+        trajectory, optimizer = vcs_geometry_optimization(atoms, max_force_threshold, outpath,initial_step_size, nhist_max, lattice_weight, alpha_min, eps_subsp, verbose)
+    else:
+        trajectory, optimizer = free_geometry_optimization(atoms, max_force_threshold, outpath,initial_step_size, nhist_max, alpha_min, eps_subsp, verbose)
+
+    return trajectory, optimizer
+
+
+
+def vcs_geometry_optimization(atoms, max_force_threshold, outpath,initial_step_size, nhist_max, lattice_weight, alpha_min, eps_subsp, verbose):
+    '''
+    variable cell shape geometry optimization
+    '''
+    trajectory = []
+    nat = len(atoms)
+    i_step = 0
+    max_disp = 0
+    positions_old = atoms.get_positions()
+
+    if initial_step_size is None:
+        initial_step_size = -0.001
+
+    initial_lattice = atoms.get_cell().T
+    optimizer = periodic_sqnm.periodic_sqnm(nat, initial_lattice, initial_step_size, nhist_max, lattice_weight, alpha_min, eps_subsp)
+    max_force_comp = 100
+    while max_force_comp > max_force_threshold:
+        pos_in = atoms.get_positions()
+        max_force_comp = vcs_optimizer_step(atoms, optimizer)
+        i_step += 1
+
+        if verbose:
+            write_log(atoms, optimizer, outpath, i_step, max_force_comp, max_disp)
+        
+        is_append_trajectory, positions_current = check_coordinate_shift(atoms, positions_old)
+        if is_append_trajectory:
+            trajectory.append(atoms.copy())
+
+        is_aboard = check(i_step)
+        if is_aboard:
+            break
+
+        pos_out = atoms.get_positions()
+        max_disp = get_max_disp(pos_in, pos_out)
+        positions_old = positions_current
+
+    return trajectory, optimizer
+
+
+def vcs_optimizer_step(atoms, optimizer):
+    '''
+    variable cell shape geometry optimization step
+    '''
+    energy = atoms.get_potential_energy()
+    forces = atoms.get_forces()
+    stress_tensor = atoms.get_stress(voigt=False, apply_constraint=False)
+    lattice = atoms.get_cell()
+    deralat = lat_opt.lattice_derivative(stress_tensor, lattice)
+
+    max_force_comp = np.max(forces)
+    max_deralat_comp = np.max(deralat)
+    max_force_comp = np.maximum(max_force_comp, max_deralat_comp)
+
+    positions = atoms.get_positions().T
+    lattice = atoms.get_cell().T
+
+    positions_new, lattice_new = optimizer.optimizer_step(positions, lattice, energy, forces.T, deralat)
+
+    atoms.set_positions(positions_new.T)
+    atoms.set_cell(lattice_new.T)
+
+    return max_force_comp
+
+
+def free_geometry_optimization(atoms, max_force_threshold, outpath,initial_step_size, nhist_max, alpha_min, eps_subsp, verbose):
+    '''
+    Cluster or fixed cell geometry optimization
+    '''
+    trajectory = []
+    nat = len(atoms)
+    i_step = 0
+    max_disp = 0
+    positions_old = atoms.get_positions()
+
+    if initial_step_size is None:
+        initial_step_size = -0.001
+
+    optimizer = free_or_fixed_cell_sqnm.free_sqnm(nat, initial_step_size, nhist_max, alpha_min, eps_subsp)
+    max_force_comp = 100
+    while max_force_comp > max_force_threshold:
+        pos_in = atoms.get_positions()
+        max_force_comp = free_optimizer_step(atoms, optimizer)
+        i_step += 1
+
+        if verbose:
+            write_log(atoms, optimizer, outpath, i_step, max_force_comp, max_disp)
+
+        is_append_trajectory, positions_current = check_coordinate_shift(atoms, positions_old)
+        if is_append_trajectory:
+            trajectory.append(atoms.copy())
+
+        is_aboard = check(i_step)
+        if is_aboard:
+            break
+
+        pos_out = atoms.get_positions()
+        max_disp = get_max_disp(pos_in, pos_out)
+        positions_old = positions_current
+
+    return trajectory, optimizer
+
+
+def free_optimizer_step(atoms, optimizer):
+    '''
+    Cluster or fixed cell geometry optimization step
+    '''
+    energy = atoms.get_potential_energy()
+    forces = atoms.get_forces()
+
+    max_force_comp = np.max(forces)
+
+    positions = atoms.get_positions()
+
+    positions_new = optimizer.optimizer_step(positions.T, energy, forces.T)
+
+    atoms.set_positions(positions_new.T)
+
+    return max_force_comp
+
+
+def write_log(atoms, optimizer, outpath, i_step, max_force_comp, max_disp):
+    '''
+    If verbose is True each optimization step is written to a file and energy and the max force component is
+    printed
+    '''
+    
+    energy = atoms.get_potential_energy()
+    opt_msg = "{:4d}     {:1.8f}       {:1.5e}     {:1.5e}      {:1.5e}        {:1.5e}       {:1.5e}\n".format(i_step,
+                                                                                                            energy,
+                                                                                                            max_force_comp,
+                                                                                                            optimizer.optimizer.gainratio,
+                                                                                                            optimizer.optimizer.alpha,
+                                                                                                            optimizer.optimizer.dim_subsp,
+                                                                                                            max_disp)
+    f = open(outpath+"geometry_optimization_log.dat", "a")
+    f.write(opt_msg)
+    f.close()
+    write(outpath + "geometry_optimization_trajectory.extxyz", atoms, append=True, parallel=False)
+
+
+def check_coordinate_shift(atoms, positions_old):
+    """
+    checks if maximal coordinate shift is larger than 0.1
+    """
+    # Get the maximal coordinate shift
+    positions_cur = atoms.get_positions()
+    pos_diff = np.abs(positions_cur-positions_old)
+    max_diff = np.max(pos_diff)
+    # if maximal shift is larger than 0.1 -> write to trajectory and update current position
+    if max_diff > 0.1:
+        append_traj = True
+        positions_current = positions_cur
+    else:
+        positions_current = positions_old
+        append_traj = False
+    return append_traj, positions_current
+
+
+def check(i_step):
+    '''
+    Check if the geometry optimization has reached the limit of 10000 optimization steps.
+    '''
+    if i_step > 10000:
+        warning_msg = "Geometry did not converge in {:d} optimizations steps".format(i_step)
+        warnings.warn(warning_msg, UserWarning)
+        is_aboard = True
+    else:
+        is_aboard = False
+    return is_aboard
+
+
+def get_max_disp(pos_in, pos_out):
+    displacements = pos_in-pos_out
+    max_disp = np.max(displacements)
+    return max_disp
+
+
+# class Opt():
+#     '''
+#     SQNM optimization for clusters and variable cell shape SQNM for bulk systems
+#     '''
+#     def __init__(self, atoms, max_froce_threshold,outpath,initial_step_size=None, nhist_max=10, lattice_weight=2, alpha_min=1e-3, eps_subsop=1e-3, verbose=True):
+#         self._atoms = deepcopy(atoms)
+#         self._max_force_threshold = max_froce_threshold
+#         self._initial_step_size = initial_step_size
+#         self._nhist_max = nhist_max
+#         self._lattice_weight = lattice_weight
+#         self._alpha_min = alpha_min
+#         self._eps_subsop = eps_subsop
+#         self._verbose = verbose
+#         self._outpath = outpath
+
+#         self._nat = self._atoms.get_positions().shape[0]
+#         self._i_step = 0
+#         self.max_disp = 0
+
+#         self._atoms_old = deepcopy(atoms)
+#         self._trajectory = []
+
+
+
+#     def run(self):
+#         '''
+#         Performing either variable cell shape or cluster optimization
+#         '''
+#         _pbc = list(set(self._atoms.pbc))
+#         assert len(_pbc) == 1, "mixed boundary conditions"
+#         if self._verbose:
+#             write(self._outpath + "geometry_optimization_trajectory.extxyz", self._atoms, parallel=False)
+#             f = open(self._outpath + "geometry_optimization_log.dat", "w")
+#             msg = 'STEP      ETOT              MAX_FORCE       GAIN_RATIO       STEPSIZE           DIM_SUPSP         MAX_DISP\n'
+#             f.write(msg)
+#             f.close()
+#         if True in _pbc:
+#             self._vcs_geom_opt()
+#             temp = self._atoms.copy()
+#             self._trajectory.append(temp.copy())
+#             return self._atoms.get_positions(), self._atoms.get_cell(), self._optim.lower_bound(), self._trajectory
+#         else:
+#             self._geom_opt()
+#             temp = self._atoms.copy()
+#             self._trajectory.append(temp.copy())
+#             return self._atoms.get_positions(), self._optim.lower_bound(), self._trajectory
+
+
+
+
+#     def _vcs_geom_opt(self,):
+#         '''
+#         variable cell shape geometry optimization
+#         '''
+#         if self._initial_step_size is None:
+#             self._initial_step_size = -0.001
+
+#         _init_lat = self._atoms.get_cell().T
+#         self._optim = periodic_sqnm.periodic_sqnm(self._nat, _init_lat, self._initial_step_size, self._nhist_max, self._lattice_weight, self._alpha_min, self._eps_subsop)
+#         self._max_force_comp = 100
+#         while self._max_force_comp > self._max_force_threshold:
+#             pos_in = self._atoms.get_positions()
+#             self._vcs_optim_step()
+#             self._i_step += 1
+#             if self._verbose:
+#                 self._write()
+#             if self._check_coordinate_shift():
+#                 temp = self._atoms.copy()
+#                 self._trajectory.append(temp.copy())
+#             self._check()
+#             pos_out = self._atoms.get_positions()
+#             self.max_disp = self._get_max_disp(pos_in, pos_out)
+
+
+#     def _geom_opt(self,):
+#         '''
+#         Cluster or fixed cell geometry optimization
+#         '''
+
+#         if self._initial_step_size is None:
+#             self._initial_step_size = -0.001
+
+#         self._optim = free_or_fixed_cell_sqnm.free_sqnm(nat=self._nat, initial_step_size=self._initial_step_size, nhist_max=self._nhist_max,alpha_min=self._alpha_min, eps_subsp=self._eps_subsop)
+#         self._max_force_comp = 100
+#         while self._max_force_comp > self._max_force_threshold:
+#             pos_in = self._atoms.get_positions()
+#             self._optim_step()
+#             self._i_step += 1
+#             if self._verbose:
+#                 self._write()
+#             if self._check_coordinate_shift():
+#                 temp = self._atoms.copy()
+#                 self._trajectory.append(temp.copy())
+#             self._check()
+#             pos_out = self._atoms.get_positions()
+#             self.max_disp = self._get_max_disp(pos_in, pos_out)
+
+
+
+#     def _optim_step(self,):
+#         '''
+#         Cluster or fixed cell geometry optimization step
+#         '''
+#         _energy = self._atoms.get_potential_energy()
+#         _forces = self._atoms.get_forces()
+
+#         self._max_force_comp = np.max(_forces)
+
+#         _pos = self._atoms.get_positions()
+
+#         _pos_new = self._optim.optimizer_step(_pos.T, _energy, _forces.T)
+
+#         self._atoms.set_positions(_pos_new.T)
+
+
+#     def _vcs_optim_step(self):
+#         '''
+#         variable cell shape geometry optimization step
+#         '''
+#         _energy = self._atoms.get_potential_energy()
+#         _forces = self._atoms.get_forces()
+#         _stress_tensor = self._atoms.get_stress(voigt=False, apply_constraint=False)
+#         _lattice = self._atoms.get_cell()
+#         _deralat = lat_opt.lattice_derivative(_stress_tensor, _lattice)
+
+#         _max_force_comp = np.max(_forces)
+#         _max_deralat_comp = np.max(_deralat)
+#         self._max_force_comp = np.maximum(_max_force_comp, _max_deralat_comp)
+
+#         _pos = self._atoms.get_positions().T
+#         _lat = self._atoms.get_cell().T
+
+#         _pos_new, _lat_new = self._optim.optimizer_step(_pos, _lat, _energy, _forces.T, _deralat)
+
+#         self._atoms.set_positions(_pos_new.T)
+#         self._atoms.set_cell(_lat_new.T)
+
+
+#     # This should not be needed anymore since this is implemented in v 1.1 of vc sqnm.
+#     # def _get_init_step(self,):
+#     #     _f0 = self._atoms.get_forces()
+#     #     _alpha = 0.001
+#     #     _x1 = self._atoms.get_positions() + _alpha*_f0
+#     #     _atom = deepcopy(self._atoms)
+#     #     _atom.set_positions(_x1)
+#     #     _f1 = _atom.get_forces()
+#     #     self._initial_step_size = 1. / (np.linalg.norm(_f1-_f0) / (_alpha*np.linalg.norm(_f0)))
+
+
+#     def _check(self):
+#         '''
+#         Check if the geometry optimization has reached the limit of 10000 optimization steps.
+#         '''
+#         if self._i_step > 10000:
+#             self._max_force_comp = -1
+#             warning_msg = "Geometry did not converge in {:d} optimizations steps".format(self._i_step)
+#             warnings.warn(warning_msg, UserWarning)
+
+
+#     def _write(self):
+#         '''
+#         If verbose is True each optimization step is written to a file and energy and the max force component is
+#         printed
+#         '''
+#         _energy = self._atoms.get_potential_energy()
+#         opt_msg = "{:4d}     {:1.8f}       {:1.5e}     {:1.5e}      {:1.5e}        {:1.5e}       {:1.5e}\n".format(self._i_step,
+#                                                                                                                                     _energy,
+#                                                                                                                                     self._max_force_comp,
+#                                                                                                                                     self._optim.optimizer.gainratio,
+#                                                                                                                                     self._optim.optimizer.alpha,
+#                                                                                                                                     self._optim.optimizer.dim_subsp,
+#                                                                                                                                     self.max_disp)
+#         f = open(self._outpath+"geometry_optimization_log.dat", "a")
+#         f.write(opt_msg)
+#         f.close()
+#         write(self._outpath + "geometry_optimization_trajectory.extxyz", self._atoms, append=True, parallel=False)
+
+#     def _check_coordinate_shift(self, ):
+#         positions_old = self._atoms_old.get_positions()
+#         positions_cur = self._atoms.get_positions()
+#         pos_diff = np.abs(positions_cur - positions_old)
+#         max_diff = np.max(pos_diff)
+#         if max_diff > 0.1:
+#             append_traj = True
+#             self._atoms_old = self._atoms.copy()
+#         else:
+#             append_traj = False
+#         return append_traj
+
+#     def _get_max_disp(self,pos_in, pos_out):
+#         displacements = pos_in-pos_out
+#         max_disp = np.max(displacements)
+#         return max_disp
 
 

@@ -7,7 +7,8 @@ import minimahopping.mh.lattice_operations as lat_opt
 from copy import deepcopy
 from minimahopping.md.soften import Softening
 from minimahopping.md.md import MD
-from minimahopping.opt.optim import Opt
+#from minimahopping.opt.optim import Opt
+import minimahopping.opt.optim as opt
 from minimahopping.mh.minimum import Minimum
 from minimahopping.mh.cell_atom import Cell_atom
 import time
@@ -225,6 +226,7 @@ class Minimahopping:
         self.calculator = calculator
 
         current_minimum = self._startup(structure_list)  # gets an atoms object and a minimum object is returned.
+
         # Start hopping loop
         while (counter <= totalsteps):
             is_accepted = False
@@ -310,12 +312,12 @@ class Minimahopping:
         atoms_list = []
         if not isinstance(atoms_in, list):
             atoms_out, calculator = self._split_atoms_and_calculator(atoms_in)
-            atoms_list.append(atoms_out)
+            atoms_list.append(atoms_out.copy())
         else:
             for atom in atoms_in:
                 atoms_out, calculator = self._split_atoms_and_calculator(atom)
-                atoms_list.append(atoms_out)
-        return atoms_out, calculator
+                atoms_list.append(atoms_out.copy())
+        return atoms_list, calculator
 
     
     def _split_atoms_and_calculator(self, atoms_in):
@@ -341,6 +343,7 @@ class Minimahopping:
         
 
     def _startup(self, atoms):
+        # Input is a list of ASE atoms objects
         print("=================================================================")
         print("MINIMAHOPPING SETUP START")
 
@@ -349,18 +352,15 @@ class Minimahopping:
             self._run_time_sec = self._get_sec()
         self._time_in = time.time()
 
-        if not isinstance(atoms, list):
-            atoms = [deepcopy(atoms)]
-        calc = atoms[0].calc
-        self.calc = calc
-
         # Check if this is a fresh start
         if not self.isRestart:
             print('  New MH run is started')
             for atom in atoms:
+                print(len(atom))
                 _positions, _lattice = self._restart_opt(atom,)
                 atom.set_positions(_positions)
                 atom.set_cell(_lattice)
+                atom.calc = self.calculator
                 struct = Minimum(atom,
                             s = self.parameter_dictionary['n_S_orbitals'],
                             p = self.parameter_dictionary["n_P_orbitals"], 
@@ -373,7 +373,6 @@ class Minimahopping:
                 self.data.addElement(struct)
             # add input structure to database after optimization
             struct_cur = self.data.get_element(0)
-            struct_cur.atoms.calc = calc
             self._write_restart(struct_cur, struct_cur, True)
         else:
             print('  Restart MH run')
@@ -381,7 +380,6 @@ class Minimahopping:
             # Read current structure
             filename = self.restart_path + "poscur.extxyz"
             atoms = read(filename, parallel= False)
-            atoms.calc = calc
             
             struct_cur = Minimum(atoms,
                         s = self.parameter_dictionary['n_S_orbitals'],
@@ -414,14 +412,12 @@ class Minimahopping:
 
 
     def _restart_opt(self, atoms,):
-        _atoms = deepcopy(atoms)
-        opt = Opt(atoms=_atoms, outpath=self._outpath,max_froce_threshold=self.parameter_dictionary["fmax"], verbose=self.parameter_dictionary["verbose_output"])
-        if True in atoms.pbc:
-            _positions, _lattice, _noise, _opt_trajectory = opt.run()
-        else:
-            _positions, _noise, _opt_trajectory = opt.run()
-            _lattice = np.zeros((3,3))
-        return _positions, _lattice
+        positions, lattice, noise, trajectory = opt.optimization(atoms=atoms, 
+                                                                        calculator=self.calculator, 
+                                                                        max_force_threshold=self.parameter_dictionary["fmax"], 
+                                                                        outpath=self._outpath, 
+                                                                        verbose=self.parameter_dictionary["verbose_output"])
+        return positions, lattice
 
 
     def _get_sec(self,):
@@ -438,12 +434,11 @@ class Minimahopping:
         self._n_same = 0
         _escape = 0.0
         _escape_energy = 0.0
-        atoms = struct.atoms.copy()
-        atoms.calc = self.calc
 
         _i_steps = 0
         while _escape < self.parameter_dictionary["fingerprint_threshold"] or _escape_energy < self.parameter_dictionary["energy_threshold"]:
-            atoms = deepcopy(struct.atoms)
+            atoms = struct.atoms.copy()
+            atoms.calc = self.calculator
             # if the loop not escaped (no new minimum found) rise temperature
             if _i_steps > 0:
                 self._n_same += 1
@@ -472,7 +467,7 @@ class Minimahopping:
 
                 print("    VCS MD Start")
 
-                md = MD(atoms=atoms, calculator=self.calc, outpath=self._outpath, cell_atoms=self._cell_atoms, dt=self.parameter_dictionary['dt'], n_max=self.parameter_dictionary["mdmin"], verbose=self.parameter_dictionary["verbose_output"])
+                md = MD(atoms=atoms, calculator=self.calculator, outpath=self._outpath, cell_atoms=self._cell_atoms, dt=self.parameter_dictionary['dt'], n_max=self.parameter_dictionary["mdmin"], verbose=self.parameter_dictionary["verbose_output"])
                 _positions, _cell , self.parameter_dictionary['dt'], _md_trajectory, _epot_max = md.run()
 
                 log_msg = "    VCS MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f}".format(md._i_steps, self.parameter_dictionary["mdmin"], self.parameter_dictionary['dt'])
@@ -484,38 +479,49 @@ class Minimahopping:
                 atoms = lat_opt.reshape_cell2(atoms, 6)
 
                 print("    VCS OPT start")
+                positions, lattice, self._noise, _opt_trajectory = opt.optimization(atoms=atoms, 
+                                                                        calculator=self.calculator, 
+                                                                        max_force_threshold=self.parameter_dictionary["fmax"], 
+                                                                        outpath=self._outpath, 
+                                                                        verbose=self.parameter_dictionary["verbose_output"])
+                # opt = Opt(atoms=atoms, outpath=self._outpath, max_froce_threshold=self.parameter_dictionary["fmax"], verbose=self.parameter_dictionary["verbose_output"])
+                # _positions, _lattice, self._noise, _opt_trajectory = opt.run()
+                atoms.set_positions(positions)
+                atoms.set_cell(lattice)
 
-                opt = Opt(atoms=atoms, outpath=self._outpath, max_froce_threshold=self.parameter_dictionary["fmax"], verbose=self.parameter_dictionary["verbose_output"])
-                _positions, _lattice, self._noise, _opt_trajectory = opt.run()
-                atoms.set_positions(_positions)
-                atoms.set_cell(_lattice)
-
-                log_msg = "    VCS OPT finished after {:d} steps         {:d}".format(opt._i_step, len(_opt_trajectory))
+                log_msg = "    VCS OPT finished after {:d} steps         {:d}".format(len(_opt_trajectory))
                 print(log_msg)
 
             # in case of a non-periodic system do md and optimization
             else:
                 #start softening
-                softening = Softening(atoms, self.calc)
+                softening = Softening(atoms, self.calculator)
                 _velocities = softening.run(self.parameter_dictionary['n_softening_steps'])
                 atoms.set_velocities(_velocities)
 
                 print("    MD Start")
 
-                md = MD(atoms=atoms, calculator=self.calc, outpath=self._outpath, cell_atoms=None, dt=self.parameter_dictionary['dt'], n_max=self.parameter_dictionary["mdmin"], verbose=self.parameter_dictionary["verbose_output"])
+                md = MD(atoms=atoms, calculator=self.calculator, outpath=self._outpath, cell_atoms=None, dt=self.parameter_dictionary['dt'], n_max=self.parameter_dictionary["mdmin"], verbose=self.parameter_dictionary["verbose_output"])
                 _positions , self.parameter_dictionary['dt'], _md_trajectory, _epot_max = md.run()
                 atoms.set_positions(_positions)
                 log_msg = "    MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f}".format(md._i_steps, self.parameter_dictionary["mdmin"], self.parameter_dictionary['dt'])
                 print(log_msg)
+
                 print("    OPT start")
-                opt = Opt(atoms=atoms, outpath=self._outpath, max_froce_threshold=self.parameter_dictionary["fmax"], verbose=self.parameter_dictionary["verbose_output"])
-                _positions, self._noise, _opt_trajectory = opt.run()
-                atoms.set_positions(_positions)
-                log_msg = "    OPT finished after {:d} steps".format(opt._i_step, len(_opt_trajectory))
+                positions, lattice, self._noise, _opt_trajectory = opt.optimization(atoms=atoms, 
+                                                        calculator=self.calculator, 
+                                                        max_force_threshold=self.parameter_dictionary["fmax"], 
+                                                        outpath=self._outpath, 
+                                                        verbose=self.parameter_dictionary["verbose_output"])
+                # opt = Opt(atoms=atoms, outpath=self._outpath, max_froce_threshold=self.parameter_dictionary["fmax"], verbose=self.parameter_dictionary["verbose_output"])
+                # _positions, self._noise, _opt_trajectory = opt.run()
+                atoms.set_positions(positions)
+                log_msg = "    OPT finished after {:d} steps".format(len(_opt_trajectory))
                 print(log_msg)
             # check if the energy threshold is below the optimization noise
             self._check_energy_threshold()
 
+            
             proposed_structure = Minimum(atoms,
                         s = self.parameter_dictionary['n_S_orbitals'],
                         p = self.parameter_dictionary["n_P_orbitals"], 
@@ -542,6 +548,7 @@ class Minimahopping:
 
     def _hoplog(self, struct):
         atoms = struct.atoms
+        atoms.calc = self.calculator
         log_msg = "  Epot:  {:1.5f}   E_diff:  {:1.5f}    Temp:   {:1.5f} ".format(atoms.get_potential_energy(),
                                                                                              self.parameter_dictionary["energy_difference_to_accept"],
                                                                                              self.parameter_dictionary['T'])
@@ -590,6 +597,7 @@ class Minimahopping:
 
     def _history_log(self, struct, status, n_visits = 0):
         atoms = struct.atoms
+        atoms.calc = self.calculator
         _notunique_frac = float(self._n_notunique)/float(self._n_min)
         _same_frac = float(self._n_same)/float(self._n_min)
         _unique_frac = 1. - (_notunique_frac+_same_frac)
