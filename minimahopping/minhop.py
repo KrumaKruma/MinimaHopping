@@ -17,6 +17,7 @@ import minimahopping.MPI_database.mpi_database_master as MPI_server
 import os
 from mpi4py import MPI
 from minimahopping.MPI_database import mpi_messages
+from ase import Atoms
 
 """
 MH Software written by Marco Krummenacher (marco.krummenacher@unibas.ch)
@@ -219,8 +220,11 @@ class Minimahopping:
             quit()
 
         # Start up minimahopping 
-        atoms = deepcopy(self.initial_configuration)
-        current_minimum = self._startup(atoms,)  # gets an atoms object and a minimum object is returned.
+        # atoms = deepcopy(self.initial_configuration)
+        structure_list, calculator = self._initialize_structures(self.initial_configuration)
+        self.calculator = calculator
+
+        current_minimum = self._startup(structure_list)  # gets an atoms object and a minimum object is returned.
         # Start hopping loop
         while (counter <= totalsteps):
             is_accepted = False
@@ -300,6 +304,28 @@ class Minimahopping:
         #     from mpi4py import MPI
         #     MPI.COMM_WORLD.Abort()
         return
+
+
+    def _initialize_structures(self, atoms_in):
+        atoms_list = []
+        if not isinstance(atoms_in, list):
+            atoms_out, calculator = self._split_atoms_and_calculator(atoms_in)
+            atoms_list.append(atoms_out)
+        else:
+            for atom in atoms_in:
+                atoms_out, calculator = self._split_atoms_and_calculator(atom)
+                atoms_list.append(atoms_out)
+        return atoms_out, calculator
+
+    
+    def _split_atoms_and_calculator(self, atoms_in):
+        calculator = atoms_in.calc
+        positions = atoms_in.get_positions()
+        cell = atoms_in.get_cell()
+        pbc = atoms_in.pbc
+        elements = atoms_in.get_chemical_symbols()
+        atoms_out = Atoms(symbols=elements, positions=positions, pbc=pbc, cell=cell)
+        return atoms_out, calculator
 
 
     def _write_restart(self, escaped_minimum: Minimum, intermediate_minimum: Minimum, isAccepted: bool):
