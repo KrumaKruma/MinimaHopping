@@ -179,7 +179,7 @@ class Minimahopping:
 
 
     def __enter__(self):
-        if self.mpiRank > 0: 
+        if self.mpiRank > 0 or not self.parameter_dictionary["use_MPI"]: 
             self.data = self.database.Database(self.parameter_dictionary["energy_threshold"], self.parameter_dictionary["fingerprint_threshold"]\
                     , self.parameter_dictionary["output_n_lowest_minima"], self.isRestart, self.restart_path, self._minima_path\
                     , self.parameter_dictionary["write_graph_output"])
