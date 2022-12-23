@@ -4,9 +4,8 @@ from ase.io import read
 import ase.atom
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
 import minimahopping.mh.lattice_operations as lat_opt
-from minimahopping.md.soften import Softening
+import minimahopping.md.soften as softening
 from minimahopping.md.md import MD
-#from minimahopping.opt.optim import Opt
 import minimahopping.opt.optim as opt
 from minimahopping.mh.minimum import Minimum
 from minimahopping.mh.cell_atom import Cell_atom
@@ -75,6 +74,9 @@ class Minimahopping:
                         alpha_accept = 1/1.02,
                         alpha_reject = 1.02,
                         n_soft = 20,
+                        soften_positions = 1e-2,
+                        soften_lattice = 1e-3,
+                        soften_biomode = False,
                         n_S_orbitals = 1, 
                         n_P_orbitals = 1, 
                         width_cutoff = 3.5, 
@@ -146,6 +148,9 @@ class Minimahopping:
                 "alpha_accept" : alpha_accept,
                 "alpha_reject" : alpha_reject,
                 "n_softening_steps" : n_soft,
+                "alpha_soften_positions" : soften_positions,
+                "alpha_soften_lattice" : soften_lattice,
+                "soften_biomode" : soften_biomode,
                 "n_S_orbitals" : n_S_orbitals,
                 "n_P_orbitals" : n_P_orbitals,
                 "width_cutoff": width_cutoff,
@@ -460,8 +465,16 @@ class Minimahopping:
                 self._cell_atoms.set_velocities_boltzmann(temperature=self.parameter_dictionary['T'])
 
                 # softening of the velocities
-                softening = Softening(atoms, self._cell_atoms)
-                _velocities, _cell_velocities = softening.run(self.parameter_dictionary['n_softening_steps'])
+                _velocities, _cell_velocities = softening.soften(atoms=atoms, 
+                                calculator=self.calculator, 
+                                nsoft=self.parameter_dictionary['n_softening_steps'],
+                                alpha_pos = self.parameter_dictionary['alpha_soften_positions'], 
+                                cell_atoms = self._cell_atoms,
+                                alpha_lat =  self.parameter_dictionary['alpha_soften_lattice'])
+
+                # softening = Softening(atoms, self._cell_atoms)
+                # _velocities, _cell_velocities = softening.run(self.parameter_dictionary['n_softening_steps'])
+
                 atoms.set_velocities(_velocities)
                 self._cell_atoms.velocities = _cell_velocities
 
@@ -495,8 +508,16 @@ class Minimahopping:
             # in case of a non-periodic system do md and optimization
             else:
                 #start softening
-                softening = Softening(atoms, self.calculator)
-                _velocities = softening.run(self.parameter_dictionary['n_softening_steps'])
+                # softening of the velocities
+                _velocities = softening.soften(atoms=atoms, 
+                                calculator=self.calculator, 
+                                nsoft=self.parameter_dictionary['n_softening_steps'],
+                                alpha_pos = self.parameter_dictionary['alpha_soften_positions'], 
+                                cell_atoms = None,
+                                alpha_lat =  NotImplementedError)
+
+                # softening = Softening(atoms, self.calculator)
+                # _velocities = softening.run(self.parameter_dictionary['n_softening_steps'])
                 atoms.set_velocities(_velocities)
 
                 print("    MD Start")
