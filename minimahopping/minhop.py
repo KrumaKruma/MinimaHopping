@@ -4,7 +4,6 @@ from ase.io import read
 import ase.atom
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
 import minimahopping.mh.lattice_operations as lat_opt
-from copy import deepcopy
 from minimahopping.md.soften import Softening
 from minimahopping.md.md import MD
 #from minimahopping.opt.optim import Opt
@@ -221,7 +220,6 @@ class Minimahopping:
             quit()
 
         # Start up minimahopping 
-        # atoms = deepcopy(self.initial_configuration)
         structure_list, calculator = self._initialize_structures(self.initial_configuration)
         self.calculator = calculator
 
@@ -412,7 +410,7 @@ class Minimahopping:
 
 
     def _restart_opt(self, atoms,):
-        positions, lattice, noise, trajectory = opt.optimization(atoms=atoms, 
+        positions, lattice, noise, trajectory, number_of_steps = opt.optimization(atoms=atoms, 
                                                                         calculator=self.calculator, 
                                                                         max_force_threshold=self.parameter_dictionary["fmax"], 
                                                                         outpath=self._outpath, 
@@ -481,7 +479,7 @@ class Minimahopping:
                 atoms = lat_opt.reshape_cell2(atoms, 6)
 
                 print("    VCS OPT start")
-                positions, lattice, self._noise, _opt_trajectory = opt.optimization(atoms=atoms, 
+                positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps = opt.optimization(atoms=atoms, 
                                                                         calculator=self.calculator, 
                                                                         max_force_threshold=self.parameter_dictionary["fmax"], 
                                                                         outpath=self._outpath, 
@@ -491,7 +489,7 @@ class Minimahopping:
                 atoms.set_positions(positions)
                 atoms.set_cell(lattice)
 
-                log_msg = "    VCS OPT finished after {:d} steps         {:d}".format(len(_opt_trajectory))
+                log_msg = "    VCS OPT finished after {:d} steps.".format(number_of_opt_steps)
                 print(log_msg)
 
             # in case of a non-periodic system do md and optimization
@@ -510,7 +508,7 @@ class Minimahopping:
                 print(log_msg)
 
                 print("    OPT start")
-                positions, lattice, self._noise, _opt_trajectory = opt.optimization(atoms=atoms, 
+                positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps = opt.optimization(atoms=atoms, 
                                                         calculator=self.calculator, 
                                                         max_force_threshold=self.parameter_dictionary["fmax"], 
                                                         outpath=self._outpath, 
@@ -518,7 +516,7 @@ class Minimahopping:
                 # opt = Opt(atoms=atoms, outpath=self._outpath, max_froce_threshold=self.parameter_dictionary["fmax"], verbose=self.parameter_dictionary["verbose_output"])
                 # _positions, self._noise, _opt_trajectory = opt.run()
                 atoms.set_positions(positions)
-                log_msg = "    OPT finished after {:d} steps".format(len(_opt_trajectory))
+                log_msg = "    OPT finished after {:d} steps".format(number_of_opt_steps)
                 print(log_msg)
             # check if the energy threshold is below the optimization noise
             self._check_energy_threshold()
