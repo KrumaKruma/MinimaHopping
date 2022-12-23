@@ -250,13 +250,13 @@ class Minimahopping:
                 # check if intermediate or escaped minimum should be considered for accepting.
                 if is_first_accept_iteration or not self.parameter_dictionary["use_intermediate_mechanism"]: 
                     # after first iteration, the escaped minimum must be considered for accecpting
-                    intermediate_minimum = escaped_minimum.__deepcopy__()
+                    intermediate_minimum = escaped_minimum.__copy__()
                     intermediate_minimum_is_escaped_minimum = True
                     is_first_accept_iteration = False
                 else: # After several iterations, the check if the escaped or the intermediate minimum has a lower energy
                     intermediate_minimum_is_escaped_minimum = False
                     if escaped_minimum.e_pot < intermediate_minimum.e_pot:
-                        intermediate_minimum = escaped_minimum.__deepcopy__()
+                        intermediate_minimum = escaped_minimum.__copy__()
                         intermediate_minimum_is_escaped_minimum = True
 
                 # accept minimum if necessary
@@ -264,7 +264,7 @@ class Minimahopping:
 
                 # write log messages
                 if is_accepted:
-                    current_minimum = intermediate_minimum.__deepcopy__()
+                    current_minimum = intermediate_minimum.__copy__()
                     if intermediate_minimum_is_escaped_minimum:
                         status = "Accepted minimum after escaping"
                         self._history_log(escaped_minimum, status, escaped_minimum.n_visit)
@@ -434,9 +434,11 @@ class Minimahopping:
         self._n_same = 0
         _escape = 0.0
         _escape_energy = 0.0
-
         _i_steps = 0
-        while _escape < self.parameter_dictionary["fingerprint_threshold"] or _escape_energy < self.parameter_dictionary["energy_threshold"]:
+
+        is_escape = True
+
+        while is_escape:
             atoms = struct.atoms.copy()
             atoms.calc = self.calculator
             # if the loop not escaped (no new minimum found) rise temperature
@@ -538,7 +540,11 @@ class Minimahopping:
 
             _i_steps += 1
             self._n_min += 1
-        
+
+            if  _escape > self.parameter_dictionary["fingerprint_threshold"]:
+                is_escape = False
+            elif _escape_energy > self.parameter_dictionary["energy_threshold"]:
+                is_escape = False
 
         log_msg = "    New minimum found with fpd {:1.2e} after looping {:d} time(s)".format(_escape, _i_steps)
         print(log_msg)

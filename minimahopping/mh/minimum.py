@@ -34,9 +34,6 @@ class Minimum():
     def __copy__(self,):
         return Minimum(self.atoms.copy(), self.e_pot, self.s, self.p, self.width_cutoff, self.maxnatsphere, self.temperature, self.ediff, self.n_visit, self.label, self.exclude)
 
-    def __deepcopy__(self,):
-        return Minimum(self.atoms, self.e_pot ,self.s, self.p, self.width_cutoff, self.maxnatsphere, self.temperature, self.ediff, self.n_visit, self.label, self.exclude)
-
     def __compareto__(self, other):
         return abs(self.e_pot - other.e_pot)
 
