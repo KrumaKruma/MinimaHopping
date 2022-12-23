@@ -5,7 +5,7 @@ import ase.atom
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
 import minimahopping.mh.lattice_operations as lat_opt
 import minimahopping.md.soften as softening
-from minimahopping.md.md import MD
+import minimahopping.md.md as md
 import minimahopping.opt.optim as opt
 from minimahopping.mh.minimum import Minimum
 from minimahopping.mh.cell_atom import Cell_atom
@@ -19,7 +19,7 @@ from minimahopping.MPI_database import mpi_messages
 from ase import Atoms
 
 """
-MH Software written by Marco Krummenacher (marco.krummenacher@unibas.ch)
+MH Software written by Marco Krummenacher (marco.krummenacher@unibas.ch), Moritz Gubler and Jonas Finkler
 Parts of the software were originally developped (some in Fortran) from other people:
   -- VCSMD: Martin Sommer-Joergenson
   -- VCS Softening: Hannes Huber
@@ -472,18 +472,20 @@ class Minimahopping:
                                 cell_atoms = self._cell_atoms,
                                 alpha_lat =  self.parameter_dictionary['alpha_soften_lattice'])
 
-                # softening = Softening(atoms, self._cell_atoms)
-                # _velocities, _cell_velocities = softening.run(self.parameter_dictionary['n_softening_steps'])
-
                 atoms.set_velocities(_velocities)
                 self._cell_atoms.velocities = _cell_velocities
 
                 print("    VCS MD Start")
 
-                md = MD(atoms=atoms, calculator=self.calculator, outpath=self._outpath, cell_atoms=self._cell_atoms, dt=self.parameter_dictionary['dt'], n_max=self.parameter_dictionary["mdmin"], verbose=self.parameter_dictionary["verbose_output"])
-                _positions, _cell , self.parameter_dictionary['dt'], _md_trajectory, _epot_max = md.run()
+                _positions, _cell , self.parameter_dictionary['dt'], _md_trajectory, _epot_max, number_of_md_steps = md.md(atoms = atoms, 
+                                                                                                                        calculator = self.calculator,
+                                                                                                                        outpath = self._outpath, 
+                                                                                                                        cell_atoms = self._cell_atoms,
+                                                                                                                        dt = self.parameter_dictionary['dt'], 
+                                                                                                                        n_max = self.parameter_dictionary["mdmin"],
+                                                                                                                        verbose = self.parameter_dictionary["verbose_output"])
 
-                log_msg = "    VCS MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f}".format(md._i_steps, self.parameter_dictionary["mdmin"], self.parameter_dictionary['dt'])
+                log_msg = "    VCS MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f}".format(number_of_md_steps, self.parameter_dictionary["mdmin"], self.parameter_dictionary['dt'])
 
                 print(log_msg)
                 atoms.set_positions(_positions)
@@ -497,8 +499,7 @@ class Minimahopping:
                                                                         max_force_threshold=self.parameter_dictionary["fmax"], 
                                                                         outpath=self._outpath, 
                                                                         verbose=self.parameter_dictionary["verbose_output"])
-                # opt = Opt(atoms=atoms, outpath=self._outpath, max_froce_threshold=self.parameter_dictionary["fmax"], verbose=self.parameter_dictionary["verbose_output"])
-                # _positions, _lattice, self._noise, _opt_trajectory = opt.run()
+
                 atoms.set_positions(positions)
                 atoms.set_cell(lattice)
 
@@ -515,17 +516,20 @@ class Minimahopping:
                                 alpha_pos = self.parameter_dictionary['alpha_soften_positions'], 
                                 cell_atoms = None,
                                 alpha_lat =  NotImplementedError)
-
-                # softening = Softening(atoms, self.calculator)
-                # _velocities = softening.run(self.parameter_dictionary['n_softening_steps'])
                 atoms.set_velocities(_velocities)
 
                 print("    MD Start")
 
-                md = MD(atoms=atoms, calculator=self.calculator, outpath=self._outpath, cell_atoms=None, dt=self.parameter_dictionary['dt'], n_max=self.parameter_dictionary["mdmin"], verbose=self.parameter_dictionary["verbose_output"])
-                _positions , self.parameter_dictionary['dt'], _md_trajectory, _epot_max = md.run()
+                _positions, self.parameter_dictionary['dt'], _md_trajectory, _epot_max, number_of_md_steps = md.md(atoms = atoms, 
+                                                                                                                        calculator = self.calculator,
+                                                                                                                        outpath = self._outpath, 
+                                                                                                                        cell_atoms = None,
+                                                                                                                        dt = self.parameter_dictionary['dt'], 
+                                                                                                                        n_max = self.parameter_dictionary["mdmin"],
+                                                                                                                        verbose = self.parameter_dictionary["verbose_output"])
+
                 atoms.set_positions(_positions)
-                log_msg = "    MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f}".format(md._i_steps, self.parameter_dictionary["mdmin"], self.parameter_dictionary['dt'])
+                log_msg = "    MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f}".format(number_of_md_steps, self.parameter_dictionary["mdmin"], self.parameter_dictionary['dt'])
                 print(log_msg)
 
                 print("    OPT start")
@@ -534,8 +538,7 @@ class Minimahopping:
                                                         max_force_threshold=self.parameter_dictionary["fmax"], 
                                                         outpath=self._outpath, 
                                                         verbose=self.parameter_dictionary["verbose_output"])
-                # opt = Opt(atoms=atoms, outpath=self._outpath, max_froce_threshold=self.parameter_dictionary["fmax"], verbose=self.parameter_dictionary["verbose_output"])
-                # _positions, self._noise, _opt_trajectory = opt.run()
+
                 atoms.set_positions(positions)
                 log_msg = "    OPT finished after {:d} steps".format(number_of_opt_steps)
                 print(log_msg)
