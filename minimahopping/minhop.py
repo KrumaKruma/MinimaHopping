@@ -27,6 +27,8 @@ Parts of the software were originally developped (some in Fortran) from other pe
   -- OMFP in python: Jonas Finkler
 """
 
+# TODO: test mh with periodic bounrdary conditions and bazant
+
 
 def importer(name, root_package=False, relative_globals=None, level=0):
     """ We only import modules, functions can be looked up on the module.
@@ -227,7 +229,6 @@ class Minimahopping:
         # Start up minimahopping 
         structure_list, calculator = self._initialize_structures(self.initial_configuration)
         self.calculator = calculator
-
         current_minimum = self._startup(structure_list)  # gets an atoms object and a minimum object is returned.
 
         # Start hopping loop
@@ -312,6 +313,15 @@ class Minimahopping:
 
 
     def _initialize_structures(self, atoms_in):
+        """ 
+        initializes the sturcture
+        Input: 
+            atoms_in: Initial structure (ASE atoms object with and attachted calculator)
+        Return:
+            atoms_list: List of ASE atoms objects (without calculator)
+            calculator: ASE calculator
+        """
+
         atoms_list = []
         if not isinstance(atoms_in, list):
             atoms_out, calculator = self._split_atoms_and_calculator(atoms_in)
@@ -324,6 +334,14 @@ class Minimahopping:
 
     
     def _split_atoms_and_calculator(self, atoms_in):
+        """
+        Extract calculator and only nessecairy information from atoms object
+        Input:
+            atoms_in: ASE atoms object with an attached calculator
+        Return:
+            atoms_out: ASE atoms object only with nessecairy information
+            calulator: ASE calculator
+        """
         calculator = atoms_in.calc
         positions = atoms_in.get_positions()
         cell = atoms_in.get_cell()
@@ -346,6 +364,14 @@ class Minimahopping:
         
 
     def _startup(self, atoms):
+        """
+        Startup of the minimahopping algorithm
+        Input:
+            atoms: list of ASE atoms objects
+        Return:
+            struct_cur: current structure (ASE atoms object)
+        """
+
         # Input is a list of ASE atoms objects
         print("=================================================================")
         print("MINIMAHOPPING SETUP START")
@@ -415,6 +441,9 @@ class Minimahopping:
 
 
     def _restart_opt(self, atoms,):
+        """
+        Optimization wrapper for the startup
+        """
         positions, lattice, noise, trajectory, number_of_steps = opt.optimization(atoms=atoms, 
                                                                         calculator=self.calculator, 
                                                                         max_force_threshold=self.parameter_dictionary["fmax"], 
@@ -424,7 +453,9 @@ class Minimahopping:
 
 
     def _get_sec(self,):
-        """Get seconds from time."""
+        """
+        Get seconds from time.
+        """
         nd, d = self.parameter_dictionary["run_time"].split('-')
         h, m, s = d.split(':')
         return int(nd) * 86400 + int(h) * 3600 + int(m) * 60 + int(s)
@@ -575,6 +606,9 @@ class Minimahopping:
 
 
     def _hoplog(self, struct):
+        """
+        Print log information of the minimahopping
+        """
         atoms = struct.atoms
         atoms.calc = self.calculator
         log_msg = "  Epot:  {:1.5f}   E_diff:  {:1.5f}    Temp:   {:1.5f} ".format(atoms.get_potential_energy(),
@@ -585,6 +619,14 @@ class Minimahopping:
 
 
     def _accept_reject_step(self, struct_cur: Minimum, struct: Minimum):
+        """
+        Accept/Reject step in the algorithm and adjustment of E_diff. 
+        Input:
+            sturct_cur: Minimum object of the old minimum
+            struct: Minimum object of the newly found minimum
+        Return:
+            is_accepted: bool, True if struct is accepted
+        """
         _e_pot_cur = struct_cur.e_pot
         _e_pot = struct.e_pot
 
@@ -613,6 +655,11 @@ class Minimahopping:
 
 
     def _adj_temperature(self, n_visits):
+        """
+        Adjust the temperature depending if minimum was found previously
+        Input:
+            n_visits: number of times the minimum has been visited
+        """
         if n_visits > 1:
             self._n_notunique += 1
             if self.parameter_dictionary["enhanced_feedback"]:
@@ -624,6 +671,13 @@ class Minimahopping:
 
 
     def _history_log(self, struct, status, n_visits = 0):
+        """
+        Writing log message in the history file
+        Input:
+            struct: Minimum object
+            status: str (Accept, Reject, Intermediate, etc.)
+            n_visits: number of time the minimum has been visited
+        """
         atoms = struct.atoms
         atoms.calc = self.calculator
         _notunique_frac = float(self._n_notunique)/float(self._n_min)
@@ -645,6 +699,9 @@ class Minimahopping:
 
 
     def _check_energy_threshold(self):
+        """
+        Function that checks if the energy_threshold is below the noise
+        """
         if self.parameter_dictionary["energy_threshold"] < self._noise:
             _warning_msg = 'Energy threshold is below the noise level'
             warnings.warn(_warning_msg, UserWarning)
@@ -658,6 +715,9 @@ class Minimahopping:
 
 
     def print_elapsed_time(self, totalsteps):
+        """
+        Function that prints the elapsed time in the form DD-HH-MM-SS
+        """
         _elapsed_time = time.time() - self._time_in
         day = _elapsed_time // (24 * 3600)
         _elapsed_time = _elapsed_time % (24 * 3600)
