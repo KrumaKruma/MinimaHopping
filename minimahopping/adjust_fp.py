@@ -1,10 +1,10 @@
 import numpy as np
-from copy import deepcopy
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
-from minimahopping.md.md import MD
-from minimahopping.opt.optim import Opt
+import minimahopping.md.md as md
+import minimahopping.opt.optim as opt
 from minimahopping.mh.minimum import Minimum
 from minimahopping.mh.cell_atom import Cell_atom
+
 
 class adjust_fp():
     def __init__(self, 
@@ -28,7 +28,7 @@ class adjust_fp():
         self._ns_orb = ns_orb
         self._np_orb = np_orb
         self._width_cutoff = width_cutoff
-        self._verbose = True
+        self._verbose = False
         self._exclude = exclude
         self._maxnatsphere = maxnatsphere
         self.minimalist = []
@@ -37,31 +37,61 @@ class adjust_fp():
         
         self._outpath = "./"
 
-    def run(self,atoms):
-
+    def run(self, atoms):
+        msg = "START MD AND OPTIMIZATION FOR {:d} CYCLES: ".format(self.n_steps)
+        print(msg)
+        calculator = atoms.calc
         for i in range(self.n_steps):
-            atom = deepcopy(atoms)
+            msg = "  START CYCLE {:d}".format(i)
+            print(msg)
+            atom = atoms.copy()
             MaxwellBoltzmannDistribution(atom, temperature_K=self._temperature)
             if True in atom.pbc:
                 mass = .75 * np.sum(atoms.get_masses()) / 10.
                 cell_atoms = Cell_atom(mass=mass, positions=atom.get_cell())
                 cell_atoms.set_velocities_boltzmann(temperature=self._temperature)
-                md = MD(atoms=atom, outpath=self._outpath, cell_atoms=self._cell_atoms, dt=self._dt, n_max=self._mdmin, verbose=self._verbose)
-                _positions, _cell , dt, _md_trajectory, _epot_max = md.run()
-                atom.set_positions(_positions)
-                atom.set_cell(_cell)
-                opt = Opt(atoms=atom, outpath=self._outpath, max_froce_threshold=self._fmax, verbose=self._verbose)
-                _positions, _lattice, _noise, _opt_trajectory = opt.run()
-                atom.set_positions(_positions)
-                atom.set_cell(_lattice)
+
+                positions, lattice , dt, _md_trajectory, _epot_max, number_of_md_steps = md.md(atoms = atom, 
+                                                                                                        calculator = calculator,
+                                                                                                        outpath = self._outpath, 
+                                                                                                        cell_atoms = self._cell_atoms,
+                                                                                                        dt = self._temperature, 
+                                                                                                        n_max = self._mdmin,
+                                                                                                        verbose = self._verbose)
+
+                atom.set_positions(positions)
+                atom.set_cell(lattice)
+
+                positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps = opt.optimization(atoms=atom, 
+                                                                        calculator=calculator, 
+                                                                        max_force_threshold=self._fmax, 
+                                                                        outpath=self._outpath, 
+                                                                        verbose=self._verbose)
+
+                atom.set_positions(positions)
+                atom.set_cell(lattice)
             
             else:
-                md = MD(atoms=atom, outpath=self._outpath, cell_atoms=None, dt=self._dt, n_max=self._mdmin, verbose=self._verbose)
-                _positions , dt, _md_trajectory, _epot_max = md.run()
-                atom.set_positions(_positions)
-                opt = Opt(atoms=atom, outpath=self._outpath, max_froce_threshold=self._fmax, verbose=self._verbose)
-                _positions, self._noise, _opt_trajectory = opt.run()
-                atom.set_positions(_positions)
+                print(atom.get_velocities())
+                positions, dt, _md_trajectory, _epot_max, number_of_md_steps = md.md(atoms = atom, 
+                                                                                                        calculator = calculator,
+                                                                                                        outpath = self._outpath, 
+                                                                                                        cell_atoms = None,
+                                                                                                        dt = self._dt, 
+                                                                                                        n_max = self._mdmin,
+                                                                                                        verbose = True)
+                                                                                                        
+                atom.set_positions(positions)
+
+                positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps = opt.optimization(atoms=atom, 
+                                        calculator=calculator, 
+                                        max_force_threshold=self._fmax, 
+                                        outpath=self._outpath, 
+                                        verbose=self._verbose)
+
+                atom.set_positions(positions)
+
+            atom.calc = calculator
 
             mini = Minimum(atom,
                         s = self._ns_orb,
@@ -104,27 +134,3 @@ class adjust_fp():
         }
 
         return outdict
-
-
-
-# def main():
-
-#     atoms = Icosahedron('Na', 2, latticeconstant=None)
-#     write("test.extxyz", atoms)
-#     calculator = EAM(potential="Na_v2.eam.fs")
-#     atoms.calc = calculator
-
-
-#     fnrm =  0.000005
-#     adjust = adjust_fp(atoms, fnrm,)
-#     fp_max, fp_mean, fp_std = adjust.run()
-#     msg = 'Maximal fingerprint distance between the same local minima:\n' + str(fp_max)
-#     msg += '\n Mean fingerprint distance between the same local minima:\n' + str(fp_mean)
-#     msg += '\n Standard deviaton of the fingerprint distances:\n' + str(fp_std)
-#     print(msg)
-
-
-
-
-# if __name__  == '__main__':
-#     main()
