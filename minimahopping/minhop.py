@@ -85,7 +85,7 @@ class Minimahopping:
                         maxnatsphere = 100, 
                         exclude = [],
                         dt = 0.01,
-                        mdmin = 5,
+                        mdmin = 2,
                         fmax = 0.001,
                         enhanced_feedback = False,
                         energy_threshold = 0.0001, #5 the noise

@@ -116,7 +116,6 @@ def run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_ma
     '''
     Running the MD over n_max maxima. If this is not reached after 10'000 steps the MD stops
     '''
-
     # Initialization of some variables
     i_steps = 0
     sign_old = -1
@@ -125,8 +124,8 @@ def run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_ma
     trajectory = []
     e_pot_old = atoms.get_potential_energy()
     is_one_cluster = True
+    epot_max = -1e10
     epot_min = 1e10
-    epot_max = 1e10
     etot_max = -1e10
     etot_min = 1e10
 
@@ -337,10 +336,10 @@ def adjust_dt(etot_max, etot_min, epot_max, epot_min, dt):
     adjust the timestep according to energy conservation
     """
     _defcon = (etot_max - etot_min)#/(3 * self._nat)
-    #print("DEBUGG:   ", (_defcon / (self._epot_max-self._epot_min)), self._etot_max, self._etot_min,  self._epot_max, self._epot_min, self._dt)
+    print("DEBUGG:   ", (_defcon / (epot_max-epot_min)), etot_max, etot_min,  epot_max, epot_min, dt)
     if (_defcon / (epot_max-epot_min)) < 1e-2:
         dt *= 1.05
     else:
-        dt *= 1./1.05
+        dt *= 1.0/1.05
     return dt
 
