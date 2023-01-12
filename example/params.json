@@ -1,0 +1,27 @@
+{
+    "mixer": {
+        "beta": 0.5,
+        "max_history": 8,
+        "use_hartree": true
+    },
+    "control" : {
+        "verbosity" : 0
+    },
+    "parameters": {
+        "use_symmetry": true,
+        "energy_tol" : 1e-7, 
+        "density_tol" : 1e-8,
+        "pw_cutoff" : 900,
+        "gk_cutoff" : 150,
+        "xc_functionals" : ["XC_LDA_XC_TETER93"],
+        "ngridk" : [3, 3, 3],
+        "shiftk" : [0, 0, 0]
+    },
+    "unit_cell": {
+        "atom_files":{
+            "C" : "/users/mkrummen/pp/pplda/C.json",
+            "H" : "/users/mkrummen/pp/pplda/H.json",
+            "N" : "/users/mkrummen/pp/pplda/N.json"
+        }
+    }
+}

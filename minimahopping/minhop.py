@@ -27,7 +27,6 @@ Parts of the software were originally developped (some in Fortran) from other pe
   -- OMFP in python: Jonas Finkler
 """
 
-# TODO: test mh with periodic bounrdary conditions and bazant
 
 
 def importer(name, root_package=False, relative_globals=None, level=0):
@@ -487,6 +486,11 @@ class Minimahopping:
             # set the temperature according to Boltzmann distribution
             MaxwellBoltzmannDistribution(atoms, temperature_K=self.parameter_dictionary['T'], communicator='serial')
 
+            try:
+                print("    UPDATE BASIS MD")
+                self.calculator.recalculateBasis(atoms)
+            except:
+                pass
             # in case of periodic system do variable cell shape md and optimization
             if True in atoms.pbc:
 
@@ -524,6 +528,12 @@ class Minimahopping:
                 atoms.set_cell(_cell)
 
                 atoms = lat_opt.reshape_cell2(atoms, 6)
+
+                try:
+                    print("    UPDATE BASIS")
+                    self.calculator.recalculateBasis(atoms)
+                except:
+                    pass
 
                 print("    VCS OPT start")
                 positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps = opt.optimization(atoms=atoms, 
@@ -563,7 +573,11 @@ class Minimahopping:
                 atoms.set_positions(_positions)
                 log_msg = "    MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f}".format(number_of_md_steps, self.parameter_dictionary["mdmin"], self.parameter_dictionary['dt'])
                 print(log_msg)
-
+                try:
+                    print("    UPDATE BASIS OPT")
+                    self.calculator.recalculateBasis(atoms)
+                except:
+                    pass
                 print("    OPT start")
                 positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps = opt.optimization(atoms=atoms, 
                                                         calculator=self.calculator, 
