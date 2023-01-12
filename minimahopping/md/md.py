@@ -146,8 +146,9 @@ def run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_ma
         e_tot_min_new, e_tot_max_new = update_etot_minmax(e_tot, etot_min, etot_max)
 
         # TODO: Write here a function after the if statement
-        if i_steps%5 == 0:
-            is_one_cluster = check_and_fix_fragmentation(atoms)
+        if cell_atoms is None:
+            if i_steps%5 == 0:
+                is_one_cluster = check_and_fix_fragmentation(atoms)
 
 
 
@@ -253,12 +254,12 @@ def update_lattice_positions(atoms, cell_atoms, lattice_force, dt):
     lattice = cell_atoms.positions
     cell_masses = get_cell_masses(cell_atoms)
     # Update the cell positions
-    #reduced_positions = lat_opt.cart2frac(positions, lattice)
+    # reduced_positions = lat_opt.cart2frac(positions, lattice)
     cell_atoms.positions = cell_atoms.positions + dt * cell_atoms.velocities + 0.5 * dt * dt * (lattice_force / cell_masses)
     atoms.set_cell(cell_atoms.positions, scale_atoms=True, apply_constraint=False)
-    lattice = cell_atoms.positions
-    #positions = lat_opt.frac2cart(reduced_positions, lattice)
-    #atoms.set_positions(positions)
+    # lattice = cell_atoms.positions
+    # positions = lat_opt.frac2cart(reduced_positions, lattice)
+    # atoms.set_positions(positions)
 
 
 def update_lattice_velocities(atoms, cell_atoms, lattice_force, dt):
@@ -336,7 +337,7 @@ def adjust_dt(etot_max, etot_min, epot_max, epot_min, dt):
     adjust the timestep according to energy conservation
     """
     _defcon = (etot_max - etot_min)#/(3 * self._nat)
-    print("DEBUGG:   ", (_defcon / (epot_max-epot_min)), etot_max, etot_min,  epot_max, epot_min, dt)
+    # print("DEBUGG:   ", (_defcon / (epot_max-epot_min)), etot_max, etot_min,  epot_max, epot_min, dt)
     if (_defcon / (epot_max-epot_min)) < 1e-2:
         dt *= 1.05
     else:

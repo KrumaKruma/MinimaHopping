@@ -491,7 +491,8 @@ class Minimahopping:
             if True in atoms.pbc:
 
                 # initialize the cell vectors as atoms
-                _mass = .75 * np.sum(atoms.get_masses()) / 10.
+                # _mass = .75 * np.sum(atoms.get_masses()) / 10. # Formula if for the MD real masses are used
+                _mass = .75 * np.sum(len(atoms)) / 10.
                 self._cell_atoms = Cell_atom(mass=_mass, positions=atoms.get_cell())
                 self._cell_atoms.set_velocities_boltzmann(temperature=self.parameter_dictionary['T'])
 

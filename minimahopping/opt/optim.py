@@ -99,7 +99,7 @@ def vcs_optimizer_step(atoms, optimizer):
     positions = atoms.get_positions().T
     lattice = atoms.get_cell().T
 
-    positions_new, lattice_new = optimizer.optimizer_step(positions, lattice, energy, forces.T, deralat)
+    positions_new, lattice_new = optimizer.optimizer_step(positions, lattice, energy, forces.T, deralat.T)
 
     atoms.set_positions(positions_new.T)
     atoms.set_cell(lattice_new.T)
