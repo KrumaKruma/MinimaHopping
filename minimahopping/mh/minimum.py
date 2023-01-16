@@ -63,7 +63,7 @@ class Minimum():
         fp_dist /= len(self.atoms)
         return fp_dist
 
-    def write(self, filename :str, append = False, info_dict: dict = {}):
+    def write(self, filename, append = False, info_dict: dict = {}):
         temp_atoms = self.atoms.copy()
         temp_atoms.info = {}
         temp_atoms.set_momenta(None)
