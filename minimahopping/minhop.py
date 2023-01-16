@@ -215,8 +215,8 @@ class Minimahopping:
                 , self.parameter_dictionary['write_graph_output'], totalWorkers=self.parameter_dictionary["totalWorkers"], maxTimeHours=self._get_sec() / 3600)
             print('All clients have left and the server will shut down as well.')
             print("sending mpi_abort to comm_world to make sure that all clients stop working")
-            time.sleep(5)
-            MPI.COMM_WORLD.Abort()
+            # time.sleep(5)
+            # MPI.COMM_WORLD.Abort()
             # quit()
         else:
             # time.sleep(1)
