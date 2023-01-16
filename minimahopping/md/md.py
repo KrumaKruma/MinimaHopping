@@ -134,7 +134,7 @@ def run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_ma
         forces_new, lattice_force_new = verlet_step(atoms, cell_atoms, dt, forces, lattice_force)
         i_steps += 1
         # update the trajectory
-        positions_new, trajectory = update_trajectory(atoms, positions_old, trajectory)
+        positions_new, trajectory = update_trajectory(atoms, positions_old, trajectory, outpath)
         # update the maximal/minimal potential energy
         epot_min_new, epot_max_new = update_epot_minmax(atoms, epot_min, epot_max)
 
@@ -201,7 +201,7 @@ def update_epot_minmax(atoms, epot_min, epot_max):
     return epot_min, epot_max
 
 
-def update_trajectory(atoms, positions_old, trajectory):
+def update_trajectory(atoms, positions_old, trajectory, outpath):
     """
     Function that updates the MD trajectory if the atom have shifted max(r1-r2)>0.2
     """
@@ -211,6 +211,7 @@ def update_trajectory(atoms, positions_old, trajectory):
     if is_add_to_trajectory:
         temp = atoms.copy()
         trajectory.append(temp.copy())
+        write_md_trajectoryies(atoms, outpath)
     return positions_current, trajectory
 
 
@@ -250,8 +251,8 @@ def update_lattice_positions(atoms, cell_atoms, lattice_force, dt):
     Update of the lattice postions and moving the atoms accordingly
     '''
     # Get the postions, velocities and masses
-    positions = atoms.get_positions()
-    lattice = cell_atoms.positions
+    # positions = atoms.get_positions()
+    # lattice = cell_atoms.positions
     cell_masses = get_cell_masses(cell_atoms)
     # Update the cell positions
     # reduced_positions = lat_opt.cart2frac(positions, lattice)
@@ -330,6 +331,11 @@ def write_log(atoms, e_pot, e_kin, e_tot, i_steps, dt, outpath, forces):
     f.write(md_msg)
     f.close()
     write(outpath + "MD_trajectory.extxyz", atoms, append=True, parallel=False)
+
+
+def write_md_trajectoryies(atoms, outpath):
+    filename = outpath + "MD_trajectories.extxyz"
+    write(filename, atoms, append=True, parallel=False)
 
 
 def adjust_dt(etot_max, etot_min, epot_max, epot_min, dt):
