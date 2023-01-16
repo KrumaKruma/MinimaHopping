@@ -92,8 +92,8 @@ def vcs_optimizer_step(atoms, optimizer):
     lattice = atoms.get_cell()
     deralat = lat_opt.lattice_derivative(stress_tensor, lattice)
 
-    max_force_comp = np.max(forces)
-    max_deralat_comp = np.max(deralat)
+    max_force_comp = np.max(np.abs(forces))
+    max_deralat_comp = np.max(np.abs(deralat))
     max_force_comp = np.maximum(max_force_comp, max_deralat_comp)
 
     positions = atoms.get_positions().T
@@ -152,7 +152,7 @@ def free_optimizer_step(atoms, optimizer):
     energy = atoms.get_potential_energy()
     forces = atoms.get_forces()
 
-    max_force_comp = np.max(forces)
+    max_force_comp = np.max(np.abs(forces))
 
     positions = atoms.get_positions()
 
