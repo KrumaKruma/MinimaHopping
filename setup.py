@@ -17,7 +17,8 @@ setup(
         'scipy',
         'scikit-learn',
         'networkx',
-        'mpi4py'
+        'mpi4py',
+        'sqnm @ git+https://github.com/moritzgubler/vc-sqnm#egg=sqnm&subdirectory=src/python/'
     ],
 )
 
