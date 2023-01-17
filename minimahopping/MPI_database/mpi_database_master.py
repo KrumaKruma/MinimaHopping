@@ -29,7 +29,7 @@ def MPI_database_server_loop(energy_threshold, minima_threshold, output_n_lowest
         while True:
             continueSimulation = time.time() - t_start < maxTimeSeconds
 
-            print('server_efficiency', process_time / (process_time + wait_time+1e-5), file=open('efficiency.txt', mode='a'))
+            print('server_efficiency, processing time, waiting time:', process_time / (process_time + wait_time+1e-6), process_time, wait_time, file=open('efficiency.txt', mode='a'))
             t2 = time.time()
             process_time += t2 - t1
             t1 = time.time()
