@@ -487,6 +487,10 @@ class Minimahopping:
             # set the temperature according to Boltzmann distribution
             MaxwellBoltzmannDistribution(atoms, temperature_K=self.parameter_dictionary['T'], communicator='serial')
 
+            # check that periodic boundaries are the same in all directions (no mixed boundary conditions)
+            _pbc = list(set(atoms.pbc))
+            assert len(_pbc) == 1, "mixed boundary conditions"
+
             # in case of periodic system do variable cell shape md and optimization
             if True in atoms.pbc:
 
