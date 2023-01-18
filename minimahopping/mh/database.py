@@ -18,6 +18,9 @@ class Database():
 
         self.minima_shelve = None
 
+        self.noDublicatesFileName = self.minima_path + "all_minima_no_duplicates.extxyz"
+        self.allMinimaFilename = self.minima_path + "all_minima.extxyz"
+
         if self.write_graph_output:
             self.graphFilename = self.outpath + "graph.dat"
             self.graphTrajectoryFilename = self.outpath + 'trajectory.dat'
@@ -26,6 +29,8 @@ class Database():
 
     def __enter__(self):
         self.read_restart_files()
+        self.noDublicatesFile = open(self.noDublicatesFileName, mode='a')
+        self.allMinimaFile = open(self.allMinimaFilename, mode='a')
         if self.write_graph_output:
             self.graph.read_from_disk()
         return self
@@ -33,6 +38,8 @@ class Database():
 
     def __exit__(self,exc_type, exc_value, exc_traceback):
         self.minima_shelve.close()
+        self.noDublicatesFile.close()
+        self.allMinimaFile.close()
         if self.write_graph_output:
             self.graph.trajectoryDict.close()
 
@@ -67,13 +74,13 @@ class Database():
             struct1.atoms.info['label'] = label
             index = bisect.bisect_left(self.unique_minima_sorted, struct1)
             self.unique_minima_sorted.insert(index, struct1)
-            struct.write(self.minima_path + "all_minima_no_duplicates.extxyz", append=True)
+            struct.write(self.noDublicatesFile, append=True)
 
             if index < self.output_n_lowest_minima:
                 self._write_poslow(self.output_n_lowest_minima, self.minima_path)
 
             self.minima_shelve[str(label)] = struct1
-        struct.write(self.minima_path + "all_minima.extxyz", append=True)
+        struct.write(self.allMinimaFile, append=True)
         return self.unique_minima_sorted[index].n_visit, self.unique_minima_sorted[index].label
 
     def addElementandConnectGraph(self, currentMinimum: minimum.Minimum, escapedMinimum: minimum.Minimum, trajectory, epot_max):

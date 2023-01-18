@@ -19,7 +19,7 @@ def lattice_derivative(stress_tensor, cell):
 
     inv_cell = np.linalg.inv(cell)
     prefact = np.linalg.det(cell)
-    deralat = - prefact * np.matmul(stress_tensor, inv_cell)
+    deralat = (- prefact * np.matmul(stress_tensor, inv_cell)).T
     return deralat
 
 

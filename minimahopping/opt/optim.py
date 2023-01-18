@@ -4,7 +4,7 @@ from ase.io import write
 import minimahopping.opt.periodic_sqnm as periodic_sqnm
 import minimahopping.opt.free_or_fixed_cell_sqnm as free_or_fixed_cell_sqnm
 import minimahopping.mh.lattice_operations as lat_opt
-
+from sqnm.vcsqnm_for_ase import aseOptimizer
 
 
 def optimization(atoms, calculator, max_force_threshold, outpath, initial_step_size=None, nhist_max=10, lattice_weight=2, alpha_min=1e-3, eps_subsp=1e-3, verbose=True):
@@ -24,7 +24,7 @@ def optimization(atoms, calculator, max_force_threshold, outpath, initial_step_s
     trajectory, optimizer, number_of_steps = geometry_optimization(atoms, max_force_threshold, outpath,initial_step_size, nhist_max, lattice_weight, alpha_min, eps_subsp, verbose)
     positions_out = atoms.get_positions()
     lattice_out = atoms.get_cell()
-    noise = optimizer.lower_bound()
+    noise = optimizer.optimizer.lower_bound()
 
     return positions_out, lattice_out, noise, trajectory, number_of_steps
 
@@ -48,7 +48,6 @@ def vcs_geometry_optimization(atoms, max_force_threshold, outpath,initial_step_s
     variable cell shape geometry optimization
     '''
     trajectory = []
-    nat = len(atoms)
     i_step = 0
     max_disp = 0
     positions_old = atoms.get_positions()
@@ -56,8 +55,14 @@ def vcs_geometry_optimization(atoms, max_force_threshold, outpath,initial_step_s
     if initial_step_size is None:
         initial_step_size = -0.001
 
-    initial_lattice = atoms.get_cell().T
-    optimizer = periodic_sqnm.periodic_sqnm(nat, initial_lattice, initial_step_size, nhist_max, lattice_weight, alpha_min, eps_subsp)
+    optimizer = aseOptimizer(initial_structure=atoms, 
+                             vc_relax=True, 
+                             initial_step_size=initial_step_size, 
+                             nhist_max=nhist_max, 
+                             lattice_weigth=lattice_weight, 
+                             alpha_min=alpha_min, 
+                             eps_subsp=eps_subsp)
+
     max_force_comp = 100
     while max_force_comp > max_force_threshold:
         pos_in = atoms.get_positions()
@@ -86,24 +91,8 @@ def vcs_optimizer_step(atoms, optimizer):
     '''
     variable cell shape geometry optimization step
     '''
-    energy = atoms.get_potential_energy()
-    forces = atoms.get_forces()
-    stress_tensor = atoms.get_stress(voigt=False, apply_constraint=False)
-    lattice = atoms.get_cell()
-    deralat = lat_opt.lattice_derivative(stress_tensor, lattice)
-
-    max_force_comp = np.max(np.abs(forces))
-    max_deralat_comp = np.max(np.abs(deralat))
-    max_force_comp = np.maximum(max_force_comp, max_deralat_comp)
-
-    positions = atoms.get_positions().T
-    lattice = atoms.get_cell().T
-
-    positions_new, lattice_new = optimizer.optimizer_step(positions, lattice, energy, forces.T, deralat.T)
-
-    atoms.set_positions(positions_new.T)
-    atoms.set_cell(lattice_new.T)
-
+    optimizer.step(atoms)
+    max_force_comp = optimizer._getDerivativeNorm()
     return max_force_comp
 
 
@@ -120,7 +109,12 @@ def free_geometry_optimization(atoms, max_force_threshold, outpath,initial_step_
     if initial_step_size is None:
         initial_step_size = -0.001
 
-    optimizer = free_or_fixed_cell_sqnm.free_sqnm(nat, initial_step_size, nhist_max, alpha_min, eps_subsp)
+    optimizer = aseOptimizer(initial_structure=atoms, 
+                            vc_relax=False, 
+                            initial_step_size=initial_step_size, 
+                            nhist_max=nhist_max,  
+                            alpha_min=alpha_min, 
+                            eps_subsp=eps_subsp)
     max_force_comp = 100
     while max_force_comp > max_force_threshold:
         pos_in = atoms.get_positions()
@@ -149,17 +143,8 @@ def free_optimizer_step(atoms, optimizer):
     '''
     Cluster or fixed cell geometry optimization step
     '''
-    energy = atoms.get_potential_energy()
-    forces = atoms.get_forces()
-
-    max_force_comp = np.max(np.abs(forces))
-
-    positions = atoms.get_positions()
-
-    positions_new = optimizer.optimizer_step(positions.T, energy, forces.T)
-
-    atoms.set_positions(positions_new.T)
-
+    optimizer.step(atoms)
+    max_force_comp = optimizer._getDerivativeNorm()
     return max_force_comp
 
 
@@ -173,9 +158,9 @@ def write_log(atoms, optimizer, outpath, i_step, max_force_comp, max_disp):
     opt_msg = "{:4d}     {:1.8f}       {:1.5e}     {:1.5e}      {:1.5e}        {:1.5e}       {:1.5e}\n".format(i_step,
                                                                                                             energy,
                                                                                                             max_force_comp,
-                                                                                                            optimizer.optimizer.gainratio,
-                                                                                                            optimizer.optimizer.alpha,
-                                                                                                            optimizer.optimizer.dim_subsp,
+                                                                                                            optimizer.optimizer.optimizer.gainratio,
+                                                                                                            optimizer.optimizer.optimizer.alpha,
+                                                                                                            optimizer.optimizer.optimizer.dim_subs,
                                                                                                             max_disp)
     f = open(outpath+"geometry_optimization_log.dat", "a")
     f.write(opt_msg)
