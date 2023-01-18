@@ -502,6 +502,24 @@ class Minimahopping:
                 cell_atoms = Cell_atom(mass=_mass, positions=atoms.get_cell())
                 # set velocities of the cell atoms
                 cell_atoms.set_velocities_boltzmann(temperature=self.parameter_dictionary['T'])
+            else:
+                # IMPORTANT: cell atoms has to be None for soften/md/geopt if no pbc
+                cell_atoms = None
+
+            # softening of the velocities
+            velocities, cell_velocities = softening.soften(atoms=atoms, 
+                            calculator=self.calculator, 
+                            nsoft=self.parameter_dictionary['n_softening_steps'],
+                            alpha_pos = self.parameter_dictionary['alpha_soften_positions'], 
+                            cell_atoms = self._cell_atoms,
+                            alpha_lat =  self.parameter_dictionary['alpha_soften_lattice'])
+            
+            # set softened velocities
+            atoms.set_velocities(velocities)
+
+            # set cell velocities if pbc
+            if True in _pbc:
+                self._cell_atoms.velocities = cell_velocities
 
 
             # in case of periodic system do variable cell shape md and optimization
