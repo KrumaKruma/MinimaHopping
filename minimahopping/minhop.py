@@ -493,6 +493,7 @@ class Minimahopping:
 
             # if periodic boundary conditions create cell atom object
             if True in _pbc:
+                print("    VARIABLE CELL SHAPE SOFTENING, MD AND OPTIMIZATION ARE PERFORMED")
                 # calculate mass for cell atoms
                 # Formula if for the MD real masses are used
                 # mass = .75 * np.sum(atoms.get_masses()) / 10. # Formula if for the MD real masses are used
@@ -511,7 +512,7 @@ class Minimahopping:
                             calculator=self.calculator, 
                             nsoft=self.parameter_dictionary['n_softening_steps'],
                             alpha_pos = self.parameter_dictionary['alpha_soften_positions'], 
-                            cell_atoms = self._cell_atoms,
+                            cell_atoms = cell_atoms,
                             alpha_lat =  self.parameter_dictionary['alpha_soften_lattice'])
             
             # set softened velocities
@@ -520,13 +521,13 @@ class Minimahopping:
             # set cell velocities if pbc
             if True in _pbc:
                 cell_atoms.velocities = cell_velocities
-
+   
             # Perfom MD run
             print("    MD Start")
             positions, lattice, self.parameter_dictionary['dt'], _md_trajectory, _epot_max, number_of_md_steps = md.md(atoms = atoms, 
                                                                                                         calculator = self.calculator,
                                                                                                         outpath = self._outpath, 
-                                                                                                        cell_atoms = self._cell_atoms,
+                                                                                                        cell_atoms = cell_atoms,
                                                                                                         dt = self.parameter_dictionary['dt'], 
                                                                                                         n_max = self.parameter_dictionary["mdmin"],
                                                                                                         verbose = self.parameter_dictionary["verbose_output"])
@@ -536,103 +537,30 @@ class Minimahopping:
             print(log_msg)
             # Set new positions after the MD
             atoms.set_positions(positions)
-            # If pbc set new lattice
+            # If pbc set new lattice and reshape cell
+            if True in _pbc:
+                atoms.set_cell(lattice)
+                atoms = lat_opt.reshape_cell2(atoms, 6)
+
+            print("    OPT start")
+            positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps = opt.optimization(atoms=atoms, 
+                                                                    calculator=self.calculator, 
+                                                                    max_force_threshold=self.parameter_dictionary["fmax"], 
+                                                                    outpath=self._outpath, 
+                                                                    verbose=self.parameter_dictionary["verbose_output"])
+            # Set optimized positions
+            atoms.set_positions(positions)
+            # If Pbc set optimized lattice 
             if True in _pbc:
                 atoms.set_cell(lattice)
 
-            # TODO: optimization
+            log_msg = "    OPT finished after {:d} steps.".format(number_of_opt_steps)
+            print(log_msg)
             # TODO: testing cluster and VCS
-            # in case of periodic system do variable cell shape md and optimization
-            if True in atoms.pbc:
 
-                # initialize the cell vectors as atoms
-                # _mass = .75 * np.sum(atoms.get_masses()) / 10. # Formula if for the MD real masses are used
-                _mass = .75 * np.sum(len(atoms)) / 10.
-                self._cell_atoms = Cell_atom(mass=_mass, positions=atoms.get_cell())
-                self._cell_atoms.set_velocities_boltzmann(temperature=self.parameter_dictionary['T'])
-
-                # softening of the velocities
-                _velocities, _cell_velocities = softening.soften(atoms=atoms, 
-                                calculator=self.calculator, 
-                                nsoft=self.parameter_dictionary['n_softening_steps'],
-                                alpha_pos = self.parameter_dictionary['alpha_soften_positions'], 
-                                cell_atoms = self._cell_atoms,
-                                alpha_lat =  self.parameter_dictionary['alpha_soften_lattice'])
-
-                atoms.set_velocities(_velocities)
-                self._cell_atoms.velocities = _cell_velocities
-
-                print("    VCS MD Start")
-
-                _positions, _cell , self.parameter_dictionary['dt'], _md_trajectory, _epot_max, number_of_md_steps = md.md(atoms = atoms, 
-                                                                                                                        calculator = self.calculator,
-                                                                                                                        outpath = self._outpath, 
-                                                                                                                        cell_atoms = self._cell_atoms,
-                                                                                                                        dt = self.parameter_dictionary['dt'], 
-                                                                                                                        n_max = self.parameter_dictionary["mdmin"],
-                                                                                                                        verbose = self.parameter_dictionary["verbose_output"])
-
-                log_msg = "    VCS MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f}".format(number_of_md_steps, self.parameter_dictionary["mdmin"], self.parameter_dictionary['dt'])
-
-                print(log_msg)
-                atoms.set_positions(_positions)
-                atoms.set_cell(_cell)
-
-                atoms = lat_opt.reshape_cell2(atoms, 6)
-
-                print("    VCS OPT start")
-                positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps = opt.optimization(atoms=atoms, 
-                                                                        calculator=self.calculator, 
-                                                                        max_force_threshold=self.parameter_dictionary["fmax"], 
-                                                                        outpath=self._outpath, 
-                                                                        verbose=self.parameter_dictionary["verbose_output"])
-
-                atoms.set_positions(positions)
-                atoms.set_cell(lattice)
-
-                log_msg = "    VCS OPT finished after {:d} steps.".format(number_of_opt_steps)
-                print(log_msg)
-
-            # in case of a non-periodic system do md and optimization
-            else:
-                #start softening
-                # softening of the velocities
-                _velocities = softening.soften(atoms=atoms, 
-                                calculator=self.calculator, 
-                                nsoft=self.parameter_dictionary['n_softening_steps'],
-                                alpha_pos = self.parameter_dictionary['alpha_soften_positions'], 
-                                cell_atoms = None,
-                                alpha_lat =  NotImplementedError)
-                atoms.set_velocities(_velocities)
-
-                print("    MD Start")
-
-                _positions, lattice, self.parameter_dictionary['dt'], _md_trajectory, _epot_max, number_of_md_steps = md.md(atoms = atoms, 
-                                                                                                                        calculator = self.calculator,
-                                                                                                                        outpath = self._outpath, 
-                                                                                                                        cell_atoms = None,
-                                                                                                                        dt = self.parameter_dictionary['dt'], 
-                                                                                                                        n_max = self.parameter_dictionary["mdmin"],
-                                                                                                                        verbose = self.parameter_dictionary["verbose_output"])
-
-                atoms.set_positions(_positions)
-                log_msg = "    MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f}".format(number_of_md_steps, self.parameter_dictionary["mdmin"], self.parameter_dictionary['dt'])
-                print(log_msg)
-
-                print("    OPT start")
-                positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps = opt.optimization(atoms=atoms, 
-                                                        calculator=self.calculator, 
-                                                        max_force_threshold=self.parameter_dictionary["fmax"], 
-                                                        outpath=self._outpath, 
-                                                        verbose=self.parameter_dictionary["verbose_output"])
-
-                atoms.set_positions(positions)
-                log_msg = "    OPT finished after {:d} steps".format(number_of_opt_steps)
-                print(log_msg)
             # check if the energy threshold is below the optimization noise
             self._check_energy_threshold()
-
-            
+         
             proposed_structure = Minimum(atoms,
                         s = self.parameter_dictionary['n_S_orbitals'],
                         p = self.parameter_dictionary["n_P_orbitals"], 
