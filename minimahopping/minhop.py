@@ -519,9 +519,29 @@ class Minimahopping:
 
             # set cell velocities if pbc
             if True in _pbc:
-                self._cell_atoms.velocities = cell_velocities
+                cell_atoms.velocities = cell_velocities
 
+            # Perfom MD run
+            print("    MD Start")
+            positions, lattice, self.parameter_dictionary['dt'], _md_trajectory, _epot_max, number_of_md_steps = md.md(atoms = atoms, 
+                                                                                                        calculator = self.calculator,
+                                                                                                        outpath = self._outpath, 
+                                                                                                        cell_atoms = self._cell_atoms,
+                                                                                                        dt = self.parameter_dictionary['dt'], 
+                                                                                                        n_max = self.parameter_dictionary["mdmin"],
+                                                                                                        verbose = self.parameter_dictionary["verbose_output"])
 
+            log_msg = "    MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f}".format(number_of_md_steps, self.parameter_dictionary["mdmin"], self.parameter_dictionary['dt'])
+
+            print(log_msg)
+            # Set new positions after the MD
+            atoms.set_positions(positions)
+            # If pbc set new lattice
+            if True in _pbc:
+                atoms.set_cell(lattice)
+
+            # TODO: optimization
+            # TODO: testing cluster and VCS
             # in case of periodic system do variable cell shape md and optimization
             if True in atoms.pbc:
 
