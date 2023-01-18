@@ -491,6 +491,19 @@ class Minimahopping:
             _pbc = list(set(atoms.pbc))
             assert len(_pbc) == 1, "mixed boundary conditions"
 
+            # if periodic boundary conditions create cell atom object
+            if True in _pbc:
+                # calculate mass for cell atoms
+                # Formula if for the MD real masses are used
+                # mass = .75 * np.sum(atoms.get_masses()) / 10. # Formula if for the MD real masses are used
+                # Formula if mass 1 is used in the MD
+                mass = .75 * np.sum(len(atoms)) / 10.
+                # set position and mass of cell atoms
+                cell_atoms = Cell_atom(mass=_mass, positions=atoms.get_cell())
+                # set velocities of the cell atoms
+                cell_atoms.set_velocities_boltzmann(temperature=self.parameter_dictionary['T'])
+
+
             # in case of periodic system do variable cell shape md and optimization
             if True in atoms.pbc:
 
