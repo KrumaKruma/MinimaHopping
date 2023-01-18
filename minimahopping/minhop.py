@@ -500,7 +500,7 @@ class Minimahopping:
                 # Formula if mass 1 is used in the MD
                 mass = .75 * np.sum(len(atoms)) / 10.
                 # set position and mass of cell atoms
-                cell_atoms = Cell_atom(mass=_mass, positions=atoms.get_cell())
+                cell_atoms = Cell_atom(mass=mass, positions=atoms.get_cell())
                 # set velocities of the cell atoms
                 cell_atoms.set_velocities_boltzmann(temperature=self.parameter_dictionary['T'])
             else:
