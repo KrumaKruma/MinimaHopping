@@ -552,7 +552,7 @@ class Minimahopping:
 
                 print("    MD Start")
 
-                _positions, self.parameter_dictionary['dt'], _md_trajectory, _epot_max, number_of_md_steps = md.md(atoms = atoms, 
+                _positions, lattice, self.parameter_dictionary['dt'], _md_trajectory, _epot_max, number_of_md_steps = md.md(atoms = atoms, 
                                                                                                                         calculator = self.calculator,
                                                                                                                         outpath = self._outpath, 
                                                                                                                         cell_atoms = None,

@@ -35,10 +35,8 @@ def md(atoms, calculator, outpath, cell_atoms = None, dt = 0.001, n_max = 3, ver
     # attach the last structure to the MD trajectory
     temp = atoms.copy()
     trajectory.append(temp.copy())
-    if cell_atoms is not None:
-        return atoms.get_positions(), atoms.get_cell(), new_dt, trajectory, e_pot_max, i_steps
-    else: 
-        return atoms.get_positions(), new_dt, trajectory, e_pot_max, i_steps
+    return atoms.get_positions(), atoms.get_cell(), new_dt, trajectory, e_pot_max, i_steps
+
 
 
 def initialize(atoms, cell_atoms, outpath, verbose):
