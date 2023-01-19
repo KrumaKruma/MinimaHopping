@@ -229,7 +229,7 @@ class Minimahopping:
         # Start up minimahopping 
         structure_list, calculator = self._initialize_structures(self.initial_configuration)
         self.calculator = calculator
-        current_minimum = self._startup(structure_list)  # gets an atoms object and a minimum object is returned.
+        current_minimum, collect_md_file = self._startup(structure_list)  # gets an atoms object and a minimum object is returned.
 
         # Start hopping loop
         while (counter <= totalsteps):
@@ -303,7 +303,10 @@ class Minimahopping:
                     print(msg)
                     print("=================================================================")
                     return
-                
+        
+        if self.parameter_dictionary["collect_md_data"]:
+            collect_md_file.close()
+
         self.print_elapsed_time(totalsteps)
         # if self.parameter_dictionary['use_MPI']:
         #     print("An MPI worker is not allowed to leave the above loop because the server might freeze. Sending MPI_abort to comm_world")
@@ -429,7 +432,13 @@ class Minimahopping:
 
         status = 'Initial'
         self._history_log(struct_cur, status, n_visits=struct_cur.n_visit)
-        return struct_cur
+
+        if self.parameter_dictionary["collect_md_data"]:
+            collect_md_file = open(self._outpath + "MD_trajectory.extxyz", "w")
+        else:
+            collect_md_file = None
+
+        return struct_cur, collect_md_file
 
 
     def _read_changing_parameters(self, param_dict_name):
