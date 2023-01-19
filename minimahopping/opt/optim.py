@@ -24,7 +24,6 @@ def optimization(atoms, calculator, max_force_threshold, outpath, initial_step_s
     # Run geometry optimization
     trajectory, optimizer, number_of_steps = geometry_optimization(atoms, 
                                                                    max_force_threshold, 
-                                                                   outpath,
                                                                    initial_step_size, 
                                                                    nhist_max, 
                                                                    lattice_weight, 
@@ -45,7 +44,7 @@ def optimization(atoms, calculator, max_force_threshold, outpath, initial_step_s
 
 
 
-def geometry_optimization(atoms, max_force_threshold, outpath,initial_step_size, nhist_max, lattice_weight, alpha_min, eps_subsp, verbose, optimization_trajectory_file, optimization_log_file):
+def geometry_optimization(atoms, max_force_threshold,initial_step_size, nhist_max, lattice_weight, alpha_min, eps_subsp, verbose, optimization_trajectory_file, optimization_log_file):
     # check if periodic boundary condition and assert that either fully periodic or non-periodic
     '''
     geometry optimization
