@@ -26,15 +26,19 @@ def md(atoms, calculator, outpath, cell_atoms = None, dt = 0.001, n_max = 3, ver
     positions_old = atoms.get_positions()
 
     # Initialization of the MD. Get the energy and forces for the first MD step
-    e_pot, forces, lattice_force = initialize(atoms, cell_atoms, outpath, verbose)
+    e_pot, forces, lattice_force, md_trajectory_file = initialize(atoms, cell_atoms, outpath, verbose)
     # Run the MD until n_max minima have been visited
-    etot_max, etot_min, e_pot_max, e_pot_min, trajectory, i_steps = run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_max, verbose, outpath, collect_md_file)
+    etot_max, etot_min, e_pot_max, e_pot_min, trajectory, i_steps = run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_max, verbose, outpath, collect_md_file, md_trajectory_file)
 
     # adjust the time step for the next MD
     new_dt = adjust_dt(etot_max, etot_min, e_pot_max, e_pot_min, dt)
     # attach the last structure to the MD trajectory
     temp = atoms.copy()
     trajectory.append(temp.copy())
+
+    if verbose:
+        md_trajectory_file.close()
+
     return atoms.get_positions(), atoms.get_cell(), new_dt, trajectory, e_pot_max, i_steps
 
 
@@ -45,7 +49,9 @@ def initialize(atoms, cell_atoms, outpath, verbose):
     '''
     # If verbosity is true make the output files
     if verbose:
-        write(outpath + "MD_trajectory.extxyz", atoms, parallel=False)
+        md_trajectory_file = open(outpath + "MD_trajectory.extxyz", "w")
+
+        write(md_trajectory_file, atoms, parallel=False)
         f = open(outpath + "MD_log.dat", "w")
         msg = 'STEP      EPOT          EKIN          ETOT               DT\n'
         f.write(msg)
@@ -62,7 +68,7 @@ def initialize(atoms, cell_atoms, outpath, verbose):
         lattice = atoms.get_cell()
         lattice_force = lat_opt.lattice_derivative(stress_tensor, lattice)
 
-    return e_pot, forces, lattice_force
+    return e_pot, forces, lattice_force, md_trajectory_file
 
 
 def calc_etot_and_ekin(atoms, cell_atoms, e_pot, etot_max, etot_min):
@@ -110,7 +116,7 @@ def get_cell_masses(cell_atoms):
     return cell_masses
 
 
-def run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_max, verbose, outpath, collect_md_file):
+def run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_max, verbose, outpath, collect_md_file, md_trajectory_file):
     '''
     Running the MD over n_max maxima. If this is not reached after 10'000 steps the MD stops
     '''
@@ -149,7 +155,7 @@ def run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_ma
 
         # Write a log file if verbosity is True
         if verbose:
-            write_log(atoms, e_pot, e_kin, e_tot, i_steps, dt, outpath, forces_new)
+            write_log(atoms, e_pot, e_kin, e_tot, i_steps, dt, outpath, forces_new, md_trajectory_file)
 
         # Update energy and forces
         forces = forces_new
@@ -312,7 +318,7 @@ def check(atoms, e_pot, i_steps, i_max, n_max, n_change, sign_old):
     return e_pot_new, sign_old, n_change, i_max
 
 
-def write_log(atoms, e_pot, e_kin, e_tot, i_steps, dt, outpath, forces):
+def write_log(atoms, e_pot, e_kin, e_tot, i_steps, dt, outpath, forces, md_trajectory_file):
     '''
     Write each MD step into a file and print epot, ekin and etot. The file is overwritten each time the MD is
     started
@@ -327,7 +333,7 @@ def write_log(atoms, e_pot, e_kin, e_tot, i_steps, dt, outpath, forces):
     f = open(outpath+"MD_log.dat", "a")
     f.write(md_msg)
     f.close()
-    write(outpath + "MD_trajectory.extxyz", atoms, append=True, parallel=False)
+    write(md_trajectory_file, atoms, parallel=False)
 
 
 def adjust_dt(etot_max, etot_min, epot_max, epot_min, dt):
