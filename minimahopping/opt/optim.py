@@ -122,7 +122,7 @@ def write_log(atoms, optimizer, i_step, max_force_comp, max_disp, optimization_t
                                                                                                             max_disp)
     
     optimization_log_file.write(opt_msg)
-    write(optimization_trajectory_file, atoms, append=True, parallel=False)
+    write(optimization_trajectory_file, atoms, parallel=False)
 
 
 def check_coordinate_shift(atoms, positions_old):
