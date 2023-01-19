@@ -7,7 +7,7 @@ import minimahopping.md.dbscan as dbscan
 
 
 
-def md(atoms, calculator, outpath, cell_atoms = None, dt = 0.001, n_max = 3, verbose = True):
+def md(atoms, calculator, outpath, cell_atoms = None, dt = 0.001, n_max = 3, verbose = True, collect_md_file = None):
     """ 
     Performs an MD which is visiting n_max minima
     Input:
@@ -28,7 +28,7 @@ def md(atoms, calculator, outpath, cell_atoms = None, dt = 0.001, n_max = 3, ver
     # Initialization of the MD. Get the energy and forces for the first MD step
     e_pot, forces, lattice_force = initialize(atoms, cell_atoms, outpath, verbose)
     # Run the MD until n_max minima have been visited
-    etot_max, etot_min, e_pot_max, e_pot_min, trajectory, i_steps = run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_max, verbose, outpath)
+    etot_max, etot_min, e_pot_max, e_pot_min, trajectory, i_steps = run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_max, verbose, outpath, collect_md_file)
 
     # adjust the time step for the next MD
     new_dt = adjust_dt(etot_max, etot_min, e_pot_max, e_pot_min, dt)
@@ -110,7 +110,7 @@ def get_cell_masses(cell_atoms):
     return cell_masses
 
 
-def run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_max, verbose, outpath):
+def run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_max, verbose, outpath, collect_md_file):
     '''
     Running the MD over n_max maxima. If this is not reached after 10'000 steps the MD stops
     '''
@@ -132,7 +132,7 @@ def run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_ma
         forces_new, lattice_force_new = verlet_step(atoms, cell_atoms, dt, forces, lattice_force)
         i_steps += 1
         # update the trajectory
-        positions_new, trajectory = update_trajectory(atoms, positions_old, trajectory)
+        positions_new, trajectory = update_trajectory(atoms, positions_old, trajectory, collect_md_file)
         # update the maximal/minimal potential energy
         epot_min_new, epot_max_new = update_epot_minmax(atoms, epot_min, epot_max)
 
@@ -143,12 +143,9 @@ def run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_ma
         # update the maximal/minimal total energy
         e_tot_min_new, e_tot_max_new = update_etot_minmax(e_tot, etot_min, etot_max)
 
-        # TODO: Write here a function after the if statement
         if cell_atoms is None:
             if i_steps%5 == 0:
                 is_one_cluster = check_and_fix_fragmentation(atoms)
-
-
 
         # Write a log file if verbosity is True
         if verbose:
@@ -199,7 +196,7 @@ def update_epot_minmax(atoms, epot_min, epot_max):
     return epot_min, epot_max
 
 
-def update_trajectory(atoms, positions_old, trajectory):
+def update_trajectory(atoms, positions_old, trajectory, collect_md_file):
     """
     Function that updates the MD trajectory if the atom have shifted max(r1-r2)>0.2
     """
@@ -209,6 +206,9 @@ def update_trajectory(atoms, positions_old, trajectory):
     if is_add_to_trajectory:
         temp = atoms.copy()
         trajectory.append(temp.copy())
+        if collect_md_file is not None:
+            write(collect_md_file, atoms)
+
     return positions_current, trajectory
 
 

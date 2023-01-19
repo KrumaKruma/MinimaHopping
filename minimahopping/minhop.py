@@ -229,7 +229,7 @@ class Minimahopping:
         # Start up minimahopping 
         structure_list, calculator = self._initialize_structures(self.initial_configuration)
         self.calculator = calculator
-        current_minimum, collect_md_file = self._startup(structure_list)  # gets an atoms object and a minimum object is returned.
+        current_minimum = self._startup(structure_list)  # gets an atoms object and a minimum object is returned.
 
         # Start hopping loop
         while (counter <= totalsteps):
@@ -305,7 +305,7 @@ class Minimahopping:
                     return
         
         if self.parameter_dictionary["collect_md_data"]:
-            collect_md_file.close()
+            self.collect_md_file.close()
 
         self.print_elapsed_time(totalsteps)
         # if self.parameter_dictionary['use_MPI']:
@@ -434,11 +434,11 @@ class Minimahopping:
         self._history_log(struct_cur, status, n_visits=struct_cur.n_visit)
 
         if self.parameter_dictionary["collect_md_data"]:
-            collect_md_file = open(self._outpath + "MD_trajectory.extxyz", "w")
+            self.collect_md_file = open(self._outpath + "MD_collection.extxyz", "w")
         else:
-            collect_md_file = None
+            self.collect_md_file = None
 
-        return struct_cur, collect_md_file
+        return struct_cur
 
 
     def _read_changing_parameters(self, param_dict_name):
@@ -539,7 +539,8 @@ class Minimahopping:
                                                                                                         cell_atoms = cell_atoms,
                                                                                                         dt = self.parameter_dictionary['dt'], 
                                                                                                         n_max = self.parameter_dictionary["mdmin"],
-                                                                                                        verbose = self.parameter_dictionary["verbose_output"])
+                                                                                                        verbose = self.parameter_dictionary["verbose_output"],
+                                                                                                        collect_md_file = self.collect_md_file)
 
             log_msg = "    MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f}".format(number_of_md_steps, self.parameter_dictionary["mdmin"], self.parameter_dictionary['dt'])
 
