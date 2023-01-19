@@ -36,41 +36,46 @@ def optimization(atoms, calculator, max_force_threshold, outpath, initial_step_s
 
 def geometry_optimization(atoms, max_force_threshold, outpath,initial_step_size, nhist_max, lattice_weight, alpha_min, eps_subsp, verbose, optimization_trajectory_file):
     # check if periodic boundary condition and assert that either fully periodic or non-periodic
-    _pbc = list(set(atoms.pbc))
-    assert len(_pbc) == 1, "mixed boundary conditions"
-    if True in _pbc:
-        trajectory, optimizer, number_of_steps = vcs_geometry_optimization(atoms, max_force_threshold, outpath,initial_step_size, nhist_max, lattice_weight, alpha_min, eps_subsp, verbose, optimization_trajectory_file)
-    else:
-        trajectory, optimizer, number_of_steps = free_geometry_optimization(atoms, max_force_threshold, outpath,initial_step_size, nhist_max, alpha_min, eps_subsp, verbose, optimization_trajectory_file)
-
-    return trajectory, optimizer, number_of_steps
-
-
-
-def vcs_geometry_optimization(atoms, max_force_threshold, outpath,initial_step_size, nhist_max, lattice_weight, alpha_min, eps_subsp, verbose, optimization_trajectory_file):
     '''
-    variable cell shape geometry optimization
+    geometry optimization
     '''
+    # Initializations
     trajectory = []
     i_step = 0
     max_disp = 0
     positions_old = atoms.get_positions()
+    max_force_comp = 100
+    
+    # Assert that no mixed boundary conditions
+    _pbc = list(set(atoms.pbc))
+    assert len(_pbc) == 1, "mixed boundary conditions"
 
+    # Negative value to get automatic initialize step size
     if initial_step_size is None:
         initial_step_size = -0.001
-
+    
+    # Set if free relax or vcs relax
+    if True in _pbc:
+        vc_relax = True
+    else:
+        vc_relax = False
+    
+    # Initialize optimizer
     optimizer = aseOptimizer(initial_structure=atoms, 
-                             vc_relax=True, 
+                             vc_relax=vc_relax, 
                              initial_step_size=initial_step_size, 
                              nhist_max=nhist_max, 
                              lattice_weigth=lattice_weight, 
                              alpha_min=alpha_min, 
                              eps_subsp=eps_subsp)
-
-    max_force_comp = 100
+    
+    # Optimization loop
     while max_force_comp > max_force_threshold:
         pos_in = atoms.get_positions()
-        max_force_comp = vcs_optimizer_step(atoms, optimizer)
+        
+        optimizer.step(atoms)
+        max_force_comp = optimizer._getDerivativeNorm()
+
         i_step += 1
 
         if verbose:
@@ -89,67 +94,6 @@ def vcs_geometry_optimization(atoms, max_force_threshold, outpath,initial_step_s
         positions_old = positions_current
 
     return trajectory, optimizer, i_step
-
-
-def vcs_optimizer_step(atoms, optimizer):
-    '''
-    variable cell shape geometry optimization step
-    '''
-    optimizer.step(atoms)
-    max_force_comp = optimizer._getDerivativeNorm()
-    return max_force_comp
-
-
-def free_geometry_optimization(atoms, max_force_threshold, outpath,initial_step_size, nhist_max, alpha_min, eps_subsp, verbose, optimization_trajectory_file):
-    '''
-    Cluster or fixed cell geometry optimization
-    '''
-    trajectory = []
-    nat = len(atoms)
-    i_step = 0
-    max_disp = 0
-    positions_old = atoms.get_positions()
-
-    if initial_step_size is None:
-        initial_step_size = -0.001
-
-    optimizer = aseOptimizer(initial_structure=atoms, 
-                            vc_relax=False, 
-                            initial_step_size=initial_step_size, 
-                            nhist_max=nhist_max,  
-                            alpha_min=alpha_min, 
-                            eps_subsp=eps_subsp)
-    max_force_comp = 100
-    while max_force_comp > max_force_threshold:
-        pos_in = atoms.get_positions()
-        max_force_comp = free_optimizer_step(atoms, optimizer)
-        i_step += 1
-
-        if verbose:
-            write_log(atoms, optimizer, outpath, i_step, max_force_comp, max_disp, optimization_trajectory_file)
-
-        is_append_trajectory, positions_current = check_coordinate_shift(atoms, positions_old)
-        if is_append_trajectory:
-            trajectory.append(atoms.copy())
-
-        is_aboard = check(i_step)
-        if is_aboard:
-            break
-
-        pos_out = atoms.get_positions()
-        max_disp = get_max_disp(pos_in, pos_out)
-        positions_old = positions_current
-
-    return trajectory, optimizer, i_step
-
-
-def free_optimizer_step(atoms, optimizer):
-    '''
-    Cluster or fixed cell geometry optimization step
-    '''
-    optimizer.step(atoms)
-    max_force_comp = optimizer._getDerivativeNorm()
-    return max_force_comp
 
 
 def write_log(atoms, optimizer, outpath, i_step, max_force_comp, max_disp, optimization_trajectory_file):
@@ -207,8 +151,3 @@ def get_max_disp(pos_in, pos_out):
     displacements = pos_in-pos_out
     max_disp = np.max(displacements)
     return max_disp
-
-
-
-
-
