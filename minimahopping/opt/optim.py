@@ -16,25 +16,36 @@ def optimization(atoms, calculator, max_force_threshold, outpath, initial_step_s
     if verbose:
         optimization_trajectory_file = open(outpath + "geometry_optimization_trajectory.extxyz", "w")
         write(optimization_trajectory_file, atoms, parallel=False)
-        f = open(outpath + "geometry_optimization_log.dat", "w")
+        optimization_log_file = open(outpath + "geometry_optimization_log.dat", "w")
         msg = 'STEP      ETOT              MAX_FORCE       GAIN_RATIO       STEPSIZE           DIM_SUPSP         MAX_DISP\n'
-        f.write(msg)
-        f.close()
+        optimization_log_file.write(msg)
+
 
     # Run geometry optimization
-    trajectory, optimizer, number_of_steps = geometry_optimization(atoms, max_force_threshold, outpath,initial_step_size, nhist_max, lattice_weight, alpha_min, eps_subsp, verbose, optimization_trajectory_file)
+    trajectory, optimizer, number_of_steps = geometry_optimization(atoms, 
+                                                                   max_force_threshold, 
+                                                                   outpath,
+                                                                   initial_step_size, 
+                                                                   nhist_max, 
+                                                                   lattice_weight, 
+                                                                   alpha_min, 
+                                                                   eps_subsp, 
+                                                                   verbose, 
+                                                                   optimization_trajectory_file,
+                                                                   optimization_log_file)
     positions_out = atoms.get_positions()
     lattice_out = atoms.get_cell()
     noise = optimizer.optimizer.lower_bound()
 
     # Close files
-    optimization_trajectory_file.close()
-
+    if verbose:
+        optimization_trajectory_file.close()
+        optimization_log_file.close()
     return positions_out, lattice_out, noise, trajectory, number_of_steps
 
 
 
-def geometry_optimization(atoms, max_force_threshold, outpath,initial_step_size, nhist_max, lattice_weight, alpha_min, eps_subsp, verbose, optimization_trajectory_file):
+def geometry_optimization(atoms, max_force_threshold, outpath,initial_step_size, nhist_max, lattice_weight, alpha_min, eps_subsp, verbose, optimization_trajectory_file, optimization_log_file):
     # check if periodic boundary condition and assert that either fully periodic or non-periodic
     '''
     geometry optimization
@@ -79,7 +90,7 @@ def geometry_optimization(atoms, max_force_threshold, outpath,initial_step_size,
         i_step += 1
 
         if verbose:
-            write_log(atoms, optimizer, outpath, i_step, max_force_comp, max_disp, optimization_trajectory_file)
+            write_log(atoms, optimizer, outpath, i_step, max_force_comp, max_disp, optimization_trajectory_file, optimization_log_file)
         
         is_append_trajectory, positions_current = check_coordinate_shift(atoms, positions_old)
         if is_append_trajectory:
@@ -96,7 +107,7 @@ def geometry_optimization(atoms, max_force_threshold, outpath,initial_step_size,
     return trajectory, optimizer, i_step
 
 
-def write_log(atoms, optimizer, outpath, i_step, max_force_comp, max_disp, optimization_trajectory_file):
+def write_log(atoms, optimizer, outpath, i_step, max_force_comp, max_disp, optimization_trajectory_file, optimization_log_file):
     '''
     If verbose is True each optimization step is written to a file and energy and the max force component is
     printed
@@ -110,9 +121,8 @@ def write_log(atoms, optimizer, outpath, i_step, max_force_comp, max_disp, optim
                                                                                                             optimizer.optimizer.optimizer.alpha,
                                                                                                             optimizer.optimizer.optimizer.dim_subs,
                                                                                                             max_disp)
-    f = open(outpath+"geometry_optimization_log.dat", "a")
-    f.write(opt_msg)
-    f.close()
+    
+    optimization_log_file.write(opt_msg)
     write(optimization_trajectory_file, atoms, append=True, parallel=False)
 
 
