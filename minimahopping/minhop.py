@@ -93,7 +93,7 @@ class Minimahopping:
                         verbose_output = True,
                         new_start = False,
                         run_time = 'infinite', 
-                        use_intermediate_mechanism = True,
+                        use_intermediate_mechanism = False,
                         overwriteParametersOnRestart = False,
                         write_graph_output = True,
                         use_MPI = False,
@@ -434,7 +434,7 @@ class Minimahopping:
         self._history_log(struct_cur, status, n_visits=struct_cur.n_visit)
 
         if self.parameter_dictionary["collect_md_data"]:
-            self.collect_md_file = open(self._outpath + "MD_collection.extxyz", "w")
+            self.collect_md_file = open(self._outpath + "MD_collection.extxyz", "a")
         else:
             self.collect_md_file = None
 
