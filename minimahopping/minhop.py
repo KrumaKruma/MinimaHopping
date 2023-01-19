@@ -84,6 +84,7 @@ class Minimahopping:
                         exclude = [],
                         dt = 0.01,
                         mdmin = 2,
+                        collect_md_data = True,
                         fmax = 0.001,
                         enhanced_feedback = False,
                         energy_threshold = 0.0001, #5 the noise
@@ -157,6 +158,7 @@ class Minimahopping:
                 "max_atoms_in_cutoff_sphere" : maxnatsphere,
                 "dt" : dt,
                 "mdmin" : mdmin,
+                "collect_md_data" : collect_md_data,
                 "fmax" : fmax,
                 "enhanced_feedback" : enhanced_feedback,
                 "energy_threshold" : energy_threshold,
