@@ -84,7 +84,7 @@ class Minimahopping:
                         exclude = [],
                         dt = 0.01,
                         mdmin = 2,
-                        collect_md_data = True,
+                        collect_md_data = False,
                         fmax = 0.001,
                         enhanced_feedback = False,
                         energy_threshold = 0.0001, #5 the noise
