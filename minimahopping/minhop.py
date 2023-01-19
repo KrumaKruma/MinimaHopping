@@ -27,8 +27,6 @@ Parts of the software were originally developped (some in Fortran) from other pe
   -- OMFP in python: Jonas Finkler
 """
 
-# TODO: test mh with periodic bounrdary conditions and bazant
-
 
 def importer(name, root_package=False, relative_globals=None, level=0):
     """ We only import modules, functions can be looked up on the module.
@@ -556,7 +554,6 @@ class Minimahopping:
 
             log_msg = "    OPT finished after {:d} steps.".format(number_of_opt_steps)
             print(log_msg)
-            # TODO: testing cluster and VCS
 
             # check if the energy threshold is below the optimization noise
             self._check_energy_threshold()

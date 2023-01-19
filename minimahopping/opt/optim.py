@@ -14,36 +14,40 @@ def optimization(atoms, calculator, max_force_threshold, outpath, initial_step_s
 
     # If verbose then open the files for writing
     if verbose:
-        write(outpath + "geometry_optimization_trajectory.extxyz", atoms, parallel=False)
+        optimization_trajectory_file = open(outpath + "geometry_optimization_trajectory.extxyz", "w")
+        write(optimization_trajectory_file, atoms, parallel=False)
         f = open(outpath + "geometry_optimization_log.dat", "w")
         msg = 'STEP      ETOT              MAX_FORCE       GAIN_RATIO       STEPSIZE           DIM_SUPSP         MAX_DISP\n'
         f.write(msg)
         f.close()
 
     # Run geometry optimization
-    trajectory, optimizer, number_of_steps = geometry_optimization(atoms, max_force_threshold, outpath,initial_step_size, nhist_max, lattice_weight, alpha_min, eps_subsp, verbose)
+    trajectory, optimizer, number_of_steps = geometry_optimization(atoms, max_force_threshold, outpath,initial_step_size, nhist_max, lattice_weight, alpha_min, eps_subsp, verbose, optimization_trajectory_file)
     positions_out = atoms.get_positions()
     lattice_out = atoms.get_cell()
     noise = optimizer.optimizer.lower_bound()
+
+    # Close files
+    optimization_trajectory_file.close()
 
     return positions_out, lattice_out, noise, trajectory, number_of_steps
 
 
 
-def geometry_optimization(atoms, max_force_threshold, outpath,initial_step_size, nhist_max, lattice_weight, alpha_min, eps_subsp, verbose):
+def geometry_optimization(atoms, max_force_threshold, outpath,initial_step_size, nhist_max, lattice_weight, alpha_min, eps_subsp, verbose, optimization_trajectory_file):
     # check if periodic boundary condition and assert that either fully periodic or non-periodic
     _pbc = list(set(atoms.pbc))
     assert len(_pbc) == 1, "mixed boundary conditions"
     if True in _pbc:
-        trajectory, optimizer, number_of_steps = vcs_geometry_optimization(atoms, max_force_threshold, outpath,initial_step_size, nhist_max, lattice_weight, alpha_min, eps_subsp, verbose)
+        trajectory, optimizer, number_of_steps = vcs_geometry_optimization(atoms, max_force_threshold, outpath,initial_step_size, nhist_max, lattice_weight, alpha_min, eps_subsp, verbose, optimization_trajectory_file)
     else:
-        trajectory, optimizer, number_of_steps = free_geometry_optimization(atoms, max_force_threshold, outpath,initial_step_size, nhist_max, alpha_min, eps_subsp, verbose)
+        trajectory, optimizer, number_of_steps = free_geometry_optimization(atoms, max_force_threshold, outpath,initial_step_size, nhist_max, alpha_min, eps_subsp, verbose, optimization_trajectory_file)
 
     return trajectory, optimizer, number_of_steps
 
 
 
-def vcs_geometry_optimization(atoms, max_force_threshold, outpath,initial_step_size, nhist_max, lattice_weight, alpha_min, eps_subsp, verbose):
+def vcs_geometry_optimization(atoms, max_force_threshold, outpath,initial_step_size, nhist_max, lattice_weight, alpha_min, eps_subsp, verbose, optimization_trajectory_file):
     '''
     variable cell shape geometry optimization
     '''
@@ -70,7 +74,7 @@ def vcs_geometry_optimization(atoms, max_force_threshold, outpath,initial_step_s
         i_step += 1
 
         if verbose:
-            write_log(atoms, optimizer, outpath, i_step, max_force_comp, max_disp)
+            write_log(atoms, optimizer, outpath, i_step, max_force_comp, max_disp, optimization_trajectory_file)
         
         is_append_trajectory, positions_current = check_coordinate_shift(atoms, positions_old)
         if is_append_trajectory:
@@ -96,7 +100,7 @@ def vcs_optimizer_step(atoms, optimizer):
     return max_force_comp
 
 
-def free_geometry_optimization(atoms, max_force_threshold, outpath,initial_step_size, nhist_max, alpha_min, eps_subsp, verbose):
+def free_geometry_optimization(atoms, max_force_threshold, outpath,initial_step_size, nhist_max, alpha_min, eps_subsp, verbose, optimization_trajectory_file):
     '''
     Cluster or fixed cell geometry optimization
     '''
@@ -122,7 +126,7 @@ def free_geometry_optimization(atoms, max_force_threshold, outpath,initial_step_
         i_step += 1
 
         if verbose:
-            write_log(atoms, optimizer, outpath, i_step, max_force_comp, max_disp)
+            write_log(atoms, optimizer, outpath, i_step, max_force_comp, max_disp, optimization_trajectory_file)
 
         is_append_trajectory, positions_current = check_coordinate_shift(atoms, positions_old)
         if is_append_trajectory:
@@ -148,7 +152,7 @@ def free_optimizer_step(atoms, optimizer):
     return max_force_comp
 
 
-def write_log(atoms, optimizer, outpath, i_step, max_force_comp, max_disp):
+def write_log(atoms, optimizer, outpath, i_step, max_force_comp, max_disp, optimization_trajectory_file):
     '''
     If verbose is True each optimization step is written to a file and energy and the max force component is
     printed
@@ -165,7 +169,7 @@ def write_log(atoms, optimizer, outpath, i_step, max_force_comp, max_disp):
     f = open(outpath+"geometry_optimization_log.dat", "a")
     f.write(opt_msg)
     f.close()
-    write(outpath + "geometry_optimization_trajectory.extxyz", atoms, append=True, parallel=False)
+    write(optimization_trajectory_file, atoms, append=True, parallel=False)
 
 
 def check_coordinate_shift(atoms, positions_old):
