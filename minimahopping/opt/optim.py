@@ -90,7 +90,7 @@ def geometry_optimization(atoms, max_force_threshold, outpath,initial_step_size,
         i_step += 1
 
         if verbose:
-            write_log(atoms, optimizer, outpath, i_step, max_force_comp, max_disp, optimization_trajectory_file, optimization_log_file)
+            write_log(atoms, optimizer, i_step, max_force_comp, max_disp, optimization_trajectory_file, optimization_log_file)
         
         is_append_trajectory, positions_current = check_coordinate_shift(atoms, positions_old)
         if is_append_trajectory:
@@ -107,7 +107,7 @@ def geometry_optimization(atoms, max_force_threshold, outpath,initial_step_size,
     return trajectory, optimizer, i_step
 
 
-def write_log(atoms, optimizer, outpath, i_step, max_force_comp, max_disp, optimization_trajectory_file, optimization_log_file):
+def write_log(atoms, optimizer, i_step, max_force_comp, max_disp, optimization_trajectory_file, optimization_log_file):
     '''
     If verbose is True each optimization step is written to a file and energy and the max force component is
     printed
