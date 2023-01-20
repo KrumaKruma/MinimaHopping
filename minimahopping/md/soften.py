@@ -59,9 +59,10 @@ def soften(atoms, calculator, nsoft, alpha_pos = 1e-3, cell_atoms = None, alpha_
     # Return output
     if cell_atoms is not None:
         cell_velocities = normed_cell_velocities / norm_const
-        return velocities, cell_velocities
     else:
-        return velocities
+        cell_velocities = None
+    return velocities, cell_velocities
+
 
     
 

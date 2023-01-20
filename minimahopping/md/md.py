@@ -7,7 +7,7 @@ import minimahopping.md.dbscan as dbscan
 
 
 
-def md(atoms, calculator, outpath, cell_atoms = None, dt = 0.001, n_max = 3, verbose = True):
+def md(atoms, calculator, outpath, cell_atoms = None, dt = 0.001, n_max = 3, verbose = True, collect_md_file = None):
     """ 
     Performs an MD which is visiting n_max minima
     Input:
@@ -26,19 +26,22 @@ def md(atoms, calculator, outpath, cell_atoms = None, dt = 0.001, n_max = 3, ver
     positions_old = atoms.get_positions()
 
     # Initialization of the MD. Get the energy and forces for the first MD step
-    e_pot, forces, lattice_force = initialize(atoms, cell_atoms, outpath, verbose)
+    e_pot, forces, lattice_force, md_trajectory_file, md_log_file = initialize(atoms, cell_atoms, outpath, verbose)
     # Run the MD until n_max minima have been visited
-    etot_max, etot_min, e_pot_max, e_pot_min, trajectory, i_steps = run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_max, verbose, outpath)
+    etot_max, etot_min, e_pot_max, e_pot_min, trajectory, i_steps = run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_max, verbose, outpath, collect_md_file, md_trajectory_file, md_log_file)
 
     # adjust the time step for the next MD
     new_dt = adjust_dt(etot_max, etot_min, e_pot_max, e_pot_min, dt)
     # attach the last structure to the MD trajectory
     temp = atoms.copy()
     trajectory.append(temp.copy())
-    if cell_atoms is not None:
-        return atoms.get_positions(), atoms.get_cell(), new_dt, trajectory, e_pot_max, i_steps
-    else: 
-        return atoms.get_positions(), new_dt, trajectory, e_pot_max, i_steps
+
+    if verbose:
+        md_trajectory_file.close()
+        md_log_file.close()
+
+    return atoms.get_positions(), atoms.get_cell(), new_dt, trajectory, e_pot_max, i_steps
+
 
 
 def initialize(atoms, cell_atoms, outpath, verbose):
@@ -47,11 +50,13 @@ def initialize(atoms, cell_atoms, outpath, verbose):
     '''
     # If verbosity is true make the output files
     if verbose:
-        write(outpath + "MD_trajectory.extxyz", atoms, parallel=False)
-        f = open(outpath + "MD_log.dat", "w")
+        md_trajectory_file = open(outpath + "MD_trajectory.extxyz", "w")
+
+        write(md_trajectory_file, atoms, parallel=False)
+        
+        md_log_file = open(outpath + "MD_log.dat", "w")
         msg = 'STEP      EPOT          EKIN          ETOT               DT\n'
-        f.write(msg)
-        f.close()
+        md_log_file.write(msg)
 
     # Get the energy and forces
     forces = atoms.get_forces()
@@ -64,7 +69,7 @@ def initialize(atoms, cell_atoms, outpath, verbose):
         lattice = atoms.get_cell()
         lattice_force = lat_opt.lattice_derivative(stress_tensor, lattice)
 
-    return e_pot, forces, lattice_force
+    return e_pot, forces, lattice_force, md_trajectory_file, md_log_file
 
 
 def calc_etot_and_ekin(atoms, cell_atoms, e_pot, etot_max, etot_min):
@@ -112,7 +117,7 @@ def get_cell_masses(cell_atoms):
     return cell_masses
 
 
-def run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_max, verbose, outpath):
+def run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_max, verbose, outpath, collect_md_file, md_trajectory_file, md_log_file):
     '''
     Running the MD over n_max maxima. If this is not reached after 10'000 steps the MD stops
     '''
@@ -134,7 +139,7 @@ def run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_ma
         forces_new, lattice_force_new = verlet_step(atoms, cell_atoms, dt, forces, lattice_force)
         i_steps += 1
         # update the trajectory
-        positions_new, trajectory = update_trajectory(atoms, positions_old, trajectory, outpath)
+        positions_new, trajectory = update_trajectory(atoms, positions_old, trajectory, collect_md_file)
         # update the maximal/minimal potential energy
         epot_min_new, epot_max_new = update_epot_minmax(atoms, epot_min, epot_max)
 
@@ -145,16 +150,13 @@ def run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_ma
         # update the maximal/minimal total energy
         e_tot_min_new, e_tot_max_new = update_etot_minmax(e_tot, etot_min, etot_max)
 
-        # TODO: Write here a function after the if statement
         if cell_atoms is None:
             if i_steps%5 == 0:
                 is_one_cluster = check_and_fix_fragmentation(atoms)
 
-
-
         # Write a log file if verbosity is True
         if verbose:
-            write_log(atoms, e_pot, e_kin, e_tot, i_steps, dt, outpath, forces_new)
+            write_log(atoms, e_pot, e_kin, e_tot, i_steps, dt, outpath, forces_new, md_trajectory_file, md_log_file)
 
         # Update energy and forces
         forces = forces_new
@@ -201,7 +203,7 @@ def update_epot_minmax(atoms, epot_min, epot_max):
     return epot_min, epot_max
 
 
-def update_trajectory(atoms, positions_old, trajectory, outpath):
+def update_trajectory(atoms, positions_old, trajectory, collect_md_file):
     """
     Function that updates the MD trajectory if the atom have shifted max(r1-r2)>0.2
     """
@@ -211,7 +213,9 @@ def update_trajectory(atoms, positions_old, trajectory, outpath):
     if is_add_to_trajectory:
         temp = atoms.copy()
         trajectory.append(temp.copy())
-        write_md_trajectoryies(atoms, outpath)
+        if collect_md_file is not None:
+            write(collect_md_file, atoms)
+
     return positions_current, trajectory
 
 
@@ -315,7 +319,7 @@ def check(atoms, e_pot, i_steps, i_max, n_max, n_change, sign_old):
     return e_pot_new, sign_old, n_change, i_max
 
 
-def write_log(atoms, e_pot, e_kin, e_tot, i_steps, dt, outpath, forces):
+def write_log(atoms, e_pot, e_kin, e_tot, i_steps, dt, outpath, forces, md_trajectory_file, md_log_file):
     '''
     Write each MD step into a file and print epot, ekin and etot. The file is overwritten each time the MD is
     started
@@ -327,10 +331,8 @@ def write_log(atoms, e_pot, e_kin, e_tot, i_steps, dt, outpath, forces):
                                                                                             dt,
                                                                                             np.linalg.norm(forces))
 
-    f = open(outpath+"MD_log.dat", "a")
-    f.write(md_msg)
-    f.close()
-    write(outpath + "MD_trajectory.extxyz", atoms, append=True, parallel=False)
+    md_log_file.write(md_msg)
+    write(md_trajectory_file, atoms, parallel=False)
 
 
 def write_md_trajectoryies(atoms, outpath):
