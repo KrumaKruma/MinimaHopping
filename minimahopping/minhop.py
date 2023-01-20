@@ -192,6 +192,13 @@ class Minimahopping:
                     , self.parameter_dictionary["output_n_lowest_minima"], self.isRestart, self.restart_path, self._minima_path\
                     , self.parameter_dictionary["write_graph_output"])
             self.data.__enter__()
+        # open MD collection file if MD is collected for ML
+        if self.parameter_dictionary["collect_md_data"]:
+            self.collect_md_file = open(self._outpath + "MD_collection.extxyz", "a")
+        else:
+            self.collect_md_file = None
+        # open history file
+        self.history_file = open(self._outpath + 'history.dat', 'a')
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
@@ -200,6 +207,11 @@ class Minimahopping:
         if self.parameter_dictionary['use_MPI'] and not self.isMaster: # slave threads must send exit signals to master.
             MPI.COMM_WORLD.send((mpi_messages.clientWorkDone, None), 0)
             print('client set work done signal to server')
+        # close MD collection file if MD is collected for ML
+        if self.parameter_dictionary["collect_md_data"]:
+            self.collect_md_file.close()
+        # close histroy file
+        self.history_file.close()
 
 
     def __call__(self, totalsteps = None):
@@ -304,9 +316,6 @@ class Minimahopping:
                     print("=================================================================")
                     return
         
-        if self.parameter_dictionary["collect_md_data"]:
-            self.collect_md_file.close()
-
         self.print_elapsed_time(totalsteps)
         # if self.parameter_dictionary['use_MPI']:
         #     print("An MPI worker is not allowed to leave the above loop because the server might freeze. Sending MPI_abort to comm_world")
@@ -432,11 +441,6 @@ class Minimahopping:
 
         status = 'Initial'
         self._history_log(struct_cur, status, n_visits=struct_cur.n_visit)
-
-        if self.parameter_dictionary["collect_md_data"]:
-            self.collect_md_file = open(self._outpath + "MD_collection.extxyz", "a")
-        else:
-            self.collect_md_file = None
 
         return struct_cur
 
@@ -686,9 +690,9 @@ class Minimahopping:
                                                                         _unique_frac,
                                                                         status)
 
-        history_file = open(self._outpath + 'history.dat', 'a')
-        history_file.write(history_msg)
-        history_file.close()
+        # history_file = open(self._outpath + 'history.dat', 'a')
+        self.history_file.write(history_msg)
+       
 
 
     def _check_energy_threshold(self):

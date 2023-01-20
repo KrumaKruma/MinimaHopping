@@ -19,27 +19,31 @@ def optimization(atoms, calculator, max_force_threshold, outpath, initial_step_s
         optimization_log_file = open(outpath + "geometry_optimization_log.dat", "w")
         msg = 'STEP      ETOT              MAX_FORCE       GAIN_RATIO       STEPSIZE           DIM_SUPSP         MAX_DISP\n'
         optimization_log_file.write(msg)
+    else:
+        optimization_trajectory_file = None
+        optimization_log_file = None
 
+    try:
+        # Run geometry optimization
+        trajectory, optimizer, number_of_steps = geometry_optimization(atoms, 
+                                                                    max_force_threshold, 
+                                                                    initial_step_size, 
+                                                                    nhist_max, 
+                                                                    lattice_weight, 
+                                                                    alpha_min, 
+                                                                    eps_subsp, 
+                                                                    verbose, 
+                                                                    optimization_trajectory_file,
+                                                                    optimization_log_file)
+        positions_out = atoms.get_positions()
+        lattice_out = atoms.get_cell()
+        noise = optimizer.optimizer.lower_bound()
+    finally:
+        # Close files
+        if verbose:
+            optimization_trajectory_file.close()
+            optimization_log_file.close()
 
-    # Run geometry optimization
-    trajectory, optimizer, number_of_steps = geometry_optimization(atoms, 
-                                                                   max_force_threshold, 
-                                                                   initial_step_size, 
-                                                                   nhist_max, 
-                                                                   lattice_weight, 
-                                                                   alpha_min, 
-                                                                   eps_subsp, 
-                                                                   verbose, 
-                                                                   optimization_trajectory_file,
-                                                                   optimization_log_file)
-    positions_out = atoms.get_positions()
-    lattice_out = atoms.get_cell()
-    noise = optimizer.optimizer.lower_bound()
-
-    # Close files
-    if verbose:
-        optimization_trajectory_file.close()
-        optimization_log_file.close()
     return positions_out, lattice_out, noise, trajectory, number_of_steps
 
 

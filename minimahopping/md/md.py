@@ -22,32 +22,7 @@ def md(atoms, calculator, outpath, cell_atoms = None, dt = 0.001, n_max = 3, ver
     # Make a copy of the atoms object and attach a calculator
     atoms = atoms.copy()
     atoms.calc = calculator
-    # Get the initial positions to get later the deviation from the calculated positions
-    positions_old = atoms.get_positions()
 
-    # Initialization of the MD. Get the energy and forces for the first MD step
-    e_pot, forces, lattice_force, md_trajectory_file, md_log_file = initialize(atoms, cell_atoms, outpath, verbose)
-    # Run the MD until n_max minima have been visited
-    etot_max, etot_min, e_pot_max, e_pot_min, trajectory, i_steps = run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_max, verbose, outpath, collect_md_file, md_trajectory_file, md_log_file)
-
-    # adjust the time step for the next MD
-    new_dt = adjust_dt(etot_max, etot_min, e_pot_max, e_pot_min, dt)
-    # attach the last structure to the MD trajectory
-    temp = atoms.copy()
-    trajectory.append(temp.copy())
-
-    if verbose:
-        md_trajectory_file.close()
-        md_log_file.close()
-
-    return atoms.get_positions(), atoms.get_cell(), new_dt, trajectory, e_pot_max, i_steps
-
-
-
-def initialize(atoms, cell_atoms, outpath, verbose):
-    '''
-    Initialization of the MD before the iterative part starts
-    '''
     # If verbosity is true make the output files
     if verbose:
         md_trajectory_file = open(outpath + "MD_trajectory.extxyz", "w")
@@ -57,7 +32,37 @@ def initialize(atoms, cell_atoms, outpath, verbose):
         md_log_file = open(outpath + "MD_log.dat", "w")
         msg = 'STEP      EPOT          EKIN          ETOT               DT\n'
         md_log_file.write(msg)
+    else:
+        md_trajectory_file = None
+        md_log_file = None
 
+    try:
+        # Get the initial positions to get later the deviation from the calculated positions
+        positions_old = atoms.get_positions()
+
+        # Initialization of the MD. Get the energy and forces for the first MD step
+        e_pot, forces, lattice_force = initialize(atoms, cell_atoms, outpath, verbose)
+        # Run the MD until n_max minima have been visited
+        etot_max, etot_min, e_pot_max, e_pot_min, trajectory, i_steps = run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_max, verbose, outpath, collect_md_file, md_trajectory_file, md_log_file)
+
+        # adjust the time step for the next MD
+        new_dt = adjust_dt(etot_max, etot_min, e_pot_max, e_pot_min, dt)
+        # attach the last structure to the MD trajectory
+        temp = atoms.copy()
+        trajectory.append(temp.copy())
+    finally:
+        if verbose:
+            md_trajectory_file.close()
+            md_log_file.close()
+
+    return atoms.get_positions(), atoms.get_cell(), new_dt, trajectory, e_pot_max, i_steps
+
+
+
+def initialize(atoms, cell_atoms, outpath, verbose):
+    '''
+    Initialization of the MD before the iterative part starts
+    '''
     # Get the energy and forces
     forces = atoms.get_forces()
     e_pot = atoms.get_potential_energy()
@@ -69,7 +74,7 @@ def initialize(atoms, cell_atoms, outpath, verbose):
         lattice = atoms.get_cell()
         lattice_force = lat_opt.lattice_derivative(stress_tensor, lattice)
 
-    return e_pot, forces, lattice_force, md_trajectory_file, md_log_file
+    return e_pot, forces, lattice_force
 
 
 def calc_etot_and_ekin(atoms, cell_atoms, e_pot, etot_max, etot_min):
