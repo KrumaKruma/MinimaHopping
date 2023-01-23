@@ -38,7 +38,7 @@ if rank > 2: # second group with two processes
 if rank > 4: # third group with two processes
     color = 3
 
-comm_world.barrier()
+# comm_world.barrier()
 
 # create group communicators based on color
 
@@ -49,9 +49,9 @@ group_size = group_communicator.Get_size()
 if rank == 0:
     print('group_rank, group_size, rank, size')
 
-comm_world.barrier()
+# comm_world.barrier()
 
-time.sleep(0.1)
+# time.sleep(0.1)
 msg = 'group rank: {:d}   group size: {:d}  rank: {:d}  size: {:d}'.format(group_rank, group_size, rank, size)
 print(msg)
 
@@ -89,12 +89,12 @@ if rank != 0:
     atoms.calc = sirius_ase.siriusCalculator.SIRIUS(atoms, pp_files, functionals, kpoints, kshift, pw_cutoff, gk_cutoff, jsonparams, group_communicator)
 
 # Start MPI Minimahopping
-with Minimahopping(atoms, verbose_output=True, T0=2000, dt=0.1, use_MPI=False) as mh:
+with Minimahopping(atoms, verbose_output=True, T0=500, dt=0.1, use_MPI=True, totalWorkers=numberOfSlaves) as mh:
 
     # mpi example that will run for two minutes and assumes that 1 process is used as the server and the rest (n-1) as clients.
-    mh = Minimahopping(atoms, verbose_output=False, 
-        T0=2000, dt=0.1, use_MPI=True, fingerprint_threshold=5e-4, run_time='0-01:00:00', totalWorkers=numberOfSlaves)
-    # mh(totalsteps=5)
+    # mh = Minimahopping(atoms, verbose_output=False, 
+    #    T0=2000, dt=0.1, use_MPI=True, fingerprint_threshold=5e-4, run_time='0-01:00:00', totalWorkers=numberOfSlaves)
+    mh(totalsteps=5)
 
 
 
