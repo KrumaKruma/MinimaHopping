@@ -1,5 +1,4 @@
 import numpy as np
-from copy import deepcopy
 
 
 def lattice_derivative(stress_tensor, cell):
@@ -84,10 +83,9 @@ def reshape_cell2(atoms_in, imax):
     Return:
         atoms object with the changed cell
     """
-    atoms = deepcopy(atoms_in)
+    atoms = atoms_in.copy()
     lattice_in = atoms.get_cell().T
     positions_in = atoms.get_positions().T
-    nat = atoms.get_global_number_of_atoms()
 
     positions, lattice = alat2ascii(positions_in, lattice_in)
     lattice_temp, success = reshape_cell_ascii(lattice, imax)
@@ -134,7 +132,7 @@ def reshape_cell2(atoms_in, imax):
     atoms.set_positions(positions.T)
     atoms.set_cell(lattice.T, scale_atoms=False, apply_constraint=False)
 
-    return deepcopy(atoms)
+    return atoms.copy()
 
 
 def reshape_cell_ascii(lattice_in, imax):
