@@ -220,6 +220,7 @@ def update_trajectory(atoms, positions_old, trajectory, collect_md_file):
         trajectory.append(temp.copy())
         if collect_md_file is not None:
             write(collect_md_file, atoms)
+            collect_md_file.flush()
 
     return positions_current, trajectory
 
@@ -337,7 +338,9 @@ def write_log(atoms, e_pot, e_kin, e_tot, i_steps, dt, outpath, forces, md_traje
                                                                                             np.linalg.norm(forces))
 
     md_log_file.write(md_msg)
+    md_log_file.flush()
     write(md_trajectory_file, atoms, parallel=False)
+    md_trajectory_file.flush()
 
 
 def adjust_dt(etot_max, etot_min, epot_max, epot_min, dt):
