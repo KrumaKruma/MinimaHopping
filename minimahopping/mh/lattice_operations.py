@@ -72,18 +72,15 @@ def frac2cart(reduced_positions, cell):
     return positions
 
 
-def reshape_cell2(atoms_in, imax):
+def reshape_cell2(atoms, imax):
     """
     Function that reshapes the cell so that the cell is as cubic as possible
     Input:
         atoms: ASE atoms object
-            atoms object containing the lattice parameters
+            atoms object containing the lattice parameters. Cell will be reshaped in place
         imax: int
             maximum of the lattice expansion to try
-    Return:
-        atoms object with the changed cell
     """
-    atoms = atoms_in.copy()
     lattice_in = atoms.get_cell().T
     positions_in = atoms.get_positions().T
 
@@ -132,7 +129,6 @@ def reshape_cell2(atoms_in, imax):
     atoms.set_positions(positions.T)
     atoms.set_cell(lattice.T, scale_atoms=False, apply_constraint=False)
 
-    return atoms.copy()
 
 
 def reshape_cell_ascii(lattice_in, imax):
