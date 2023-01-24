@@ -128,8 +128,14 @@ class Minimahopping:
                 if not os.path.exists(self._minima_path):
                     os.mkdir(self._minima_path)
                 
-            comm = MPI.COMM_WORLD
-            comm.Barrier()
+            if not os.path.exists('output'):
+                time.sleep(1)
+                if not os.path.exists('output'):
+                    time.sleep(4)
+                    if not os.path.exists('output'):
+                        print("Failed to create an output directory. Aborting")
+                        quit()
+
             if self.mpiRank > 0:
                 self.isMaster = False
                 self.database = importer("minimahopping.MPI_database.mpi_database_worker")
@@ -226,10 +232,11 @@ class Minimahopping:
                 , self.parameter_dictionary['output_n_lowest_minima'], self.isRestart, self.restart_path, self._minima_path
                 , self.parameter_dictionary['write_graph_output'], totalWorkers=self.parameter_dictionary["totalWorkers"], maxTimeHours=self._get_sec() / 3600)
             print('All clients have left and the server will shut down as well.', flush=True)
-            print("sending mpi_abort to comm_world to make sure that all clients stop working", flush=True)
+            # print("sending mpi_abort to comm_world to make sure that all clients stop working", flush=True)
             # time.sleep(5)
             # MPI.COMM_WORLD.Abort()
             # quit()
+            return
         else:
             # time.sleep(1)
             print('Worker starting work ', self.mpiRank, flush=True)
@@ -468,6 +475,8 @@ class Minimahopping:
         """
         Get seconds from time.
         """
+        if self.parameter_dictionary["run_time"] is 'infinite':
+            return np.inf
         nd, d = self.parameter_dictionary["run_time"].split('-')
         h, m, s = d.split(':')
         return int(nd) * 86400 + int(h) * 3600 + int(m) * 60 + int(s)
@@ -553,7 +562,7 @@ class Minimahopping:
             # If pbc set new lattice and reshape cell
             if True in _pbc:
                 atoms.set_cell(lattice)
-                atoms = lat_opt.reshape_cell2(atoms, 6)
+                lat_opt.reshape_cell2(atoms, 6)
 
             print("    OPT start", flush=True)
             positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps = opt.optimization(atoms=atoms, 
@@ -572,7 +581,7 @@ class Minimahopping:
 
             # check if the energy threshold is below the optimization noise
             self._check_energy_threshold()
-         
+
             proposed_structure = Minimum(atoms,
                         s = self.parameter_dictionary['n_S_orbitals'],
                         p = self.parameter_dictionary["n_P_orbitals"], 
