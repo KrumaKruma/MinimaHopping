@@ -496,6 +496,10 @@ class Minimahopping:
         while is_escape:
             atoms = struct.atoms.copy()
             atoms.calc = self.calculator
+            try:
+                atoms.calc.recalculateBasis(atoms)
+            except:
+                pass
             # if the loop not escaped (no new minimum found) rise temperature
             if _i_steps > 0:
                 self._n_same += 1
@@ -563,6 +567,11 @@ class Minimahopping:
             if True in _pbc:
                 atoms.set_cell(lattice)
                 lat_opt.reshape_cell2(atoms, 6)
+
+            try:
+                atoms.calc.recalculateBasis(atoms)
+            except:
+                pass
 
             print("    OPT start", flush=True)
             positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps = opt.optimization(atoms=atoms, 
