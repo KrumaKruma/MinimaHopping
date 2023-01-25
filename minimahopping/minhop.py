@@ -18,6 +18,9 @@ from mpi4py import MPI
 from minimahopping.MPI_database import mpi_messages
 from ase import Atoms
 
+import minimahopping.mh.database
+import minimahopping.MPI_database.mpi_database_worker
+
 """
 MH Software written by Marco Krummenacher (marco.krummenacher@unibas.ch), Moritz Gubler and Jonas Finkler
 Parts of the software were originally developped (some in Fortran) from other people:
@@ -26,26 +29,6 @@ Parts of the software were originally developped (some in Fortran) from other pe
   -- VCS optimizer: Moritz Gubler
   -- OMFP in python: Jonas Finkler
 """
-
-
-def importer(name, root_package=False, relative_globals=None, level=0):
-    """ We only import modules, functions can be looked up on the module.
-    Usage: 
-
-    from foo.bar import baz
-    >>> baz = importer('foo.bar.baz')
-
-    import foo.bar.baz
-    >>> foo = importer('foo.bar.baz', root_package=True)
-    >>> foo.bar.baz
-
-    from .. import baz (level = number of dots)
-    >>> baz = importer('baz', relative_globals=globals(), level=2)
-    """
-    return __import__(name, locals=None, # locals has no use
-                      globals=relative_globals, 
-                      fromlist=[] if root_package else [None],
-                      level=level)
 
 class Minimahopping:
     """A minima hopping object. Must be accessed through a context manager
@@ -64,6 +47,7 @@ class Minimahopping:
     mpiSize = MPI.COMM_WORLD.Get_size()
     _minima_path = 'minima/'
     isMaster = None
+    isWorker = None
     database = None
 
     def __init__(self, initial_configuration : ase.atom.Atom,
@@ -106,7 +90,7 @@ class Minimahopping:
         
         if self.mpiSize == 1 or not use_MPI: # no mpi should be used
             self.isMaster = False
-            self.database = importer("minimahopping.mh.database")
+            self.isWorker = False
             self._outpath = 'output/' 
             self.restart_path = self._outpath + "restart/"
             # self._minima_path = 'minima/'
@@ -120,6 +104,7 @@ class Minimahopping:
             
             if self.mpiRank == 0:
                 self.isMaster = True
+                self.isWorker = False
                 self._outpath = 'output/master/'
                 self.restart_path = self._outpath + "restart/"
                 # self._minima_path = 'minima/'
@@ -138,7 +123,7 @@ class Minimahopping:
 
             if self.mpiRank > 0:
                 self.isMaster = False
-                self.database = importer("minimahopping.MPI_database.mpi_database_worker")
+                self.isWorker = True
                 self._outpath = 'output/worker_' + str(self.mpiRank) + '/' 
                 self.restart_path = self._outpath + "restart/"
                 # self._minima_path = 'minima/worker_' + str(self.mpiRank) + '/'
@@ -193,12 +178,22 @@ class Minimahopping:
 
 
     def __enter__(self):
-        if self.mpiRank > 0 or not self.parameter_dictionary["use_MPI"]: 
-            self.data = self.database.Database(self.parameter_dictionary["energy_threshold"], self.parameter_dictionary["fingerprint_threshold"]\
+
+        # master does not need setting up here
+        if self.isMaster:
+            return self
+
+        if not self.parameter_dictionary['use_MPI']:
+            self.data = minimahopping.mh.database.Database(self.parameter_dictionary["energy_threshold"], self.parameter_dictionary["fingerprint_threshold"]\
                     , self.parameter_dictionary["output_n_lowest_minima"], self.isRestart, self.restart_path, self._minima_path\
                     , self.parameter_dictionary["write_graph_output"])
-            self.data.__enter__()
-        # open MD collection file if MD is collected for ML
+        elif self.isWorker:
+            self.data = minimahopping.MPI_database.mpi_database_worker.Database(self.parameter_dictionary["energy_threshold"], self.parameter_dictionary["fingerprint_threshold"]\
+                    , self.parameter_dictionary["output_n_lowest_minima"], self.isRestart, self.restart_path, self._minima_path\
+                    , self.parameter_dictionary["write_graph_output"])
+
+        self.data.__enter__()
+
         if self.parameter_dictionary["collect_md_data"]:
             self.collect_md_file = open(self._outpath + "MD_collection.extxyz", "a")
         else:
@@ -208,9 +203,11 @@ class Minimahopping:
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
-        if self.mpiRank > 0: 
-            self.data.__exit__(exc_type, exc_value, exc_traceback)
-        if self.parameter_dictionary['use_MPI'] and not self.isMaster: # slave threads must send exit signals to master.
+        # master does not need to close anything here
+        if self.isMaster:
+            return
+        self.data.__exit__(exc_type, exc_value, exc_traceback)
+        if self.isWorker: # slave threads must send exit signals to master.
             MPI.COMM_WORLD.send((mpi_messages.clientWorkDone, None), 0)
             print('client set work done signal to server', flush=True)
         # close MD collection file if MD is collected for ML
