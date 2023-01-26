@@ -58,7 +58,7 @@ class Minimahopping:
 
         initalParameters = minimahopping.mh.parameters.minimaHoppingParameters(**kwargs)
 
-        self.createPathsAndSetMPIVariables(initalParameters.use_MPI, initalParameters.totalWorkers)
+        self.createPathsAndSetMPIVariables(initalParameters.use_MPI)
 
         self.isRestart = self.checkIfRestart(initalParameters.new_start)
 
@@ -67,7 +67,14 @@ class Minimahopping:
             f = open(filename)
             parameter_dictionary = json.load(f)
             f.close()
-            self.parameters = minimahopping.mh.parameters.minimaHoppingParameters(**parameter_dictionary)
+            compinedDictionary = {**parameter_dictionary, **kwargs}
+
+            for i in initalParameters.getFixedParameterList():
+                if compinedDictionary[i] != parameter_dictionary[i]:
+                    print("Parameter %s was changed between restart. Changing %s between restarts is not safe. Therefore, the previous value will be used"%(i, i))
+                    compinedDictionary[i] = parameter_dictionary[i]
+
+            self.parameters = minimahopping.mh.parameters.minimaHoppingParameters(**compinedDictionary)
         else:
             self.parameters = initalParameters
             self.parameters._dt = self.parameters.dt0
@@ -126,22 +133,15 @@ class Minimahopping:
         self.history_file.close()
 
 
-    def __call__(self, totalsteps = None):
+    def __call__(self, totalsteps = np.inf):
         counter = 0
-        if totalsteps is None:
-            print('provide integer for the total number of minima hopping steps', flush=True)
-            quit()
 
         if self.isMaster:
             print('starting mpi server on rank', self.mpiRank, flush=True)
             MPI_server.MPI_database_server_loop(self.parameters.energy_threshold, self.parameters.fingerprint_threshold
                 , self.parameters.output_n_lowest_minima, self.isRestart, self.restart_path, self._minima_path
-                , self.parameters.write_graph_output, totalWorkers=self.parameters.totalWorkers, maxTimeHours=self._get_sec() / 3600)
+                , self.parameters.write_graph_output, maxTimeHours=self._get_sec() / 3600)
             print('All clients have left and the server will shut down as well.', flush=True)
-            # print("sending mpi_abort to comm_world to make sure that all clients stop working", flush=True)
-            # time.sleep(5)
-            # MPI.COMM_WORLD.Abort()
-            # quit()
             return
         else:
             # time.sleep(1)
@@ -230,10 +230,6 @@ class Minimahopping:
                     return
         
         self.print_elapsed_time(totalsteps)
-        # if self.parameters.use_MPI:
-        #     print("An MPI worker is not allowed to leave the above loop because the server might freeze. Sending MPI_abort to comm_world")
-        #     from mpi4py import MPI
-        #     MPI.COMM_WORLD.Abort()
         return
 
 
@@ -375,7 +371,6 @@ class Minimahopping:
         """
         if self.parameters.run_time == 'infinite':
             return np.inf
-        print(self.parameters.run_time)
         nd, d = self.parameters.run_time.split('-')
         h, m, s = d.split(':')
         return int(nd) * 86400 + int(h) * 3600 + int(m) * 60 + int(s)
@@ -626,7 +621,9 @@ class Minimahopping:
         return isRestart
 
 
-    def createPathsAndSetMPIVariables(self, use_MPI, totalWorkers):
+    def createPathsAndSetMPIVariables(self, use_MPI):
+        if self.mpiSize > 1 and not use_MPI:
+            print("Detected multiple MPI Processes but use_MPI parameter was set to false. Is this on purpose?")
         if self.mpiSize == 1 or not use_MPI: # no mpi should be used
             self.isMaster = False
             self.isWorker = False
@@ -637,9 +634,6 @@ class Minimahopping:
                 print('UseMPI is true but only one rank is present. simulation will be stopped.', flush=True)
                 quit()
         else: # mpi parallelized simulation
-            if totalWorkers == 1:
-                print("""In an mpi simulation, the total number of workers parameter must be set to the correct number""", flush=True)
-                MPI.COMM_WORLD.Abort()
             
             if self.mpiRank == 0:
                 self.isMaster = True
@@ -665,7 +659,7 @@ class Minimahopping:
                 self.isWorker = True
                 self._outpath = 'output/worker_' + str(self.mpiRank) + '/' 
                 self.restart_path = self._outpath + "restart/"
-                # self._minima_path = 'minima/worker_' + str(self.mpiRank) + '/'
+                MPI.COMM_WORLD.send((mpi_messages.loginRequestFromClient, 1), dest=0)
 
 
     def print_elapsed_time(self, totalsteps):

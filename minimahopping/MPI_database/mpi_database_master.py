@@ -5,13 +5,9 @@ import time
 import numpy as np
 
 
-def MPI_database_server_loop(energy_threshold, minima_threshold, output_n_lowest_minima, is_restart = False, outpath='./', minima_path= "lowest_minima/", write_graph_output = True, maxTimeHours = np.inf, totalWorkers=None):
+def MPI_database_server_loop(energy_threshold, minima_threshold, output_n_lowest_minima, is_restart = False, outpath='./', minima_path= "lowest_minima/", write_graph_output = True, maxTimeHours = np.inf):
 
-    if totalWorkers is None:
-        print("total number of workers must be given to mpi_database_serverloop. aborting...")
-        quit()
-    
-    current_workers = totalWorkers
+    current_workers = 0
 
     maxTimeSeconds = maxTimeHours * 3600
     t_start = time.time()
@@ -24,7 +20,6 @@ def MPI_database_server_loop(energy_threshold, minima_threshold, output_n_lowest
         t1 = time.time()
 
         # this set contains the ranks of all clients that stopped working.
-        # When the size of this set is totalWorkers the server can be stopped
         stoppedClients = set()
         with open('efficiency.txt', mode='w') as efficiencyFile:
             efficiencyFile.write('#server_efficiency, processing time, waiting time\n')
@@ -65,9 +60,11 @@ def MPI_database_server_loop(energy_threshold, minima_threshold, output_n_lowest
                     if not sender in stoppedClients: # client stopped running and was not stopped by server.
                         stoppedClients.add(sender)
                         current_workers = current_workers - 1
+                elif message_tag == message.loginRequestFromClient:
+                    current_workers += 1
                 else:
                     print('tag not known, shutting down')
                     return
 
-                if current_workers <= 0: # Last process that is still alive. The simulation can be stopped.
+                if current_workers == 0: # Last process that is still alive. The simulation can be stopped.
                     return
