@@ -26,12 +26,12 @@ def MPI_database_server_loop(energy_threshold, minima_threshold, output_n_lowest
         # this set contains the ranks of all clients that stopped working.
         # When the size of this set is totalWorkers the server can be stopped
         stoppedClients = set()
-        with open('efficiencz.txt') as efficiencyFile:
+        with open('efficiency.txt', mode='w') as efficiencyFile:
             efficiencyFile.write('#server_efficiency, processing time, waiting time\n')
             while True:
                 continueSimulation = time.time() - t_start < maxTimeSeconds
 
-                efficiencyFile.write('%f %f %f %f %f \n'%(process_time / (process_time + wait_time+1e-6), process_time, wait_time))
+                efficiencyFile.write('%f %f %f \n'%(process_time / (process_time + wait_time+1e-6), process_time, wait_time))
                 t2 = time.time()
                 process_time += t2 - t1
                 t1 = time.time()
