@@ -373,8 +373,9 @@ class Minimahopping:
         """
         Get seconds from time.
         """
-        if self.parameters.run_time is 'infinite':
+        if self.parameters.run_time == 'infinite':
             return np.inf
+        print(self.parameters.run_time)
         nd, d = self.parameters.run_time.split('-')
         h, m, s = d.split(':')
         return int(nd) * 86400 + int(h) * 3600 + int(m) * 60 + int(s)
