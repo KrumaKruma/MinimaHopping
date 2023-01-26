@@ -17,6 +17,7 @@ import os
 from mpi4py import MPI
 from minimahopping.MPI_database import mpi_messages
 from ase import Atoms
+import minimahopping.mh.parameters
 
 import minimahopping.mh.database
 import minimahopping.MPI_database.mpi_database_worker
@@ -48,127 +49,34 @@ class Minimahopping:
     _minima_path = 'minima/'
     isMaster = None
     isWorker = None
-    database = None
 
-    def __init__(self, initial_configuration : ase.atom.Atom,
-                        T0 = 1000,
-                        beta_decrease = 1./1.02,
-                        beta_increase = 1.02,
-                        Ediff0 = .1,
-                        alpha_accept = 1/1.02,
-                        alpha_reject = 1.02,
-                        n_soft = 20,
-                        soften_positions = 1e-2,
-                        soften_lattice = 1e-3,
-                        soften_biomode = False,
-                        n_S_orbitals = 1, 
-                        n_P_orbitals = 1, 
-                        width_cutoff = 3.5, 
-                        maxnatsphere = 100, 
-                        exclude = [],
-                        dt = 0.01,
-                        mdmin = 2,
-                        collect_md_data = False,
-                        fmax = 0.001,
-                        enhanced_feedback = False,
-                        energy_threshold = 0.0001, #5 the noise
-                        output_n_lowest_minima = 20,
-                        fingerprint_threshold = 1e-3,
-                        verbose_output = True,
-                        new_start = False,
-                        run_time = 'infinite', 
-                        use_intermediate_mechanism = False,
-                        overwriteParametersOnRestart = False,
-                        write_graph_output = True,
-                        use_MPI = False,
-                        totalWorkers = None
-                        ):
+
+    def __init__(self, initial_configuration : ase.atom.Atom, **kwargs):
         """Initialize with an ASE atoms object and keyword arguments."""
 
         self.initial_configuration = initial_configuration
 
-        
-        if self.mpiSize == 1 or not use_MPI: # no mpi should be used
-            self.isMaster = False
-            self.isWorker = False
-            self._outpath = 'output/' 
-            self.restart_path = self._outpath + "restart/"
-            # self._minima_path = 'minima/'
-            if use_MPI:
-                print('UseMPI is true but only one rank is present. simulation will be stopped.', flush=True)
-                quit()
-        else: # mpi parallelized simulation
-            if totalWorkers is None:
-                print("""In an mpi simulation, the total number of workers parameter must be set to the correct number""", flush=True)
-                MPI.COMM_WORLD.Abort()
-            
-            if self.mpiRank == 0:
-                self.isMaster = True
-                self.isWorker = False
-                self._outpath = 'output/master/'
-                self.restart_path = self._outpath + "restart/"
-                # self._minima_path = 'minima/'
-                if not os.path.exists("output"):
-                    os.mkdir('output')
-                if not os.path.exists(self._minima_path):
-                    os.mkdir(self._minima_path)
-                
-            if not os.path.exists('output'):
-                time.sleep(1)
-                if not os.path.exists('output'):
-                    time.sleep(4)
-                    if not os.path.exists('output'):
-                        print("Failed to create an output directory. Aborting")
-                        quit()
+        initalParameters = minimahopping.mh.parameters.minimaHoppingParameters(kwargs)
 
-            if self.mpiRank > 0:
-                self.isMaster = False
-                self.isWorker = True
-                self._outpath = 'output/worker_' + str(self.mpiRank) + '/' 
-                self.restart_path = self._outpath + "restart/"
-                # self._minima_path = 'minima/worker_' + str(self.mpiRank) + '/'
+        self.createPathsAndSetMPIVariables(initalParameters.use_MPI, initalParameters.totalWorkers)
 
+        self.isRestart = self.checkIfRestart(initalParameters.new_start)
 
-        self.isRestart = self.checkIfRestart(new_start)
-
-        if self.isRestart and not overwriteParametersOnRestart:
-            self._read_changing_parameters("params.json")
+        if self.isRestart:
+            filename = self.restart_path + "params.json"
+            f = open(filename)
+            parameter_dictionary = json.load(f)
+            f.close()
+            self.parameters = minimahopping.mh.parameters.minimaHoppingParameters(**parameter_dictionary)
         else:
-            self.parameter_dictionary = {
-                "beta_decrease" : beta_decrease,
-                "beta_increase" : beta_increase,
-                "alpha_accept" : alpha_accept,
-                "alpha_reject" : alpha_reject,
-                "n_softening_steps" : n_soft,
-                "alpha_soften_positions" : soften_positions,
-                "alpha_soften_lattice" : soften_lattice,
-                "soften_biomode" : soften_biomode,
-                "n_S_orbitals" : n_S_orbitals,
-                "n_P_orbitals" : n_P_orbitals,
-                "width_cutoff": width_cutoff,
-                "max_atoms_in_cutoff_sphere" : maxnatsphere,
-                "dt" : dt,
-                "mdmin" : mdmin,
-                "collect_md_data" : collect_md_data,
-                "fmax" : fmax,
-                "enhanced_feedback" : enhanced_feedback,
-                "energy_threshold" : energy_threshold,
-                "output_n_lowest_minima": output_n_lowest_minima,
-                "fingerprint_threshold" : fingerprint_threshold,
-                "verbose_output" : verbose_output,
-                "T" : T0, 
-                "energy_difference_to_accept" : Ediff0,
-                "exclude" : exclude,
-                "run_time" : run_time,
-                "use_intermediate_mechanism" : use_intermediate_mechanism,
-                "write_graph_output" : write_graph_output,
-                "use_MPI": use_MPI,
-                "totalWorkers": totalWorkers
-            }
+            self.parameters = initalParameters
+            self.parameters._dt = self.parameters.dt0
+            self.parameters._T = self.parameters.T0
+            self.parameters._eDiff = self.parameters.Ediff0
 
         if self.isMaster:
             f = open(self.restart_path+"params.json", "w")
-            json.dump(self.parameter_dictionary,f)
+            json.dump(self.parameters.to_dict(),f)
             f.close()
 
         # Initialization of global counters        
@@ -183,24 +91,25 @@ class Minimahopping:
         if self.isMaster:
             return self
 
-        if not self.parameter_dictionary['use_MPI']:
-            self.data = minimahopping.mh.database.Database(self.parameter_dictionary["energy_threshold"], self.parameter_dictionary["fingerprint_threshold"]\
-                    , self.parameter_dictionary["output_n_lowest_minima"], self.isRestart, self.restart_path, self._minima_path\
-                    , self.parameter_dictionary["write_graph_output"])
+        if not self.parameters.use_MPI:
+            self.data = minimahopping.mh.database.Database(self.parameters.energy_threshold, self.parameters.fingerprint_threshold\
+                    , self.parameters.output_n_lowest_minima, self.isRestart, self.restart_path, self._minima_path\
+                    , self.parameters.write_graph_output)
         elif self.isWorker:
-            self.data = minimahopping.MPI_database.mpi_database_worker.Database(self.parameter_dictionary["energy_threshold"], self.parameter_dictionary["fingerprint_threshold"]\
-                    , self.parameter_dictionary["output_n_lowest_minima"], self.isRestart, self.restart_path, self._minima_path\
-                    , self.parameter_dictionary["write_graph_output"])
+            self.data = minimahopping.MPI_database.mpi_database_worker.Database(self.parameters.energy_threshold, self.parameters.fingerprint_threshold\
+                    , self.parameters.output_n_lowest_minima, self.isRestart, self.restart_path, self._minima_path\
+                    , self.parameters.write_graph_output)
 
         self.data.__enter__()
 
-        if self.parameter_dictionary["collect_md_data"]:
+        if self.parameters.collect_md_data:
             self.collect_md_file = open(self._outpath + "MD_collection.extxyz", "a")
         else:
             self.collect_md_file = None
         # open history file
         self.history_file = open(self._outpath + 'history.dat', 'a')
         return self
+
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
         # master does not need to close anything here
@@ -211,7 +120,7 @@ class Minimahopping:
             MPI.COMM_WORLD.send((mpi_messages.clientWorkDone, None), 0)
             print('client set work done signal to server', flush=True)
         # close MD collection file if MD is collected for ML
-        if self.parameter_dictionary["collect_md_data"]:
+        if self.parameters.collect_md_data:
             self.collect_md_file.close()
         # close histroy file
         self.history_file.close()
@@ -225,9 +134,9 @@ class Minimahopping:
 
         if self.isMaster:
             print('starting mpi server on rank', self.mpiRank, flush=True)
-            MPI_server.MPI_database_server_loop(self.parameter_dictionary['energy_threshold'], self.parameter_dictionary['fingerprint_threshold']
-                , self.parameter_dictionary['output_n_lowest_minima'], self.isRestart, self.restart_path, self._minima_path
-                , self.parameter_dictionary['write_graph_output'], totalWorkers=self.parameter_dictionary["totalWorkers"], maxTimeHours=self._get_sec() / 3600)
+            MPI_server.MPI_database_server_loop(self.parameters.energy_threshold, self.parameters.fingerprint_threshold
+                , self.parameters.output_n_lowest_minima, self.isRestart, self.restart_path, self._minima_path
+                , self.parameters.write_graph_output, totalWorkers=self.parameters.totalWorkers, maxTimeHours=self._get_sec() / 3600)
             print('All clients have left and the server will shut down as well.', flush=True)
             # print("sending mpi_abort to comm_world to make sure that all clients stop working", flush=True)
             # time.sleep(5)
@@ -268,7 +177,7 @@ class Minimahopping:
                 self._hoplog(escaped_minimum)
 
                 # check if intermediate or escaped minimum should be considered for accepting.
-                if is_first_accept_iteration or not self.parameter_dictionary["use_intermediate_mechanism"]: 
+                if is_first_accept_iteration or not self.parameters.use_intermediate_mechanism: 
                     # after first iteration, the escaped minimum must be considered for accecpting
                     intermediate_minimum = escaped_minimum.__copy__()
                     intermediate_minimum_is_escaped_minimum = True
@@ -312,7 +221,7 @@ class Minimahopping:
             print("DONE", flush=True)
             print("=================================================================", flush=True)
 
-            if self.parameter_dictionary["run_time"] != "infinite":
+            if self.parameters.run_time != "infinite":
                 if time.time() - self._time_in > self._run_time_sec:
                     msg = 'Simulation stopped because the given time is over\n'
                     msg += 'Run terminated after {:d} steps'.format(counter)
@@ -321,7 +230,7 @@ class Minimahopping:
                     return
         
         self.print_elapsed_time(totalsteps)
-        # if self.parameter_dictionary['use_MPI']:
+        # if self.parameters.use_MPI:
         #     print("An MPI worker is not allowed to leave the above loop because the server might freeze. Sending MPI_abort to comm_world")
         #     from mpi4py import MPI
         #     MPI.COMM_WORLD.Abort()
@@ -369,7 +278,7 @@ class Minimahopping:
 
     def _write_restart(self, escaped_minimum: Minimum, intermediate_minimum: Minimum, isAccepted: bool):
         f = open(self.restart_path+"params.json", "w")
-        json.dump(self.parameter_dictionary,f)
+        json.dump(self.parameters.to_dict(),f)
         f.close()
         if isAccepted:
             intermediate_minimum.write(self.restart_path + "poscur.extxyz", append=False)
@@ -393,7 +302,7 @@ class Minimahopping:
         print("MINIMAHOPPING SETUP START", flush=True)
 
         # Convert given time to seconds
-        if self.parameter_dictionary["run_time"] != "infinite":
+        if self.parameters.run_time != "infinite":
             self._run_time_sec = self._get_sec()
         self._time_in = time.time()
 
@@ -406,14 +315,14 @@ class Minimahopping:
                 atom.set_cell(_lattice)
                 atom.calc = self.calculator
                 struct = Minimum(atom,
-                            s = self.parameter_dictionary['n_S_orbitals'],
-                            p = self.parameter_dictionary["n_P_orbitals"], 
-                            width_cutoff = self.parameter_dictionary["width_cutoff"],
-                            maxnatsphere = self.parameter_dictionary["max_atoms_in_cutoff_sphere"],
+                            s = self.parameters.n_S_orbitals,
+                            p = self.parameters.n_P_orbitals, 
+                            width_cutoff = self.parameters.width_cutoff,
+                            maxnatsphere = self.parameters.maxnatsphere,
                             epot = atom.get_potential_energy(),
-                            T=self.parameter_dictionary['T'],
-                            ediff=self.parameter_dictionary["energy_difference_to_accept"],
-                            exclude= self.parameter_dictionary["exclude"])
+                            T=self.parameters._T,
+                            ediff=self.parameters._eDiff,
+                            exclude= self.parameters.exclude)
                 self.data.addElement(struct)
             # add input structure to database after optimization
             struct_cur = self.data.get_element(0)
@@ -426,14 +335,14 @@ class Minimahopping:
             atoms = read(filename, parallel= False)
             
             struct_cur = Minimum(atoms,
-                        s = self.parameter_dictionary['n_S_orbitals'],
-                        p = self.parameter_dictionary["n_P_orbitals"], 
-                        width_cutoff = self.parameter_dictionary["width_cutoff"],
-                        maxnatsphere = self.parameter_dictionary["max_atoms_in_cutoff_sphere"],
+                        s = self.parameters.n_S_orbitals,
+                        p = self.parameters.n_P_orbitals, 
+                        width_cutoff = self.parameters.width_cutoff,
+                        maxnatsphere = self.parameters.maxnatsphere,
                         epot = atoms.get_potential_energy(),
-                        T=self.parameter_dictionary['T'],
-                        ediff=self.parameter_dictionary["energy_difference_to_accept"],
-                        exclude= self.parameter_dictionary["exclude"])
+                        T=self.parameters._T,
+                        ediff=self.parameters._eDiff,
+                        exclude= self.parameters.exclude)
         
             database_index = self.data.get_element_index(struct_cur)
             if database_index == -1:
@@ -448,23 +357,15 @@ class Minimahopping:
         return struct_cur
 
 
-    def _read_changing_parameters(self, param_dict_name):
-        # Read parameters and set them
-        filename = self.restart_path + param_dict_name
-        f = open(filename)
-        self.parameter_dictionary = json.load(f)
-        f.close()
-
-
     def _restart_opt(self, atoms,):
         """
         Optimization wrapper for the startup
         """
         positions, lattice, noise, trajectory, number_of_steps = opt.optimization(atoms=atoms, 
                                                                         calculator=self.calculator, 
-                                                                        max_force_threshold=self.parameter_dictionary["fmax"], 
+                                                                        max_force_threshold=self.parameters.fmax, 
                                                                         outpath=self._outpath, 
-                                                                        verbose=self.parameter_dictionary["verbose_output"])
+                                                                        verbose=self.parameters.verbose_output)
         return positions, lattice
 
 
@@ -472,9 +373,9 @@ class Minimahopping:
         """
         Get seconds from time.
         """
-        if self.parameter_dictionary["run_time"] is 'infinite':
+        if self.parameters.run_time is 'infinite':
             return np.inf
-        nd, d = self.parameter_dictionary["run_time"].split('-')
+        nd, d = self.parameters.run_time.split('-')
         h, m, s = d.split(':')
         return int(nd) * 86400 + int(h) * 3600 + int(m) * 60 + int(s)
 
@@ -502,12 +403,12 @@ class Minimahopping:
                 self._n_same += 1
                 status = 'Same'
                 self._history_log(proposed_structure, status)
-                self.parameter_dictionary['T'] *= self.parameter_dictionary['beta_increase']
-                log_msg = "    Same minimum found with fpd {:1.2e} {:d} time(s). Increase temperature to {:1.5f}".format(_escape, self._n_same, self.parameter_dictionary['T'])
+                self.parameters._T *= self.parameters.beta_increase
+                log_msg = "    Same minimum found with fpd {:1.2e} {:d} time(s). Increase temperature to {:1.5f}".format(_escape, self._n_same, self.parameters._T)
                 print(log_msg, flush=True)
 
             # set the temperature according to Boltzmann distribution
-            MaxwellBoltzmannDistribution(atoms, temperature_K=self.parameter_dictionary['T'], communicator='serial')
+            MaxwellBoltzmannDistribution(atoms, temperature_K=self.parameters._T, communicator='serial')
 
             # check that periodic boundaries are the same in all directions (no mixed boundary conditions)
             _pbc = list(set(atoms.pbc))
@@ -524,7 +425,7 @@ class Minimahopping:
                 # set position and mass of cell atoms
                 cell_atoms = Cell_atom(mass=mass, positions=atoms.get_cell())
                 # set velocities of the cell atoms
-                cell_atoms.set_velocities_boltzmann(temperature=self.parameter_dictionary['T'])
+                cell_atoms.set_velocities_boltzmann(temperature=self.parameters._T)
             else:
                 # IMPORTANT: cell atoms has to be None for soften/md/geopt if no pbc
                 cell_atoms = None
@@ -532,10 +433,10 @@ class Minimahopping:
             # softening of the velocities
             velocities, cell_velocities = softening.soften(atoms=atoms, 
                             calculator=self.calculator, 
-                            nsoft=self.parameter_dictionary['n_softening_steps'],
-                            alpha_pos = self.parameter_dictionary['alpha_soften_positions'], 
+                            nsoft = self.parameters.n_soft,
+                            alpha_pos = self.parameters.soften_positions, 
                             cell_atoms = cell_atoms,
-                            alpha_lat =  self.parameter_dictionary['alpha_soften_lattice'])
+                            alpha_lat =  self.parameters.soften_lattice)
             
             # set softened velocities
             atoms.set_velocities(velocities)
@@ -546,16 +447,16 @@ class Minimahopping:
    
             # Perfom MD run
             print("    MD Start", flush=True)
-            positions, lattice, self.parameter_dictionary['dt'], _md_trajectory, _epot_max, number_of_md_steps = md.md(atoms = atoms, 
+            positions, lattice, self.parameters._dt, _md_trajectory, _epot_max, number_of_md_steps = md.md(atoms = atoms, 
                                                                                                         calculator = self.calculator,
                                                                                                         outpath = self._outpath, 
                                                                                                         cell_atoms = cell_atoms,
-                                                                                                        dt = self.parameter_dictionary['dt'], 
-                                                                                                        n_max = self.parameter_dictionary["mdmin"],
-                                                                                                        verbose = self.parameter_dictionary["verbose_output"],
+                                                                                                        dt = self.parameters._dt, 
+                                                                                                        n_max = self.parameters.mdmin,
+                                                                                                        verbose = self.parameters.verbose_output,
                                                                                                         collect_md_file = self.collect_md_file)
 
-            log_msg = "    MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f}".format(number_of_md_steps, self.parameter_dictionary["mdmin"], self.parameter_dictionary['dt'])
+            log_msg = "    MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f}".format(number_of_md_steps, self.parameters.mdmin, self.parameters._dt)
 
             print(log_msg, flush=True)
             # Set new positions after the MD
@@ -573,9 +474,9 @@ class Minimahopping:
             print("    OPT start", flush=True)
             positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps = opt.optimization(atoms=atoms, 
                                                                     calculator=self.calculator, 
-                                                                    max_force_threshold=self.parameter_dictionary["fmax"], 
+                                                                    max_force_threshold=self.parameters.fmax, 
                                                                     outpath=self._outpath, 
-                                                                    verbose=self.parameter_dictionary["verbose_output"])
+                                                                    verbose=self.parameters.verbose_output)
             # Set optimized positions
             atoms.set_positions(positions)
             # If Pbc set optimized lattice 
@@ -589,14 +490,14 @@ class Minimahopping:
             self._check_energy_threshold()
 
             proposed_structure = Minimum(atoms,
-                        s = self.parameter_dictionary['n_S_orbitals'],
-                        p = self.parameter_dictionary["n_P_orbitals"], 
-                        width_cutoff = self.parameter_dictionary["width_cutoff"],
-                        maxnatsphere = self.parameter_dictionary["max_atoms_in_cutoff_sphere"],
+                        s = self.parameters.n_S_orbitals,
+                        p = self.parameters.n_P_orbitals, 
+                        width_cutoff = self.parameters.width_cutoff,
+                        maxnatsphere = self.parameters.maxnatsphere,
                         epot = atoms.get_potential_energy(),
-                        T=self.parameter_dictionary['T'],
-                        ediff=self.parameter_dictionary["energy_difference_to_accept"],
-                        exclude= self.parameter_dictionary["exclude"])
+                        T=self.parameters._T,
+                        ediff=self.parameters._eDiff,
+                        exclude= self.parameters.exclude)
 
             # check if proposed structure is the same to the initial structure
             _escape_energy = struct.__compareto__(proposed_structure)
@@ -605,9 +506,9 @@ class Minimahopping:
             _i_steps += 1
             self._n_min += 1
 
-            if  _escape > self.parameter_dictionary["fingerprint_threshold"]:
+            if  _escape > self.parameters.fingerprint_threshold:
                 is_escape = False
-            elif _escape_energy > self.parameter_dictionary["energy_threshold"]:
+            elif _escape_energy > self.parameters._eDiff:
                 is_escape = False
 
         log_msg = "    New minimum found with fpd {:1.2e} after looping {:d} time(s)".format(_escape, _i_steps)
@@ -623,10 +524,9 @@ class Minimahopping:
         atoms = struct.atoms
         atoms.calc = self.calculator
         log_msg = "  Epot:  {:1.5f}   E_diff:  {:1.5f}    Temp:   {:1.5f} ".format(atoms.get_potential_energy(),
-                                                                                             self.parameter_dictionary["energy_difference_to_accept"],
-                                                                                             self.parameter_dictionary['T'])
+                                                                                             self.parameters._eDiff,
+                                                                                             self.parameters._T)
         print(log_msg, flush=True)
-
 
 
     def _accept_reject_step(self, struct_cur: Minimum, struct: Minimum):
@@ -641,14 +541,14 @@ class Minimahopping:
         _e_pot_cur = struct_cur.e_pot
         _e_pot = struct.e_pot
 
-        _ediff_in = self.parameter_dictionary["energy_difference_to_accept"]
+        _ediff_in = self.parameters._eDiff
 
-        if _e_pot - _e_pot_cur < self.parameter_dictionary["energy_difference_to_accept"]:
-            self.parameter_dictionary["energy_difference_to_accept"] *= self.parameter_dictionary['alpha_accept']
+        if _e_pot - _e_pot_cur < self.parameters._eDiff:
+            self.parameters._eDiff *= self.parameters.alpha_accept
             is_accepted = True
             ediff_acc = _e_pot - _e_pot_cur
         else:
-            self.parameter_dictionary["energy_difference_to_accept"] *= self.parameter_dictionary['alpha_reject']
+            self.parameters._eDiff *= self.parameters.alpha_reject
             is_accepted = False
             ediff_rej = _e_pot - _e_pot_cur
 
@@ -661,7 +561,6 @@ class Minimahopping:
                                                                                                 _ediff_in)
             print(log_msg, flush=True)
 
-        self.parameter_dictionary["energy_difference_to_accept"] = self.parameter_dictionary["energy_difference_to_accept"]
         return is_accepted
 
 
@@ -673,12 +572,12 @@ class Minimahopping:
         """
         if n_visits > 1:
             self._n_notunique += 1
-            if self.parameter_dictionary["enhanced_feedback"]:
-                self.parameter_dictionary['T'] = self.parameter_dictionary['T'] * self.parameter_dictionary['beta_increase'] * (1. + 1. * np.log(float(n_visits)))
+            if self.parameters.enhanced_feedback:
+                self.parameters._T = self.parameters._T * self.parameters.beta_increase * (1. + 1. * np.log(float(n_visits)))
             else:
-                self.parameter_dictionary['T'] = self.parameter_dictionary['T'] * self.parameter_dictionary['beta_increase']
+                self.parameters._T = self.parameters._T * self.parameters.beta_increase
         else:
-            self.parameter_dictionary['T'] = self.parameter_dictionary['T'] * self.parameter_dictionary['beta_decrease']
+            self.parameters._T = self.parameters._T * self.parameters.beta_decrease
 
 
     def _history_log(self, struct, status, n_visits = 0):
@@ -697,8 +596,8 @@ class Minimahopping:
 
         history_msg = "{:1.9f}  {:d}  {:1.5f}  {:1.5f}  {:1.2f}  {:1.2f}  {:1.2f} {:s} \n".format(atoms.get_potential_energy(),
                                                                         n_visits,
-                                                                        self.parameter_dictionary['T'],
-                                                                        self.parameter_dictionary["energy_difference_to_accept"],
+                                                                        self.parameters._T,
+                                                                        self.parameters._eDiff,
                                                                         _same_frac,
                                                                         _notunique_frac,
                                                                         _unique_frac,
@@ -709,14 +608,14 @@ class Minimahopping:
         self.history_file.flush()
        
 
-
     def _check_energy_threshold(self):
         """
         Function that checks if the energy_threshold is below the noise
         """
-        if self.parameter_dictionary["energy_threshold"] < self._noise:
+        if self.parameters._eDiff < self._noise:
             _warning_msg = 'Energy threshold is below the noise level'
             warnings.warn(_warning_msg, UserWarning)
+
 
     def checkIfRestart(self, isNewStart):
         isRestart = file_handling.restart(self._outpath, self.restart_path, self._minima_path, self.isMaster)
@@ -724,6 +623,48 @@ class Minimahopping:
         if isNewStart:
             isRestart = False
         return isRestart
+
+
+    def createPathsAndSetMPIVariables(self, use_MPI, totalWorkers):
+        if self.mpiSize == 1 or not use_MPI: # no mpi should be used
+            self.isMaster = False
+            self.isWorker = False
+            self._outpath = 'output/' 
+            self.restart_path = self._outpath + "restart/"
+            # self._minima_path = 'minima/'
+            if use_MPI:
+                print('UseMPI is true but only one rank is present. simulation will be stopped.', flush=True)
+                quit()
+        else: # mpi parallelized simulation
+            if totalWorkers == 1:
+                print("""In an mpi simulation, the total number of workers parameter must be set to the correct number""", flush=True)
+                MPI.COMM_WORLD.Abort()
+            
+            if self.mpiRank == 0:
+                self.isMaster = True
+                self.isWorker = False
+                self._outpath = 'output/master/'
+                self.restart_path = self._outpath + "restart/"
+                # self._minima_path = 'minima/'
+                if not os.path.exists("output"):
+                    os.mkdir('output')
+                if not os.path.exists(self._minima_path):
+                    os.mkdir(self._minima_path)
+                
+            if not os.path.exists('output'):
+                time.sleep(1)
+                if not os.path.exists('output'):
+                    time.sleep(4)
+                    if not os.path.exists('output'):
+                        print("Failed to create an output directory. Aborting")
+                        quit()
+
+            if self.mpiRank > 0:
+                self.isMaster = False
+                self.isWorker = True
+                self._outpath = 'output/worker_' + str(self.mpiRank) + '/' 
+                self.restart_path = self._outpath + "restart/"
+                # self._minima_path = 'minima/worker_' + str(self.mpiRank) + '/'
 
 
     def print_elapsed_time(self, totalsteps):
