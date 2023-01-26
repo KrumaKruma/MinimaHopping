@@ -56,7 +56,7 @@ class Minimahopping:
 
         self.initial_configuration = initial_configuration
 
-        initalParameters = minimahopping.mh.parameters.minimaHoppingParameters(kwargs)
+        initalParameters = minimahopping.mh.parameters.minimaHoppingParameters(**kwargs)
 
         self.createPathsAndSetMPIVariables(initalParameters.use_MPI, initalParameters.totalWorkers)
 
