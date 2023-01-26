@@ -7,9 +7,9 @@ class minimaHoppingParameters:
     T0: float = 1000
     _T: float = -1.0
     _eDiff: float = -1.0
+    Ediff0: float = .1
     beta_decrease: float = 1./1.02
     beta_increase: float = 1.02
-    Ediff0: float = .1
     alpha_accept: float = 1/1.02
     alpha_reject: float = 1.02
     n_soft: int = 20
@@ -29,14 +29,17 @@ class minimaHoppingParameters:
     energy_threshold: float = 0.0001
     output_n_lowest_minima: int = 20
     fingerprint_threshold: float = 1e-3
-    verbose_output: bool = True
+    verbose_output: bool = False
     new_start: bool = False
     run_time: str = "infinite"
     use_intermediate_mechanism: bool = False
     write_graph_output: bool = True
     use_MPI: bool = False
-    totalWorkers: int = 1
+
+    def getFixedParameterList(self):
+        return ['n_S_orbitals', 'n_P_orbitals', 'width_cutoff', 'exclude', 'fingerprint_threshold', 'use_MPI', 'maxnatsphere']
 
 if __name__ == '__main__':
     params = minimaHoppingParameters(exclude=["H", "He", 'Li'], dt0=1)
+    print(params.getFixedParameterList())
     print(params.to_dict())
