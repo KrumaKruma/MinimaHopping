@@ -18,7 +18,8 @@ setup(
         'scikit-learn',
         'networkx',
         'mpi4py',
-        'sqnm @ git+https://github.com/moritzgubler/vc-sqnm#egg=sqnm&subdirectory=src/python/'
+        'sqnm @ git+https://github.com/moritzgubler/vc-sqnm#egg=sqnm&subdirectory=src/python/',
+        'dataclasses-json'
     ],
 )
 
