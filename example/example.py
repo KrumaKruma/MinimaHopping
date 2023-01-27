@@ -19,7 +19,7 @@ def main():
 
     calculator = EAM(potential="Na_v2.eam.fs")
     initial_configuration.calc = calculator
-    with Minimahopping(initial_configuration, verbose_output=True, T0=2000, dt=0.1, use_MPI=False) as mh:
+    with Minimahopping(initial_configuration, verbose_output=True, T0=2000, dt0=0.1, use_MPI=False) as mh:
     # or using mpi in the minima hopping simulation:
     # with Minimahopping(initial_configuration, verbose_output=True, T0=2000, dt=0.1, use_MPI=True) as mh:
 
