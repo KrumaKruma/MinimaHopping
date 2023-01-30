@@ -95,15 +95,12 @@ class Database():
     def get_element_index(self, struct: minimum.Minimum):
         
         indices = self.get_index_energyrange(struct)
-
-        min_dist = 10e10
         index = -1
 
         for i_compare in indices:
             s = self.unique_minima_sorted[i_compare]
             fp_dist = struct.fingerprint_distance(s)
-            if fp_dist < min_dist:
-                min_dist = fp_dist
+            if fp_dist < self.minima_threshold:
                 index = i_compare
 
         return index
@@ -118,30 +115,40 @@ class Database():
             i_start -= 1
 
         indices = []
-        
-        # #backward
-        energy_difference = 0
-        for i_compare in range(i_start-1, -1, -1):
-            if energy_difference > self.energy_threshold:
-                break
-            else:
-                s = self.unique_minima_sorted[i_compare]
-                energy_difference = struct.__compareto__(s)
-                #if fp_dist < self.minima_threshold:
-                if energy_difference < self.energy_threshold:
-                    indices.append(i_compare)
+        break_backward = False
+        break_forward = False
+        i = 0
 
-        energy_difference = 0
-        #forward
-        i_compare = i_start
-        for i_compare in range(i_start, self.nstructs, 1):
-            if energy_difference > self.energy_threshold:
-                break
-            else:
+        while i < self.nstructs:
+
+            # backward
+            i_compare = i_start - i
+            if i_compare >= 0:
                 s = self.unique_minima_sorted[i_compare]
                 energy_difference = struct.__compareto__(s)
                 if energy_difference < self.energy_threshold:
                     indices.append(i_compare)
+                else:
+                    if i != 0:
+                        break_backward = True
+            else:
+                break_backward = True
+
+            i += 1
+            # forward
+            i_compare = i_start + i
+            if i_compare < self.nstructs:
+                s = self.unique_minima_sorted[i_compare]
+                energy_difference = struct.__compareto__(s)
+                if energy_difference < self.energy_threshold:
+                    indices.append(i_compare)
+                else:
+                    break_forward = True
+            else:
+                break_forward = True
+            # check if break
+            if break_backward and break_forward:
+                  break
 
         return indices
 

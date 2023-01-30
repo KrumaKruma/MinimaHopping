@@ -170,7 +170,6 @@ class Minimahopping:
                 escaped_minimum, epot_max, md_trajectory, opt_trajectory = self._escape(current_minimum) 
                 print("  ---------------------------------------------------------------",flush=True)
                 print("  New minimum found!", flush=True)
-
                 n_visit, label, continueSimulation = self.data.addElementandConnectGraph(current_minimum, escaped_minimum, md_trajectory + opt_trajectory, epot_max)
 
                 # write output
@@ -501,7 +500,6 @@ class Minimahopping:
 
             _i_steps += 1
             self._n_min += 1
-
             if  _escape > self.parameters.fingerprint_threshold:
                 is_escape = False
             elif _escape_energy > self.parameters._eDiff:
