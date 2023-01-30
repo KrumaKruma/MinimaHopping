@@ -61,7 +61,6 @@ class Minimum():
             fp_dist = np.sqrt(fp_dist)
 
         fp_dist /= len(self.atoms)
-        print(fp_dist)
         return fp_dist
 
     def write(self, filename, append = False, info_dict: dict = {}):
@@ -150,9 +149,9 @@ class Minimum():
             else:
                 _selected_positions = _selected_postions*_ang2bohr
                 _elements = self.atoms.get_atomic_numbers()
-                _width_cutoff = 1000000
+                # _width_cutoff = 1000000
                 _maxnatsphere = len(self.atoms)
-                _omfpCalculator = OMFP.stefansOMFP(s=s, p=p, width_cutoff=_width_cutoff, maxnatsphere=_maxnatsphere)
+                _omfpCalculator = OMFP.stefansOMFP(s=s, p=p, width_cutoff=width_cutoff, maxnatsphere=_maxnatsphere)
                 # _omfp = _omfpCalculator.globalFingerprint(_selected_positions, _selected_elem)
                 _omfp = _omfpCalculator.fingerprint(_selected_positions, _selected_elem)
                 _omfp = np.array(_omfp)
