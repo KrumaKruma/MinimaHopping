@@ -102,6 +102,7 @@ class Database():
             fp_dist = struct.fingerprint_distance(s)
             if fp_dist < self.minima_threshold:
                 index = i_compare
+                break
 
         return index
 
