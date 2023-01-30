@@ -497,7 +497,7 @@ class Minimahopping:
 
             # check if proposed structure is the same to the initial structure
             _escape_energy = struct.__compareto__(proposed_structure)
-            _escape = struct.__equals__(proposed_structure)
+            _escape = struct.fingerprint_distance(proposed_structure)
 
             _i_steps += 1
             self._n_min += 1

@@ -101,7 +101,7 @@ class Database():
 
         for i_compare in indices:
             s = self.unique_minima_sorted[i_compare]
-            fp_dist = struct.__equals__(s)
+            fp_dist = struct.fingerprint_distance(s)
             if fp_dist < min_dist:
                 min_dist = fp_dist
                 index = i_compare

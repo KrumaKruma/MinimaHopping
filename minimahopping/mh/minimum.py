@@ -37,7 +37,7 @@ class Minimum():
     def __compareto__(self, other):
         return abs(self.e_pot - other.e_pot)
 
-    def __equals__(self, other):
+    def fingerprint_distance(self, other):
         """
          Calcualtes the fingerprint distance of 2 structures with local environment descriptors using the hungarian algorithm
          if a local environment descriptor is used. Else the distance is calculated using l2-norm.
