@@ -101,12 +101,10 @@ class Database():
 
         for i_compare in indices:
             s = self.unique_minima_sorted[i_compare]
-            energy_difference = struct.__compareto__(s)
             fp_dist = struct.__equals__(s)
-            if fp_dist < self.minima_threshold:
-                if fp_dist < min_dist:
-                    min_dist = energy_difference
-                    index = i_compare
+            if fp_dist < min_dist:
+                min_dist = fp_dist
+                index = i_compare
 
         return index
 
