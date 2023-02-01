@@ -3,11 +3,13 @@ from mpi4py import MPI
 import minimahopping.MPI_database.mpi_messages as message
 import time
 import numpy as np
+import logging
 
 
 def MPI_database_server_loop(energy_threshold, minima_threshold, output_n_lowest_minima, is_restart = False, outpath='./', minima_path= "lowest_minima/", write_graph_output = True, maxTimeHours = np.inf):
 
     current_workers = 0
+    clientHasLeft = False
 
     maxTimeSeconds = maxTimeHours * 3600
     t_start = time.time()
@@ -24,7 +26,7 @@ def MPI_database_server_loop(energy_threshold, minima_threshold, output_n_lowest
         with open('efficiency.txt', mode='w') as efficiencyFile:
             efficiencyFile.write('#server_efficiency, processing time, waiting time\n')
             while True:
-                continueSimulation = time.time() - t_start < maxTimeSeconds
+                continueSimulation = time.time() - t_start < maxTimeSeconds and not clientHasLeft
 
                 efficiencyFile.write('%f %f %f \n'%(process_time / (process_time + wait_time+1e-6), process_time, wait_time))
                 t2 = time.time()
@@ -45,8 +47,8 @@ def MPI_database_server_loop(energy_threshold, minima_threshold, output_n_lowest
                     comm_world.send((n_visit, label, continueSimulation), sender)
                     if not continueSimulation:
                         if sender in stoppedClients:
-                            print('Server thinks client stopped working, but client is still running.')
-                            print("rank of bad client:", sender)
+                            logging.error('Server thinks client stopped working, but client is still running.')
+                            logging.error("rank of bad client: %i"%sender)
                             return
                         stoppedClients.add(sender)
                         current_workers = current_workers - 1
@@ -57,13 +59,14 @@ def MPI_database_server_loop(energy_threshold, minima_threshold, output_n_lowest
                     requested_minimum = db.get_element(data)
                     comm_world.send(requested_minimum, sender)
                 elif message_tag == message.clientWorkDone:
+                    clientHasLeft = True
                     if not sender in stoppedClients: # client stopped running and was not stopped by server.
                         stoppedClients.add(sender)
                         current_workers = current_workers - 1
                 elif message_tag == message.loginRequestFromClient:
                     current_workers += 1
                 else:
-                    print('tag not known, shutting down')
+                    logging.error('tag not known, shutting down')
                     return
 
                 if current_workers == 0: # Last process that is still alive. The simulation can be stopped.

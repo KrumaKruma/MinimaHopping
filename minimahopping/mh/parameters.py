@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
+import logging
 
 @dataclass_json
 @dataclass
@@ -35,6 +36,7 @@ class minimaHoppingParameters:
     use_intermediate_mechanism: bool = False          
     write_graph_output: bool = True                    
     use_MPI: bool = False
+    logLevel: int = logging.INFO
 
     def getFixedParameterList(self):
         return ['n_S_orbitals', 'n_P_orbitals', 'width_cutoff', 'exclude', 'fingerprint_threshold', 'use_MPI', 'maxnatsphere']

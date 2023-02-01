@@ -1,7 +1,7 @@
 import numpy as np
 import warnings
 from ase.io import write
-import minimahopping.mh.lattice_operations as lat_opt
+# import minimahopping.mh.lattice_operations as lat_opt
 from sqnm.vcsqnm_for_ase import aseOptimizer
 
 
@@ -120,7 +120,7 @@ def write_log(atoms, optimizer, i_step, max_force_comp, max_disp, optimization_t
                                                                                                             max_force_comp,
                                                                                                             optimizer.optimizer.optimizer.gainratio,
                                                                                                             optimizer.optimizer.optimizer.alpha,
-                                                                                                            optimizer.optimizer.optimizer.dim_subs,
+                                                                                                            optimizer.optimizer.optimizer.dim_subspace,
                                                                                                             max_disp)
     
     optimization_log_file.write(opt_msg)
