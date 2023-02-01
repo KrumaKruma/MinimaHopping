@@ -141,11 +141,6 @@ class Minimahopping:
         self.history_file.close()
 
 
-    def sigTermCatcher(self, *args):
-        self.__exit__(None, None, None)
-        sys.exit()
-
-
     def __call__(self, totalsteps = np.inf):
         counter = 0
 
@@ -330,7 +325,10 @@ class Minimahopping:
                             T=self.parameters._T,
                             ediff=self.parameters._eDiff,
                             exclude= self.parameters.exclude)
-                self.data.addElement(struct)
+                n_visit, label, continueSimulation = self.data.addElement(struct)
+                if not continueSimulation:
+                    logging.info("received shutdown signal after adding first element.")
+                    quit()
             # add input structure to database after optimization
             struct_cur = self.data.get_element(0)
             self._write_restart(struct_cur, struct_cur, True)
@@ -689,10 +687,15 @@ class Minimahopping:
                 format='%(message)s'    
             )
 
-            # fh = logging.FileHandler(self._outpath + 'minimahopping.log')
-            # fh.setLevel(self.logLevel)
-            # logging.addHandler(fh)
 
+    def sigTermCatcher(self, *args):
+        if self.isMaster:
+            logging.info("Received sigterm on master. Closing files and send mpi abort to comm_world")
+        else:
+            logging.info("Received sigterm. I will close files and exit.")
+        if self.isMaster:
+            MPI.COMM_WORLD.Abort()
+        sys.exit()
 
     def print_elapsed_time(self, totalsteps):
         """

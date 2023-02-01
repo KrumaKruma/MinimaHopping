@@ -81,7 +81,7 @@ class Database():
 
             self.minima_shelve[str(label)] = struct1
         struct.write(self.allMinimaFile, append=True)
-        return self.unique_minima_sorted[index].n_visit, self.unique_minima_sorted[index].label
+        return self.unique_minima_sorted[index].n_visit, self.unique_minima_sorted[index].label, True
 
     def addElementandConnectGraph(self, currentMinimum: minimum.Minimum, escapedMinimum: minimum.Minimum, trajectory, epot_max):
         n_vistit, label = self.addElement(escapedMinimum)

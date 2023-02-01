@@ -24,10 +24,10 @@ class Database():
     def addElement(self,struct: minimum.Minimum):
         minimum_copy = struct.__copy__()
         self.comm_world.send((message.addelement, minimum_copy), dest=0)
-        n_visit, label = self.comm_world.recv(source=0)
+        n_visit, label, continueSimulation = self.comm_world.recv(source=0)
         struct.n_visit = n_visit
         struct.label = label
-        return n_visit, label
+        return n_visit, label, continueSimulation
 
     def addElementandConnectGraph(self, currentMinimum: minimum.Minimum, escapedMinimum: minimum.Minimum, trajectory, epot_max):
         self.comm_world.send((message.addElementandConnectGraph, [currentMinimum.__copy__(), escapedMinimum.__copy__(), trajectory, epot_max]), dest=0)
