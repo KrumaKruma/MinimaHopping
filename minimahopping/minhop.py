@@ -21,6 +21,8 @@ import minimahopping.mh.parameters
 
 import minimahopping.mh.database
 import minimahopping.MPI_database.mpi_database_worker
+import signal
+import sys
 
 """
 MH Software written by Marco Krummenacher (marco.krummenacher@unibas.ch), Moritz Gubler and Jonas Finkler
@@ -94,6 +96,9 @@ class Minimahopping:
 
     def __enter__(self):
 
+        # set up sigtermcatcher
+        signal.signal(signal.SIGTERM, self.sigTermCatcher)
+
         # master does not need setting up here
         if self.isMaster:
             return self
@@ -131,6 +136,10 @@ class Minimahopping:
             self.collect_md_file.close()
         # close histroy file
         self.history_file.close()
+
+    def sigTermCatcher(self, *args):
+        self.__exit__(None, None, None)
+        sys.exit()
 
 
     def __call__(self, totalsteps = np.inf):
