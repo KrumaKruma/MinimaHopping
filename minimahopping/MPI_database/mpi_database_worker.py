@@ -1,4 +1,6 @@
 import minimahopping.mh.minimum as minimum
+import mpi4py
+mpi4py.rc.recv_mprobe = False
 from mpi4py import MPI
 import minimahopping.MPI_database.mpi_messages as message
 
