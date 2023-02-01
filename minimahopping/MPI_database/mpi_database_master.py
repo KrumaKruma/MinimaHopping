@@ -1,4 +1,6 @@
 from minimahopping.mh.database import Database
+import mpi4py
+mpi4py.rc.recv_mprobe = False
 from mpi4py import MPI
 import minimahopping.MPI_database.mpi_messages as message
 import time
@@ -35,14 +37,14 @@ def MPI_database_server_loop(energy_threshold, minima_threshold, output_n_lowest
                 logging.debug("Listening for message from clients")
                 message_tag, data = comm_world.recv(status=status)
                 t2 = time.time()
-                logging.debug("Received message with tag: %s"%message_tag)
                 sender = status.Get_source()
+                logging.debug("Received message with tag: %s from sender %i"%(message_tag, sender))
                 wait_time += t2 - t1
 
                 t1 = time.time()
 
                 if message_tag == message.addelement:
-                    n_visit, label, _ = db.addElement(data)
+                    n_visit, label, temp = db.addElement(data)
                     comm_world.send((n_visit, label, continueSimulation), sender)
                     if not continueSimulation:
                         logging.info("Sent shutdown message to client %i"%sender)

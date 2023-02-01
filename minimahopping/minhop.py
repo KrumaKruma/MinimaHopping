@@ -325,7 +325,9 @@ class Minimahopping:
                             T=self.parameters._T,
                             ediff=self.parameters._eDiff,
                             exclude= self.parameters.exclude)
+                logging.debug("Before initial database request in startup")
                 n_visit, label, continueSimulation = self.data.addElement(struct)
+                logging.debug("After initial database request in startup")
                 if not continueSimulation:
                     logging.info("received shutdown signal after adding first element.")
                     quit()

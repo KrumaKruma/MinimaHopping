@@ -84,7 +84,7 @@ class Database():
         return self.unique_minima_sorted[index].n_visit, self.unique_minima_sorted[index].label, True
 
     def addElementandConnectGraph(self, currentMinimum: minimum.Minimum, escapedMinimum: minimum.Minimum, trajectory, epot_max):
-        n_vistit, label = self.addElement(escapedMinimum)
+        n_vistit, label, _ = self.addElement(escapedMinimum)
         if self.write_graph_output:
             self.graph.addStructure(currentMinimum.label, escapedMinimum.label, trajectory, currentMinimum.e_pot, escapedMinimum.e_pot, epot_max)
         return n_vistit, label, True # last return determines if worker should continue. Since this class is not used with mpi True must be returned

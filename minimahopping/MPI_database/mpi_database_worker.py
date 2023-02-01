@@ -1,8 +1,7 @@
 import minimahopping.mh.minimum as minimum
-import mpi4py
-mpi4py.rc.recv_mprobe = False
 from mpi4py import MPI
 import minimahopping.MPI_database.mpi_messages as message
+import logging
 
 
 class Database():
@@ -25,8 +24,11 @@ class Database():
 
     def addElement(self,struct: minimum.Minimum):
         minimum_copy = struct.__copy__()
+        logging.debug("Sending minimum to master: %s from rank %i"%(str(message.addelement), self.comm_world.Get_rank()))
         self.comm_world.send((message.addelement, minimum_copy), dest=0)
+        logging.debug("Waiting for answer from add element of master")
         n_visit, label, continueSimulation = self.comm_world.recv(source=0)
+        logging.debug("Received answer from add element of master, n_vistit: %i, label: %i, continue: %r"%(n_visit, label, continueSimulation))
         struct.n_visit = n_visit
         struct.label = label
         return n_visit, label, continueSimulation
