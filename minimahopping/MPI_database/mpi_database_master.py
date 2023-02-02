@@ -30,7 +30,7 @@ def MPI_database_server_loop(energy_threshold, minima_threshold, output_n_lowest
 
             t2 = time.time()
             process_time += t2 - t1
-            logging.info('Average server load: %f percent. Processing last structure took %f seconds.'%(100 * process_time / (process_time + wait_time+1e-6), process_time))
+            logging.info('Average server load: %f percent. Processing last structure took %f seconds.'%(100 * process_time / (process_time + wait_time+1e-6), t2 - t1))
             t1 = time.time()
             logging.debug("Listening for message from clients")
             message_tag, data = comm_world.recv(status=status)
