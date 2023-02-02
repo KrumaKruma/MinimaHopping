@@ -19,10 +19,7 @@ def restart(outpath, restart_path, minima_path, is_master):
 
     if is_restart and is_output:
         is_restart = True
-        is_files = checkfiles(restart_path, is_master)
-        if not is_files:
-            is_restart = False
-        is_restart = False
+        is_restart = checkfiles(restart_path, is_master)
     else:
         is_restart = False
     
