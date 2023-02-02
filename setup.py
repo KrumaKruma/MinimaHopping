@@ -21,5 +21,10 @@ setup(
         'sqnm @ git+https://github.com/moritzgubler/vc-sqnm#egg=sqnm&subdirectory=src/python/',
         'dataclasses-json'
     ],
+    entry_points={
+      'console_scripts': [
+        'sortByEnergy=minimahopping.commandLineInterface.sortAtoms:main'
+      ]
+    }
 )
 
