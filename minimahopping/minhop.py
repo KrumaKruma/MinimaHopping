@@ -415,6 +415,7 @@ class Minimahopping:
                 logging.info(log_msg)
 
             # set the temperature according to Boltzmann distribution
+            atoms.set_masses(np.ones(len(atoms)))
             MaxwellBoltzmannDistribution(atoms, temperature_K=self.parameters._T, communicator='serial')
 
             # check that periodic boundaries are the same in all directions (no mixed boundary conditions)
