@@ -24,7 +24,8 @@ setup(
     ],
     entry_points={
       'console_scripts': [
-        'sortByEnergy=minimahopping.commandLineInterface.sortAtoms:main'
+        'sortByEnergy=minimahopping.commandLineInterface.sortAtoms:main',
+        'omfpdistance=minimahopping.commandLineInterface.omfpdistance:main'
       ]
     }
 )
