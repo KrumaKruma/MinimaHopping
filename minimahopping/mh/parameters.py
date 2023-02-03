@@ -29,11 +29,11 @@ class minimaHoppingParameters:
     """soften_lattice (float): step size for softening the lattice (only relevant for periodic boundary conditions)"""
     n_S_orbitals: int = 1
     """n_S_orbitals (int): number of s orbitals for constructing the OMFP"""
-    n_P_orbitals: int = 1
+    n_P_orbitals: int = 0
     """n_P_orbitals (int): number of p orbitals for constructing the OMFP"""
-    width_cutoff: int = 3.5
+    width_cutoff: int = 4
     """width_cutoff (float): cutoff for the OMFP"""
-    maxnatsphere: int = 50
+    maxnatsphere: int = 30
     """maxnatsphere (int): Truncation lentgh of the OMFP length"""
     exclude: list = field(default_factory=list)
     """exclude (list): List of elements to exclude in the OMFP"""
@@ -49,11 +49,11 @@ class minimaHoppingParameters:
     """fmax (float): Maximal force component. Used as a stopping criterion for the geometry optimization."""
     enhanced_feedback:bool = False
     """enhanced_feedback (bool):Enhanced feedback (rise temperature according to T = T * beta_increase * (1. + 1. * ln(n_visits))). Unclear if this improves performance"""
-    energy_threshold: float = 0.01
+    energy_threshold: float = 0.001
     """energy_threshold (float): if the energy difference of two structures is below the fingerprint is compared"""
     output_n_lowest_minima: int = 20
     """output_n_lowest_minima (int): Outputs the n lowest minima"""
-    fingerprint_threshold: float = 5e-3
+    fingerprint_threshold: float = 1e-3
     """fingerprint_threshold (float): OMFP distance threshold for distinguishing minima"""
     verbose_output: bool = False
     """verbose_output (bool): If True MD and OPT logs are written."""
