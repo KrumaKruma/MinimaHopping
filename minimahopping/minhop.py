@@ -60,6 +60,8 @@ class Minimahopping:
         """Initialize with an ASE atoms object and keyword arguments."""
 
         self.initial_configuration = initial_configuration
+        # set the temperature according to Boltzmann distribution
+        self.initial_configuration.set_masses(np.ones(len(self.initial_configuration)))
 
         initalParameters = minimahopping.mh.parameters.minimaHoppingParameters(**kwargs)
 
@@ -414,8 +416,7 @@ class Minimahopping:
                 log_msg = "    Same minimum found with fpd {:1.2e} {:d} time(s). Increase temperature to {:1.5f}".format(_escape, self._n_same, self.parameters._T)
                 logging.info(log_msg)
 
-            # set the temperature according to Boltzmann distribution
-            atoms.set_masses(np.ones(len(atoms)))
+            atoms.set_masses(self.initial_configuration.get_masses())
             MaxwellBoltzmannDistribution(atoms, temperature_K=self.parameters._T, communicator='serial')
 
             # check that periodic boundaries are the same in all directions (no mixed boundary conditions)
