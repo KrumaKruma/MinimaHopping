@@ -14,19 +14,19 @@ def main():
     parser.add_argument('-i2', '--inputfile2', dest ='file2',
                 action ='store', help ='input filename of second file.', required=True)
     # parse indeices
-    parser.add_argument('--index1', dest='index1', action='store', 
+    parser.add_argument('--index1', dest='index1', action='store', type=int,
         help='index of first structure in input file', default=0, required= False)
-    parser.add_argument('--index2', dest='index2', action='store', 
+    parser.add_argument('--index2', dest='index2', action='store', type=int,
         help='index of second structure in input file', default=0, required= False)
 
     # parse additional OMFP parameters
-    parser.add_argument('--n_S_orbitals', dest='n_S_orbitals', action='store', 
+    parser.add_argument('--n_S_orbitals', dest='n_S_orbitals', action='store', type=int,
         help='number of s orbitals for constructing the OMFP', default=defaultParams.n_S_orbitals, required= False)
-    parser.add_argument('--n_P_orbitals', dest='n_P_orbitals', action='store', 
+    parser.add_argument('--n_P_orbitals', dest='n_P_orbitals', action='store', type=int,
         help='number of p orbitals for constructing the OMFP', default=defaultParams.n_P_orbitals, required= False)
-    parser.add_argument('--width_cutoff', dest='width_cutoff', action='store', 
+    parser.add_argument('--width_cutoff', dest='width_cutoff', action='store', type=float,
         help='cutoff for the OMFP', default=defaultParams.width_cutoff, required= False)
-    parser.add_argument('--maxnatsphere', dest='maxnatsphere', action='store', 
+    parser.add_argument('--maxnatsphere', dest='maxnatsphere', action='store', type=int,
         help='Truncation lentgh of the OMFP length', default=defaultParams.maxnatsphere, required= False)
     parser.add_argument(
         "--exclude",
