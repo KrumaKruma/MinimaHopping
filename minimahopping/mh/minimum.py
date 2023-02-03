@@ -52,16 +52,14 @@ class Minimum():
         assert n_dim2 < 3, "Dimension of vector 2 is larger that 2"
 
         if n_dim1 == 1 and n_dim2 == 1:
-            fp_dist = np.linalg.norm(self.fp - other.fp)
+            fp_dist = np.linalg.norm(self.fp - other.fp) / len(self.atoms)
         else:
             costmat = self._costmatrix(self.fp, other.fp)
             ans_pos = optimize.linear_sum_assignment(costmat)
-            fp_dist = 0.
-            for index1, index2 in zip(ans_pos[0], ans_pos[1]):
-                fp_dist += np.dot((self.fp[index1, :] - other.fp[index2, :]), (self.fp[index1, :] - other.fp[index2, :]))
-            fp_dist = np.sqrt(fp_dist)
+            # use this formula for euclidian fingerprint distance
+            # fp_dist = np.linalg.norm( self.fp[ans_pos[0], :] - other.fp[ans_pos[1], :]) / len(self.atoms)
+            fp_dist = np.max( np.abs(self.fp[ans_pos[0], :] - other.fp[ans_pos[1], :]) )
 
-        fp_dist /= len(self.atoms)
         return fp_dist
 
     def write(self, filename, append = False, info_dict: dict = {}):
