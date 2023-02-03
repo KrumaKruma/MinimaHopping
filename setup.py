@@ -19,7 +19,8 @@ setup(
         'networkx',
         'mpi4py',
         'sqnm @ git+https://github.com/moritzgubler/vc-sqnm#egg=sqnm&subdirectory=src/python/',
-        'dataclasses-json'
+        'dataclasses-json',
+        'numba'
     ],
     entry_points={
       'console_scripts': [
