@@ -2,6 +2,8 @@ import bisect
 import shelve
 import minimahopping.mh.minimum as minimum
 import minimahopping.graph.graph
+import logging
+import time
 
 class Database():
     def __init__(self,energy_threshold, minima_threshold, output_n_lowest_minima, is_restart = False, outpath='./', minima_path= "lowest_minima/", write_graph_output = True):
@@ -20,6 +22,11 @@ class Database():
 
         self.noDublicatesFileName = self.minima_path + "all_minima_no_duplicates.extxyz"
         self.allMinimaFilename = self.minima_path + "all_minima.extxyz"
+
+        if logging.root.level <= logging.DEBUG:
+            self.verbosity = True
+        else:
+            self.verbosity = False
 
         if self.write_graph_output:
             self.graphFilename = self.outpath + "graph.dat"
@@ -55,7 +62,12 @@ class Database():
 
 
     def addElement(self,struct: minimum.Minimum):
+        if self.verbosity:
+            t1 = time.time()
         index = self.get_element_index(struct=struct)
+        if self.verbosity:
+            t2 = time.time()
+            finding_time = t2 - t1
         already_found = self.contains(index=index)
 
         if already_found:
@@ -80,7 +92,18 @@ class Database():
                 self._write_poslow(self.output_n_lowest_minima, self.minima_path)
 
             self.minima_shelve[str(label)] = struct1
+        
+
         struct.write(self.allMinimaFile, append=True)
+        if self.verbosity:
+            t1 = time.time()
+            db_time = t1 - t2
+            if already_found:
+                timingMessage = "Database search time: %.4f, adjusting minima shelve time: %.3f"%(finding_time, db_time)
+            else:
+                timingMessage = "Database search time: %.4f, adding minima shelve time: %.3f"%(finding_time, db_time)
+            logging.info(timingMessage)
+
         return self.unique_minima_sorted[index].n_visit, self.unique_minima_sorted[index].label, True
 
     def addElementandConnectGraph(self, currentMinimum: minimum.Minimum, escapedMinimum: minimum.Minimum, trajectory, epot_max):
