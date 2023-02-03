@@ -666,7 +666,8 @@ class Minimahopping:
             if not os.path.exists('output'):
                 os.mkdir(self._outpath)
                 os.mkdir(self.restart_path)
-            # self._minima_path = 'minima/'
+            if not os.path.exists(self._minima_path):
+                os.mkdir(self._minima_path)
             if use_MPI:
                 logging.error('UseMPI is true but only one rank is present. simulation will be stopped.')
                 quit()
@@ -691,6 +692,13 @@ class Minimahopping:
                 if not os.path.exists('output'):
                     time.sleep(4)
                     if not os.path.exists('output'):
+                        print("Failed to create an output directory. Aborting", flush=True)
+                        quit()
+            if not os.path.exists(self._minima_path):
+                time.sleep(1)
+                if not os.path.exists(self._minima_path):
+                    time.sleep(4)
+                    if not os.path.exists(self._minima_path):
                         print("Failed to create an output directory. Aborting", flush=True)
                         quit()
 
