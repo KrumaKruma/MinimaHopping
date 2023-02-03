@@ -3,6 +3,28 @@ from scipy import optimize
 from copy import deepcopy
 from minimahopping.omfp.OverlapMatrixFingerprint import OverlapMatrixFingerprint as OMFP
 from ase.io import write
+import logging
+import time
+try:
+    from numba import njit
+except ImportError:
+    # todo: raise warning
+    def njit(f):
+        return f
+
+@njit
+def _costmatrix(desc1, desc2):
+    """
+    Cost matrix of the local fingerprints for the hungarian algorithm
+    """
+    # assert desc1.shape[0] == desc2.shape[0], "descriptor has not the same length"
+
+    costmat = np.zeros((desc1.shape[0], desc2.shape[0]))
+
+    for i, vec1 in enumerate(desc1):
+        for j, vec2 in enumerate(desc2):
+            costmat[i, j] = np.linalg.norm(vec1 - vec2)
+    return costmat
 
 class Minimum():
     """ 
@@ -54,10 +76,8 @@ class Minimum():
         if n_dim1 == 1 and n_dim2 == 1:
             fp_dist = np.linalg.norm(self.fp - other.fp) / len(self.atoms)
         else:
-            costmat = self._costmatrix(self.fp, other.fp)
+            costmat = _costmatrix(self.fp, other.fp)
             ans_pos = optimize.linear_sum_assignment(costmat)
-            # use this formula for euclidian fingerprint distance
-            # fp_dist = np.linalg.norm( self.fp[ans_pos[0], :] - other.fp[ans_pos[1], :]) / len(self.atoms)
             fp_dist = np.max( np.abs(self.fp[ans_pos[0], :] - other.fp[ans_pos[1], :]) )
 
         return fp_dist
@@ -71,21 +91,6 @@ class Minimum():
         temp_atoms.info['n_visit'] = self.n_visit
         temp_atoms.info.update(info_dict)
         write(filename, temp_atoms, append=append, parallel=False)
-
-
-    def _costmatrix(self, desc1, desc2):
-        """
-        Cost matrix of the local fingerprints for the hungarian algorithm
-        """
-        assert desc1.shape[0] == desc2.shape[0], "descriptor has not the same length"
-
-        costmat = np.zeros((desc1.shape[0], desc2.shape[0]))
-
-        for i, vec1 in enumerate(desc1):
-            for j, vec2 in enumerate(desc2):
-                costmat[i, j] = np.linalg.norm(vec1 - vec2)
-
-        return costmat
 
 
     def _get_OMFP(self,s=1, p=0, width_cutoff=1.5, maxnatsphere=100, exclude=[]):
