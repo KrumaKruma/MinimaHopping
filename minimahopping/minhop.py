@@ -125,6 +125,7 @@ class Minimahopping:
             self.collect_md_file = None
         # open history file
         self.history_file = open(self._outpath + 'history.dat', 'a')
+        self.history_file.write("Energy[eV], number of visits, label, temperature [K], ratio of accepted minima, ratio of rejected minima, ratio of unsucessful escapes (Same), status")
         return self
 
 
@@ -202,19 +203,21 @@ class Minimahopping:
 
                 # write log messages
                 if is_accepted:
+                    self.parameters._n_accepted += 1
                     current_minimum = intermediate_minimum.__copy__()
                     if intermediate_minimum_is_escaped_minimum:
                         status = "Accepted minimum after escaping"
-                        self._history_log(escaped_minimum, status, escaped_minimum.n_visit)
+                        self._history_log(escaped_minimum, status)
                     else:
                         status = 'Accepted intermediate minimum'
-                        self._history_log(intermediate_minimum, status, escaped_minimum.n_visit)
+                        self._history_log(intermediate_minimum, status)
                 else:
-                    if intermediate_minimum_is_escaped_minimum:
+                    self.parameters._n_rejected += 1
+                    if intermediate_minimum_is_escaped_minimum and self.parameters.use_intermediate_mechanism:
                         status = "Rejected -> new intermediate minimum"
                     else:
                         status = "Rejected"
-                    self._history_log(escaped_minimum, status, escaped_minimum.n_visit)
+                    self._history_log(escaped_minimum, status)
 
                 logging.info("  New minimum has been found {:d} time(s)".format(escaped_minimum.n_visit))
 
@@ -329,6 +332,7 @@ class Minimahopping:
                             exclude= self.parameters.exclude)
                 logging.debug("Before initial database request in startup")
                 n_visit, label, continueSimulation = self.data.addElement(struct)
+                self.parameters._n_accepted += 1
                 logging.debug("After initial database request in startup")
                 if not continueSimulation:
                     logging.info("received shutdown signal after adding first element.")
@@ -361,7 +365,7 @@ class Minimahopping:
             struct_cur.atoms = atoms
 
         status = 'Initial'
-        self._history_log(struct_cur, status, n_visits=struct_cur.n_visit)
+        self._history_log(struct_cur, status)
 
         return struct_cur
 
@@ -389,7 +393,7 @@ class Minimahopping:
         return int(nd) * 86400 + int(h) * 3600 + int(m) * 60 + int(s)
 
 
-    def _escape(self, struct):
+    def _escape(self, struct: Minimum):
         """
         Escape loop to find a new minimum
         """
@@ -411,7 +415,7 @@ class Minimahopping:
             if _i_steps > 0:
                 self._n_same += 1
                 status = 'Same'
-                self._history_log(proposed_structure, status)
+                self._history_log(struct, status)
                 self.parameters._T *= self.parameters.beta_increase
                 log_msg = "    Same minimum found with fpd {:1.2e} {:d} time(s). Increase temperature to {:1.5f}".format(_escape, self._n_same, self.parameters._T)
                 logging.info(log_msg)
@@ -518,6 +522,8 @@ class Minimahopping:
                 is_escape = False
             elif _escape_energy > self.parameters._eDiff:
                 is_escape = False
+            else: # not escaped, same minimum found
+                self.parameters._n_same += 1
 
         log_msg = "    New minimum found with fpd {:1.2e} after looping {:d} time(s)".format(_escape, _i_steps)
         logging.info(log_msg)
@@ -588,28 +594,41 @@ class Minimahopping:
             self.parameters._T = self.parameters._T * self.parameters.beta_decrease
 
 
-    def _history_log(self, struct, status, n_visits = 0):
+    def _history_log(self, struct: Minimum, status):
         """
         Writing log message in the history file
         Input:
             struct: Minimum object
             status: str (Accept, Reject, Intermediate, etc.)
-            n_visits: number of time the minimum has been visited
         """
-        atoms = struct.atoms
-        atoms.calc = self.calculator
-        _notunique_frac = float(self._n_notunique)/float(self._n_min)
-        _same_frac = float(self._n_same)/float(self._n_min)
-        _unique_frac = 1. - (_notunique_frac+_same_frac)
+        # _notunique_frac = float(self._n_notunique) / float(self._n_min)
+        # _same_frac = float(self._n_same) / float(self._n_min)
+        # _unique_frac = 1.0 - (_notunique_frac+_same_frac)
 
-        history_msg = "{:1.9f}  {:d}  {:1.5f}  {:1.5f}  {:1.2f}  {:1.2f}  {:1.2f} {:s} \n".format(atoms.get_potential_energy(),
-                                                                        n_visits,
-                                                                        self.parameters._T,
-                                                                        self.parameters._eDiff,
-                                                                        _same_frac,
-                                                                        _notunique_frac,
-                                                                        _unique_frac,
-                                                                        status)
+        totalMinima = self.parameters._n_accepted + self.parameters._n_rejected + self.parameters._n_same
+        accept_ratio = self.parameters._n_accepted / totalMinima
+        rejected_ratio = self.parameters._n_rejected / totalMinima
+        same_ratio = self.parameters._n_same / totalMinima
+
+        n_visits = struct.n_visit
+        if n_visits is None:
+            n_visits = 'None'
+
+        label = struct.label
+        if label is None:
+            label = 'None'
+
+        history_msg = "%15.8f %s %s %.2f %8.4f %.2f %.2f %.2f %s \n"%(
+                                            struct.e_pot,
+                                            n_visits,
+                                            label,
+                                            self.parameters._T,
+                                            self.parameters._eDiff,
+                                            accept_ratio,
+                                            rejected_ratio,
+                                            same_ratio,
+                                            status
+        )
 
         # history_file = open(self._outpath + 'history.dat', 'a')
         self.history_file.write(history_msg)

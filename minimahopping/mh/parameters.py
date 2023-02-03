@@ -37,6 +37,9 @@ class minimaHoppingParameters:
     write_graph_output: bool = True                    
     use_MPI: bool = False
     logLevel: int = logging.INFO
+    _n_accepted: int = 0
+    _n_rejected: int = 0
+    _n_same: int = 0
 
     def getFixedParameterList(self):
         return ['n_S_orbitals', 'n_P_orbitals', 'width_cutoff', 'exclude', 'fingerprint_threshold', 'use_MPI', 'maxnatsphere']
