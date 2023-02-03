@@ -4,6 +4,7 @@ from minimahopping.omfp.OverlapMatrix import buildOverlapMatrix
 from minimahopping.omfp.OverlapMatrixVectorized import buildOverlapMatrix_vectorized
 from minimahopping.omfp.Neighborlist import findNeighbors
 import minimahopping.mh.periodictable as periodictable 
+import logging
 
 class OverlapMatrixFingerprint:
     def __init__(self, lmn, rcut=-1, nex_cutoff=2, fplen=-1):
@@ -87,12 +88,15 @@ class OverlapMatrixFingerprint:
         nat = ats.shape[0]
         neiats, neiels = findNeighbors(ats, np.array(els), self.rcut, lat)
         fps = []
+        maxlen = 0
         for iat in range(nat):
             #nneis = len(neiats[iat])
             #fcuts = [self.fcut(self.rcut, np.linalg.norm(neiats[iat][0,:] - neiats[iat][i,:])) for i in range(nneis)]
             fcuts = self.fcut(self.rcut, np.linalg.norm(neiats[iat][:,:] - neiats[iat][0,:], axis=1))  # the above in numpy notation
             O = self.overlapMatrixSpHar(neiats[iat], neiels[iat], fcuts)
             fps.append(self.adjustFPlen(self.diag(O)))
+            maxlen=max(maxlen, len(neiels[iat]))
+        logging.info('Maximal number of atoms in the sphere for fingerprint: %d'%maxlen)
         return fps
 
     def adjustFPlen(self, fp):
