@@ -2,8 +2,11 @@ import argparse
 from ase.io import read
 from minimahopping.mh import parameters
 from minimahopping.mh import minimum
+import logging
 
 def main():
+
+    logging.root.setLevel(logging.INFO)
 
     defaultParams = parameters.minimaHoppingParameters(T0=5, energy_threshold=2)
 
