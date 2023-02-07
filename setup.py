@@ -20,7 +20,8 @@ setup(
         'mpi4py',
         'sqnm @ git+https://github.com/moritzgubler/vc-sqnm#egg=sqnm&subdirectory=src/python/',
         'dataclasses-json',
-        'numba'
+        'numba',
+        'spglib'
     ],
     entry_points={
       'console_scripts': [
