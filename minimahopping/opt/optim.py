@@ -23,7 +23,7 @@ def optimization(atoms, calculator, max_force_threshold, outpath, initial_step_s
 
     try:
         # Run geometry optimization
-        trajectory, optimizer, number_of_steps = geometry_optimization(atoms, 
+        trajectory, optimizer, number_of_steps, epot_max = geometry_optimization(atoms, 
                                                                     max_force_threshold, 
                                                                     initial_step_size, 
                                                                     nhist_max, 
@@ -42,7 +42,7 @@ def optimization(atoms, calculator, max_force_threshold, outpath, initial_step_s
             optimization_trajectory_file.close()
             optimization_log_file.close()
 
-    return positions_out, lattice_out, noise, trajectory, number_of_steps
+    return positions_out, lattice_out, noise, trajectory, number_of_steps, epot_max
 
 
 
@@ -57,6 +57,7 @@ def geometry_optimization(atoms, max_force_threshold,initial_step_size, nhist_ma
     max_disp = 0
     positions_old = atoms.get_positions()
     max_force_comp = 100
+    epot_max = -1e10
     
     # Assert that no mixed boundary conditions
     _pbc = list(set(atoms.pbc))
@@ -89,6 +90,10 @@ def geometry_optimization(atoms, max_force_threshold,initial_step_size, nhist_ma
         max_force_comp = optimizer._getDerivativeNorm()
 
         i_step += 1
+        
+        energy = atoms.get_potential_energy()
+        if energy > epot_max:
+            epot_max = energy
 
         if verbose:
             write_log(atoms, optimizer, i_step, max_force_comp, max_disp, optimization_trajectory_file, optimization_log_file)
@@ -105,7 +110,7 @@ def geometry_optimization(atoms, max_force_threshold,initial_step_size, nhist_ma
         max_disp = get_max_disp(pos_in, pos_out)
         positions_old = positions_current
 
-    return trajectory, optimizer, i_step
+    return trajectory, optimizer, i_step, epot_max
 
 
 def write_log(atoms, optimizer, i_step, max_force_comp, max_disp, optimization_trajectory_file, optimization_log_file):
