@@ -23,6 +23,7 @@ import minimahopping.mh.database
 import minimahopping.MPI_database.mpi_database_worker
 import signal
 import sys
+import spglib
 
 import logging
 
@@ -374,7 +375,7 @@ class Minimahopping:
         """
         Optimization wrapper for the startup
         """
-        positions, lattice, noise, trajectory, number_of_steps = opt.optimization(atoms=atoms, 
+        positions, lattice, noise, trajectory, number_of_steps, epot_max = opt.optimization(atoms=atoms, 
                                                                         calculator=self.calculator, 
                                                                         max_force_threshold=self.parameters.fmax, 
                                                                         outpath=self._outpath, 
@@ -460,7 +461,7 @@ class Minimahopping:
    
             # Perfom MD run
             logging.info("    MD Start")
-            positions, lattice, self.parameters._dt, _md_trajectory, _epot_max, number_of_md_steps = md.md(atoms = atoms, 
+            positions, lattice, self.parameters._dt, _md_trajectory, epot_max_md, number_of_md_steps = md.md(atoms = atoms, 
                                                                                                         calculator = self.calculator,
                                                                                                         outpath = self._outpath, 
                                                                                                         cell_atoms = cell_atoms,
@@ -477,7 +478,13 @@ class Minimahopping:
             # If pbc set new lattice and reshape cell
             if True in _pbc:
                 atoms.set_cell(lattice)
-                lat_opt.reshape_cell2(atoms, 6)
+                lattice, scaled_positions, numbers = spglib.standardize_cell(atoms, to_primitive=False, no_idealize=False, symprec=1e-5, angle_tolerance=-1.0)
+                if lattice is None:
+                    msg = "cell reshape did not work"
+                    logging.warning(msg)
+                else:
+                    atoms.set_cell(lattice)
+                    atoms.set_scaled_positions(scaled_positions)
 
             try:
                 atoms.calc.recalculateBasis(atoms)
@@ -485,11 +492,19 @@ class Minimahopping:
                 pass
 
             logging.info("    OPT start")
-            positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps = opt.optimization(atoms=atoms, 
+            positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps, epot_max_geopt = opt.optimization(atoms=atoms, 
                                                                     calculator=self.calculator, 
                                                                     max_force_threshold=self.parameters.fmax, 
                                                                     outpath=self._outpath, 
                                                                     verbose=self.parameters.verbose_output)
+
+            if epot_max_geopt > epot_max_md:
+                _epot_max = epot_max_geopt
+                msg = "maximal potential energy in geometry optimization"
+                logging.warning(msg)
+            else:
+                _epot_max = epot_max_md
+
             # Set optimized positions
             atoms.set_positions(positions)
             # If Pbc set optimized lattice 
