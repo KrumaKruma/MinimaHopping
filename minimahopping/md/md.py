@@ -261,16 +261,10 @@ def update_lattice_positions(atoms, cell_atoms, lattice_force, dt):
     Update of the lattice postions and moving the atoms accordingly
     '''
     # Get the postions, velocities and masses
-    positions = atoms.get_positions()
-    lattice = cell_atoms.positions
     cell_masses = get_cell_masses(cell_atoms)
     # Update the cell positions
-    # reduced_positions = lat_opt.cart2frac(positions, lattice)
     cell_atoms.positions = cell_atoms.positions + dt * cell_atoms.velocities + 0.5 * dt * dt * (lattice_force / cell_masses)
     atoms.set_cell(cell_atoms.positions, scale_atoms=True, apply_constraint=False)
-    # lattice = cell_atoms.positions
-    # positions = lat_opt.frac2cart(reduced_positions, lattice)
-    # atoms.set_positions(positions)
 
 
 def update_lattice_velocities(atoms, cell_atoms, lattice_force, dt):
