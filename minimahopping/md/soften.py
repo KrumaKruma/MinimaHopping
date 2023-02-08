@@ -117,9 +117,7 @@ def update_velocities(atoms, cell_atoms, positions_in, cell_positions_in, normed
 
     if cell_atoms is not None:
         cell_positions = cell_positions_in + normed_cell_velocities
-        reduced_positions = lat_opt.cart2frac(atoms.get_positions(), atoms.get_cell())
-        atoms.set_cell(cell_positions, scale_atoms=False, apply_constraint=False)
-        positions = lat_opt.frac2cart(reduced_positions, atoms.get_cell())
+        atoms.set_cell(cell_positions, scale_atoms=True, apply_constraint=False)
         atoms.set_positions(positions)
 
 
