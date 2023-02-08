@@ -3,7 +3,7 @@ import warnings
 from ase.io import read
 import ase.atom
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
-import minimahopping.mh.lattice_operations as lat_opt
+import minimahopping.mh.lattice_operations as lattice_operations
 import minimahopping.md.soften as softening
 import minimahopping.md.md as md
 import minimahopping.opt.optim as opt
@@ -23,7 +23,6 @@ import minimahopping.mh.database
 import minimahopping.MPI_database.mpi_database_worker
 import signal
 import sys
-import spglib
 
 import logging
 
@@ -478,13 +477,7 @@ class Minimahopping:
             # If pbc set new lattice and reshape cell
             if True in _pbc:
                 atoms.set_cell(lattice)
-                lattice, scaled_positions, numbers = spglib.standardize_cell(atoms, to_primitive=False, no_idealize=False, symprec=1e-5, angle_tolerance=-1.0)
-                if lattice is None:
-                    msg = "cell reshape did not work"
-                    logging.warning(msg)
-                else:
-                    atoms.set_cell(lattice)
-                    atoms.set_scaled_positions(scaled_positions)
+                lattice_operations.reshape_cell(atoms, self.parameters.symprec)
 
             try:
                 atoms.calc.recalculateBasis(atoms)

@@ -1,5 +1,6 @@
 import numpy as np
-
+import spglib
+import logging
 
 def lattice_derivative(stress_tensor, cell):
     """
@@ -20,5 +21,15 @@ def lattice_derivative(stress_tensor, cell):
     prefact = np.linalg.det(cell)
     deralat = (- prefact * np.matmul(stress_tensor, inv_cell)).T
     return deralat
+
+
+def reshape_cell(atoms, symprec):
+    lattice, scaled_positions, numbers = spglib.standardize_cell(atoms, to_primitive=False, no_idealize=False, symprec=symprec, angle_tolerance=-1.0)
+    if lattice is None:
+        msg = "cell reshape did not work"
+        logging.warning(msg)
+    else:
+        atoms.set_cell(lattice)
+        atoms.set_scaled_positions(scaled_positions)
 
 

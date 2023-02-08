@@ -45,6 +45,8 @@ class minimaHoppingParameters:
     """mdmin (int): Number of minima visited before stopping the MD"""
     collect_md_data: bool = False
     """collect_md_data (bool): flag to collect MD data which later could be used e.g. in machine learning"""
+    symprec: float = 1e-5
+    """symprec (float): Distance tolerance in Cartesian coordinates to find crystal symmetry for reshape cell operation (see spglib documentation for more info)"""
     fmax: float = 0.01
     """fmax (float): Maximal force component. Used as a stopping criterion for the geometry optimization."""
     enhanced_feedback:bool = False
