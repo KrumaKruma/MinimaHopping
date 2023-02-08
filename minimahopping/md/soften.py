@@ -155,7 +155,8 @@ def update_velocities(atoms, cell_atoms, positions_in, cell_positions_in, normed
     tt = np.sqrt(tt)
     res = np.sqrt(res)
 
-    # print("SOFTEN:  ", tt, res, curve , fd2, e_pot - e_pot_in)
+    debug_msg = "SOFTEN:   {:1.5f}    {:1.5f}    {:1.5f}    {:1.5f}    {:1.5f}".format(tt, res, curve , fd2, e_pot - e_pot_in)
+    logging.debug(debug_msg)
 
     positions = positions + alpha_pos * forces
     normed_velocities = positions - positions_in
