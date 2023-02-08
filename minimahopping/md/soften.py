@@ -1,9 +1,8 @@
 import numpy as np
 from copy import deepcopy
 import minimahopping.mh.lattice_operations as lat_opt
-import warnings
 import minimahopping.biomode.biomode as split_forces 
-
+import logging
 
 
 def soften(atoms, calculator, nsoft, alpha_pos = 1e-3, cell_atoms = None, alpha_lat = None):
@@ -51,7 +50,7 @@ def soften(atoms, calculator, nsoft, alpha_pos = 1e-3, cell_atoms = None, alpha_
     # Warning if softening has diverged and not converged
     if res_initial < res:
         warning_msg = "Softening diverged"
-        warnings.warn(warning_msg, UserWarning)
+        logging.warning(warning_msg)
 
     # Renormalize velocities
     velocities = normed_velocities / norm_const
