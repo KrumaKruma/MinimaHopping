@@ -8,7 +8,7 @@ def main():
 
     logging.root.setLevel(logging.INFO)
 
-    defaultParams = parameters.minimaHoppingParameters(T0=5, energy_threshold=2)
+    defaultParams = parameters.minimaHoppingParameters()
 
     parser = argparse.ArgumentParser(description ='Read two input files and calculate the overlap matrix fingerprint distance between them.')
 
@@ -46,6 +46,11 @@ def main():
 
     atom1 = read(args.file1, index=args.index1)
     atom2 = read(args.file2, index=args.index2)
+    
+    if '.ascii' in args.file1:
+        atom1.pbc = [True, True, True]
+    if '.ascii' in args.file2:
+        atom2.pbc = [True, True, True]
 
     m1 = minimum.Minimum(atom1, 0.0, args.n_S_orbitals, args.n_P_orbitals, args.width_cutoff, args.maxnatsphere,
         T=0, ediff=0, exclude=args.exclude)

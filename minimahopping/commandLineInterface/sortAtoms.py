@@ -7,10 +7,13 @@ def main():
                 action ='store', help ='input filename.', required=True)
     parser.add_argument('-o', '--outputfile', dest ='outputFilename',
                 action ='store', help ='output filename.', required=True)
+
+    parser.add_argument('--index', dest='index', action='store', type=str,
+        help='index of structure in input file. Default is :', default=':', required= False)
     
     args = parser.parse_args()
 
-    atomList = read(args.inputFilename, index = ':')
+    atomList = read(args.inputFilename, index = args.index)
     atomList.sort(key= lambda x: x.info['energy'])
 
     write(args.outputFilename, atomList)
