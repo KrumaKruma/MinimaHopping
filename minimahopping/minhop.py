@@ -739,8 +739,8 @@ class Minimahopping:
             logging.info("Received sigterm on master. Closing files and send mpi abort to comm_world")
         else:
             logging.info("Received sigterm. I will close files and exit.")
-        if self.isMaster:
-            MPI.COMM_WORLD.Abort()
+        # if self.isMaster:
+        #     MPI.COMM_WORLD.Abort()
         sys.exit()
 
     def print_elapsed_time(self, totalsteps):
