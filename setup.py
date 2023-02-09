@@ -27,7 +27,8 @@ setup(
       'console_scripts': [
         'sortByEnergy=minimahopping.commandLineInterface.sortAtoms:main',
         'omfpdistance=minimahopping.commandLineInterface.omfpdistance:main',
-        'standardizeLattice=minimahopping.commandLineInterface.standardizeLattice:main'
+        'standardizeLattice=minimahopping.commandLineInterface.standardizeLattice:main',
+        'splitFile=minimahopping.commandLineInterface.splitFile:main'
       ]
     }
 )
