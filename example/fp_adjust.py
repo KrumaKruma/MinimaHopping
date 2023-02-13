@@ -1,28 +1,19 @@
+#!/usr/bin/env python3
 from ase.calculators.eam import EAM
 from minimahopping.adjust_fp import adjust_fp
-from ase.cluster.wulff import wulff_construction
 from ase.cluster import Icosahedron
-from ase.io import read, write
 
 def main():
 
-    atoms = Icosahedron('Na', 3, latticeconstant=None)
+    atoms = Icosahedron('Na', 2, latticeconstant=None)
     calculator = EAM(potential="Na_v2.eam.fs")
     atoms.calc = calculator
 
 
     fnrm =  0.001
-    adjust = adjust_fp(fmax=fnrm, 
-                    iterations=100, 
-                    temperature=500, 
-                    dt=0.1, 
-                    md_min=1, 
-                    ns_orb=1, 
-                    np_orb=1, 
-                    width_cutoff=3.5, 
-                    exclude=[])
+    adjust = adjust_fp(initial_configuration=atoms, iterations=10, T0=100, dt0=0.01, mdmin=1, n_S_orbitals=1, n_P_orbitals=1, width_cutoff=4, fmax=fnrm, write_graph_output=False)
 
-    outdict = adjust.run(atoms=atoms)
+    outdict = adjust.run()
 
     fp_max = outdict['fp']['max']
     fp_mean = outdict['fp']['mean']
