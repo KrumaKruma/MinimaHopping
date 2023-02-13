@@ -318,6 +318,10 @@ class Minimahopping:
         if not self.isRestart:
             logging.info('  New MH run is started')
             for atom in atoms:
+                try:
+                    self.calc.recalculateBasis(atom)
+                except:
+                    pass
                 atom.calc = self.calculator
                 _positions, _lattice = self._restart_opt(atom,)
                 atom.set_positions(_positions)
@@ -341,6 +345,10 @@ class Minimahopping:
             # add input structure to database after optimization
             struct_cur = self.data.get_element(0)
             self._write_restart(struct_cur, struct_cur, True)
+            try:
+                self.calc.recalculateBasis(atom)
+            except:
+                pass
         else:
             logging.info('  Restart MH run')
 
