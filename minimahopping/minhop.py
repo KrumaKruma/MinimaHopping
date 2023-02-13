@@ -318,10 +318,10 @@ class Minimahopping:
         if not self.isRestart:
             logging.info('  New MH run is started')
             for atom in atoms:
+                atom.calc = self.calculator
                 _positions, _lattice = self._restart_opt(atom,)
                 atom.set_positions(_positions)
                 atom.set_cell(_lattice)
-                atom.calc = self.calculator
                 struct = Minimum(atom,
                             s = self.parameters.n_S_orbitals,
                             p = self.parameters.n_P_orbitals, 
