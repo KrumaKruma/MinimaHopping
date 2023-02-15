@@ -219,6 +219,8 @@ def update_trajectory(atoms, positions_old, trajectory, collect_md_file):
         temp = atoms.copy()
         trajectory.append(temp.copy())
         if collect_md_file is not None:
+            atoms.info['energy'] = atoms.get_potential_energy()
+            atoms.info['stress'] = atoms.get_stress()
             write(collect_md_file, atoms, parallel=False)
             collect_md_file.flush()
 
