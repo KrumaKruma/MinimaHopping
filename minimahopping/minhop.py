@@ -603,7 +603,7 @@ class Minimahopping:
         if n_visits > 1:
             self._n_notunique += 1
             if self.parameters.enhanced_feedback:
-                self.parameters._T = self.parameters._T * self.parameters.beta_increase * (1. + 1. * np.log(float(n_visits)))
+                self.parameters._T = self.parameters._T * self.parameters.beta_increase * (1. + 0.2 * np.log(float(n_visits)))
             else:
                 self.parameters._T = self.parameters._T * self.parameters.beta_increase
         else:
