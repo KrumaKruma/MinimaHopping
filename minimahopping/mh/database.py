@@ -6,7 +6,7 @@ import logging
 import time
 
 class Database():
-    def __init__(self,energy_threshold, minima_threshold, output_n_lowest_minima, is_restart = False, outpath='./', minima_path= "lowest_minima/", write_graph_output = True):
+    def __init__(self,energy_threshold, minima_threshold, output_n_lowest_minima, is_restart = False, outpath='./', minima_path= "lowest_minima/", write_graph_output = True, compare_energies = False):
         self.unique_minima_sorted = []
         self.nstructs = 0
 
@@ -17,6 +17,7 @@ class Database():
         self.outpath = outpath
         self.minima_path = minima_path
         self.write_graph_output = write_graph_output
+        self.compare_energies = compare_energies
 
         self.minima_shelve = None
 
@@ -117,15 +118,58 @@ class Database():
 
     def get_element_index(self, struct: minimum.Minimum):
         
-        indices = self.get_index_energyrange(struct)
         index = -1
+        if self.compare_energies:
+            i_start = bisect.bisect(self.unique_minima_sorted, struct)
+            # if i_start is at the end of the list compare only to one lower
+            if i_start >= len(self.unique_minima_sorted) and len(self.unique_minima_sorted) != 0:
+                i_compare = i_start - 1
+                print("DD1P:    ", i_compare)
+                s = self.unique_minima_sorted[i_compare]
+                energy_difference = struct.__compareto__(s)
+                if energy_difference < self.energy_threshold:
+                    index = i_compare
+            # elif i_start is at the beginning only compare to the first structure
+            elif i_start == 0 and len(self.unique_minima_sorted) != 0:
+                i_compare = i_start
+                print("DD2P:    ", i_compare)
+                s = self.unique_minima_sorted[i_compare]
+                energy_difference = struct.__compareto__(s)
+                if energy_difference < self.energy_threshold:
+                    index = i_compare
+            # else compare one structure up and one down and the index itself
+            elif len(self.unique_minima_sorted) != 0:
+                i_compare = i_start - 1
+                print("DD3P:    ", i_compare)
+                s = self.unique_minima_sorted[i_compare]
+                energy_difference_down = struct.__compareto__(s)
+                if energy_difference_down < self.energy_threshold:
+                    index = i_compare
 
-        for i_compare in indices:
-            s = self.unique_minima_sorted[i_compare]
-            fp_dist = struct.fingerprint_distance(s)
-            if fp_dist < self.minima_threshold:
-                index = i_compare
-                break
+                i_compare = i_start + 1
+                print("DD4P:    ", i_compare)
+                s = self.unique_minima_sorted[i_compare]
+                energy_difference_up = struct.__compareto__(s)
+                if energy_difference_up < self.energy_threshold:
+                    index = i_compare
+
+                i_compare = i_start
+                print("DD5P:    ", i_compare)
+                s = self.unique_minima_sorted[i_compare]
+                energy_difference_itself = struct.__compareto__(s)
+                if energy_difference_itself < self.energy_threshold:
+                    index = i_compare
+            else:
+                index = -1
+                    
+        else:
+            indices = self.get_index_energyrange(struct)
+            for i_compare in indices:
+                s = self.unique_minima_sorted[i_compare]      
+                fp_dist = struct.fingerprint_distance(s)
+                if fp_dist < self.minima_threshold:
+                    index = i_compare
+                    break
 
         return index
 

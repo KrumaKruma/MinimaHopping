@@ -53,9 +53,9 @@ def main():
         atom2.pbc = [True, True, True]
 
     m1 = minimum.Minimum(atom1, 0.0, args.n_S_orbitals, args.n_P_orbitals, args.width_cutoff, args.maxnatsphere,
-        T=0, ediff=0, exclude=args.exclude)
+        T=0, ediff=0, exclude=args.exclude, calculate_fingerprint=True)
     m2 = minimum.Minimum(atom2, 0.0, args.n_S_orbitals, args.n_P_orbitals, args.width_cutoff, args.maxnatsphere,
-        T=0, ediff=0, exclude=args.exclude)
+        T=0, ediff=0, exclude=args.exclude, calculate_fingerprint=True)
 
     fingerprintDistance = m1.fingerprint_distance(m2)
     print(fingerprintDistance)

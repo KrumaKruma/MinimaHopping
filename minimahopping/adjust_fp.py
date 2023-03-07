@@ -100,7 +100,8 @@ class adjust_fp():
                         maxnatsphere = self.parameters.maxnatsphere,
                         epot = atom.get_potential_energy(),
                         T=self.parameters._T,
-                        ediff=0)
+                        ediff=0,
+                        calculate_fingerprint=True)
             
             self.minimalist.append(mini)
 

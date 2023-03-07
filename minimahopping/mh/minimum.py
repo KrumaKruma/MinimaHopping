@@ -30,14 +30,18 @@ class Minimum():
     """ 
     Minimum class for managing the database of the minima hopping. 
     """
-    def __init__(self, atoms, epot, s, p, width_cutoff, maxnatsphere, T, ediff, n_visit = None, label = None, exclude=[], fingerprint = None):
+    def __init__(self, atoms, epot, s, p, width_cutoff, maxnatsphere, T, ediff, n_visit = None, label = None, exclude=[], fingerprint = None, calculate_fingerprint=True):
         self.atoms = atoms.copy()
         self.atoms.wrap()
         self.e_pot = epot
-        if fingerprint is None:
-            self.fp = self._get_OMFP(s=s, p=p, width_cutoff=width_cutoff, maxnatsphere=maxnatsphere, exclude=exclude)
+        self.calculate_fingerprint = calculate_fingerprint
+        if calculate_fingerprint:
+            if fingerprint is None:
+                self.fp = self._get_OMFP(s=s, p=p, width_cutoff=width_cutoff, maxnatsphere=maxnatsphere, exclude=exclude)
+            else:
+                self.fp = fingerprint.copy()
         else:
-            self.fp = fingerprint.copy()
+            self.fp = None
         self.temperature = T
         self.ediff = ediff
         self.n_visit = n_visit
@@ -59,7 +63,7 @@ class Minimum():
 
     def __copy__(self,):
         return Minimum(self.atoms.copy(), self.e_pot, self.s, self.p, self.width_cutoff, self.maxnatsphere,
-            self.temperature, self.ediff, self.n_visit, self.label, self.exclude, fingerprint= self.fp)
+            self.temperature, self.ediff, self.n_visit, self.label, self.exclude, fingerprint= self.fp, calculate_fingerprint=self.calculate_fingerprint)
 
     def __compareto__(self, other):
         return abs(self.e_pot - other.e_pot)

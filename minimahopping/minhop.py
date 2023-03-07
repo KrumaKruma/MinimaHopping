@@ -96,6 +96,11 @@ class Minimahopping:
         self._n_notunique = 0
         self._n_same = 0
 
+        if self.parameters.compare_energies:
+            self.parameters.calculate_fingerprint = False
+        else:
+            self.parameters.calculate_fingerprint = True
+
 
     def __enter__(self):
 
@@ -109,11 +114,11 @@ class Minimahopping:
         if not self.parameters.use_MPI:
             self.data = minimahopping.mh.database.Database(self.parameters.energy_threshold, self.parameters.fingerprint_threshold\
                     , self.parameters.output_n_lowest_minima, self.isRestart, self.restart_path, self._minima_path\
-                    , self.parameters.write_graph_output)
+                    , self.parameters.write_graph_output, self.parameters.compare_energies)
         elif self.isWorker:
             self.data = minimahopping.MPI_database.mpi_database_worker.Database(self.parameters.energy_threshold, self.parameters.fingerprint_threshold\
                     , self.parameters.output_n_lowest_minima, self.isRestart, self.restart_path, self._minima_path\
-                    , self.parameters.write_graph_output)
+                    , self.parameters.write_graph_output, self.parameters.compare_energies)
 
         self.data.__enter__()
 
@@ -149,7 +154,7 @@ class Minimahopping:
             logging.info('starting mpi server on rank %i'%self.mpiRank)
             MPI_server.MPI_database_server_loop(self.parameters.energy_threshold, self.parameters.fingerprint_threshold
                 , self.parameters.output_n_lowest_minima, self.isRestart, self.restart_path, self._minima_path
-                , self.parameters.write_graph_output, maxTimeHours=self._get_sec() / 3600)
+                , self.parameters.write_graph_output, maxTimeHours=self._get_sec() / 3600, compare_energies=self.parameters.compare_energies)
             logging.info('All clients have left and the server will shut down as well.')
             return
         else:
@@ -334,7 +339,8 @@ class Minimahopping:
                             epot = atom.get_potential_energy(),
                             T=self.parameters._T,
                             ediff=self.parameters._eDiff,
-                            exclude= self.parameters.exclude)
+                            exclude= self.parameters.exclude,
+                            calculate_fingerprint=self.parameters.calculate_fingerprint)
                 logging.debug("Before initial database request in startup")
                 n_visit, label, continueSimulation = self.data.addElement(struct)
                 self.parameters._n_accepted += 1
@@ -364,7 +370,8 @@ class Minimahopping:
                         epot = atoms.get_potential_energy(),
                         T=self.parameters._T,
                         ediff=self.parameters._eDiff,
-                        exclude= self.parameters.exclude)
+                        exclude= self.parameters.exclude,
+                        calculate_fingerprint=self.parameters.calculate_fingerprint)
         
             database_index = self.data.get_element_index(struct_cur)
             if database_index == -1:
@@ -526,22 +533,29 @@ class Minimahopping:
                         epot = atoms.get_potential_energy(),
                         T=self.parameters._T,
                         ediff=self.parameters._eDiff,
-                        exclude= self.parameters.exclude)
+                        exclude= self.parameters.exclude,
+                        calculate_fingerprint=self.parameters.calculate_fingerprint)
 
             # check if proposed structure is the same to the initial structure
             _escape_energy = struct.__compareto__(proposed_structure)
-            _escape = struct.fingerprint_distance(proposed_structure)
+            if not self.parameters.compare_energies:
+                _escape = struct.fingerprint_distance(proposed_structure)
 
             _i_steps += 1
             self._n_min += 1
-            if  _escape > self.parameters.fingerprint_threshold:
-                is_escape = False
+
+            if not self.parameters.compare_energies:
+                if  _escape > self.parameters.fingerprint_threshold:
+                    is_escape = False
             elif _escape_energy > self.parameters._eDiff:
                 is_escape = False
             else: # not escaped, same minimum found
                 self.parameters._n_same += 1
 
-        log_msg = "    New minimum found with fpd {:1.2e} after looping {:d} time(s)".format(_escape, _i_steps)
+        if self.parameters.compare_energies:
+            log_msg = "    New minimum found with energy difference {:1.2e} after looping {:d} time(s)".format(_escape_energy, _i_steps)
+        else:
+            log_msg = "    New minimum found with fpd {:1.2e} after looping {:d} time(s)".format(_escape, _i_steps)
         logging.info(log_msg)
 
         return proposed_structure, _epot_max, _md_trajectory, _opt_trajectory

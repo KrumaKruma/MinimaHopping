@@ -8,7 +8,7 @@ import numpy as np
 import logging
 
 
-def MPI_database_server_loop(energy_threshold, minima_threshold, output_n_lowest_minima, is_restart = False, outpath='./', minima_path= "lowest_minima/", write_graph_output = True, maxTimeHours = np.inf):
+def MPI_database_server_loop(energy_threshold, minima_threshold, output_n_lowest_minima, is_restart = False, outpath='./', minima_path= "lowest_minima/", write_graph_output = True, maxTimeHours = np.inf, compare_energies=False):
 
     current_workers = 0
     clientHasLeft = False
@@ -17,7 +17,7 @@ def MPI_database_server_loop(energy_threshold, minima_threshold, output_n_lowest
     t_start = time.time()
 
     status = MPI.Status()
-    with Database(energy_threshold, minima_threshold, output_n_lowest_minima, is_restart, outpath, minima_path, write_graph_output) as db:
+    with Database(energy_threshold, minima_threshold, output_n_lowest_minima, is_restart, outpath, minima_path, write_graph_output, compare_energies) as db:
         comm_world = MPI.COMM_WORLD
         process_time = 0
         wait_time = 0

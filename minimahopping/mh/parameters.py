@@ -52,11 +52,13 @@ class minimaHoppingParameters:
     enhanced_feedback:bool = False
     """enhanced_feedback (bool):Enhanced feedback (rise temperature according to T = T * beta_increase * (1. + 1. * ln(n_visits))). Unclear if this improves performance"""
     energy_threshold: float = 0.001
-    """energy_threshold (float): if the energy difference of two structures is below the fingerprint is compared"""
+    """energy_threshold (float): if the energy difference of two structures is below the fingerprint is compared or the energy threshold to identify structures if energies are compared (compare_energies = True) """
     output_n_lowest_minima: int = 20
     """output_n_lowest_minima (int): Outputs the n lowest minima"""
     fingerprint_threshold: float = 1e-3
     """fingerprint_threshold (float): OMFP distance threshold for distinguishing minima"""
+    compare_energies: bool = False
+    """compare_energies (bool): if true the energies instead of the fingerprint is taken to distinguish structures"""
     verbose_output: bool = False
     """verbose_output (bool): If True MD and OPT logs are written."""
     new_start: bool = False
