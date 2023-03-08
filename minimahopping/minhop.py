@@ -118,7 +118,7 @@ class Minimahopping:
         elif self.isWorker:
             self.data = minimahopping.MPI_database.mpi_database_worker.Database(self.parameters.energy_threshold, self.parameters.fingerprint_threshold\
                     , self.parameters.output_n_lowest_minima, self.isRestart, self.restart_path, self._minima_path\
-                    , self.parameters.write_graph_output, self.parameters.compare_energies)
+                    , self.parameters.write_graph_output)
 
         self.data.__enter__()
 
