@@ -547,7 +547,7 @@ class Minimahopping:
             if not self.parameters.compare_energies:
                 if  _escape > self.parameters.fingerprint_threshold:
                     is_escape = False
-            elif _escape_energy > self.parameters._eDiff:
+            elif _escape_energy > self.parameters.energy_threshold:
                 is_escape = False
             else: # not escaped, same minimum found
                 self.parameters._n_same += 1
