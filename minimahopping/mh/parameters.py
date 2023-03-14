@@ -5,6 +5,10 @@ import logging
 @dataclass_json
 @dataclass
 class minimaHoppingParameters:
+    biased_MH: bool = False
+    """To turn on/off biased MH"""
+    pre_fmax: float = 0.01
+    """Biased pre relaxation fmax parameter"""
     T0: float = 1000
     """T0 (float): Initial temperature to start MH"""
     _T: float = -1.0

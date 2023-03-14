@@ -56,10 +56,14 @@ class Minimahopping:
     logger = None
 
 
-    def __init__(self, initial_configuration : ase.atom.Atom, **kwargs):
+    def __init__(self, initial_configuration : ase.atom.Atom, calculator_2, **kwargs):
         """Initialize with an ASE atoms object and keyword arguments."""
 
         self.initial_configuration = initial_configuration
+
+        #save secound calcultor in self object:
+        print(type(calculator_2))
+        self.calc2 = calculator_2
 
         initalParameters = minimahopping.mh.parameters.minimaHoppingParameters(**kwargs)
 
@@ -168,6 +172,8 @@ class Minimahopping:
         # Start up minimahopping 
         structure_list, calculator = self._initialize_structures(self.initial_configuration)
         self.calculator = calculator
+        # To save calc1 for biased MH if switching calculators
+        self.calc1 = calculator
         current_minimum = self._startup(structure_list)  # gets an atoms object and a minimum object is returned.
 
         # Start hopping loop
@@ -423,6 +429,10 @@ class Minimahopping:
         while is_escape:
             atoms = struct.atoms.copy()
             atoms.calc = self.calculator
+            # If biased MH => switch to biased calulator
+            if self.parameters.biased_MH:
+                atoms.calc = self.calc2
+                self.calculator = self.calc2
             try:
                 atoms.calc.recalculateBasis(atoms)
             except:
@@ -499,6 +509,21 @@ class Minimahopping:
             except:
                 pass
 
+
+            #ToDo:: if Biased true ==> pre relax ==> switch back to old calculator
+            if self.parameters.biased_MH:
+                logging.info("    Pre-OPT start")
+                positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps, epot_max_geopt = opt.optimization(atoms=atoms, 
+                                                                        calculator=self.calculator, 
+                                                                        max_force_threshold=self.parameters.pre_fmax, 
+                                                                        outpath=self._outpath, 
+                                                                        verbose=self.parameters.verbose_output)
+                # Switch to unbiased calulator (True PBE)
+                atoms.calc = self.calc1
+                self.calculator = self.calc1
+
+
+            
             logging.info("    OPT start")
             positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps, epot_max_geopt = opt.optimization(atoms=atoms, 
                                                                     calculator=self.calculator, 
