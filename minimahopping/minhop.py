@@ -346,7 +346,7 @@ class Minimahopping:
             struct_cur = self.data.get_element(0)
             self._write_restart(struct_cur, struct_cur, True)
             try:
-                self.calc.recalculateBasis(atom)
+                self.calc.recalculateBasis(struct_cur.atoms)
             except:
                 pass
         else:
