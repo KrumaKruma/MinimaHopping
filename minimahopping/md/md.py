@@ -348,6 +348,7 @@ def adjust_dt(etot_max, etot_min, epot_max, epot_min, dt):
     if (_defcon / (epot_max-epot_min)) < 1e-2:
         dt *= 1.05
     else:
-        dt *= 1.0/1.05
+        if dt > 0.0001:
+            dt *= 1.0/1.05
     return dt
 
