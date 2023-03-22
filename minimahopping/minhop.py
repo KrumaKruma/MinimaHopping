@@ -346,7 +346,7 @@ class Minimahopping:
             struct_cur = self.data.get_element(0)
             self._write_restart(struct_cur, struct_cur, True)
             try:
-                self.calc.recalculateBasis(atom)
+                self.calc.recalculateBasis(struct_cur.atoms)
             except:
                 pass
         else:
@@ -573,12 +573,18 @@ class Minimahopping:
 
         _ediff_in = self.parameters._eDiff
 
+        n_visits = struct.n_visit
+
         if _e_pot - _e_pot_cur < self.parameters._eDiff:
             self.parameters._eDiff *= self.parameters.alpha_accept
             is_accepted = True
             ediff_acc = _e_pot - _e_pot_cur
         else:
-            self.parameters._eDiff *= self.parameters.alpha_reject
+            if self.parameters.enhanced_feedback:
+                self.parameters._eDiff = self.parameters._eDiff * self.parameters.alpha_reject * (1. + 0.2 * np.log(n_visits))
+            else:
+                self.parameters._eDiff *= self.parameters.alpha_reject
+
             is_accepted = False
             ediff_rej = _e_pot - _e_pot_cur
 
@@ -603,7 +609,7 @@ class Minimahopping:
         if n_visits > 1:
             self._n_notunique += 1
             if self.parameters.enhanced_feedback:
-                self.parameters._T = self.parameters._T * self.parameters.beta_increase * (1. + 1. * np.log(float(n_visits)))
+                self.parameters._T = self.parameters._T * self.parameters.beta_increase * (1. + 0.2 * np.log(float(n_visits)))
             else:
                 self.parameters._T = self.parameters._T * self.parameters.beta_increase
         else:

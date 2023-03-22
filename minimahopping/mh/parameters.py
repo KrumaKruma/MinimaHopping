@@ -14,13 +14,13 @@ class minimaHoppingParameters:
     _eDiff: float = -1.0
     """"_eDiff, Private (float): Energy difference for accepting minima after restarts."""
     beta_decrease: float = 1./1.02
-    """beta_decrease (float): factor for decreaseing the temperature"""
+    """beta_decrease (float): Factor for decreaseing the temperature"""
     beta_increase: float = 1.02
     """beta_increase (float): Factor for increaseing the temperature"""
     alpha_accept: float = 1/1.02
-    """alpha_accept (float): Factor for increaseing Ediff"""
+    """alpha_accept (float): Factor for decreasing Ediff"""
     alpha_reject: float = 1.02
-    """alpha_reject (float): Factor for decreaseing Ediff"""
+    """alpha_reject (float): Factor for increasing Ediff"""
     n_soft: int = 20
     """n_soft (int): number of softening steps"""
     soften_positions: float = 1e-2
@@ -50,7 +50,7 @@ class minimaHoppingParameters:
     fmax: float = 0.01
     """fmax (float): Maximal force component. Used as a stopping criterion for the geometry optimization."""
     enhanced_feedback:bool = False
-    """enhanced_feedback (bool):Enhanced feedback (rise temperature according to T = T * beta_increase * (1. + 1. * ln(n_visits))). Unclear if this improves performance"""
+    """enhanced_feedback (bool):Enhanced feedback (rise temperature according to T = T * beta_increase * (1. + 1. * ln(n_visits)))."""
     energy_threshold: float = 0.001
     """energy_threshold (float): if the energy difference of two structures is below the fingerprint is compared"""
     output_n_lowest_minima: int = 20
