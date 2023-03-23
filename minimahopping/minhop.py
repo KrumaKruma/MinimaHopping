@@ -386,7 +386,12 @@ class Minimahopping:
         positions, lattice, noise, trajectory, number_of_steps, epot_max = opt.optimization(atoms=atoms, 
                                                                         calculator=self.calculator, 
                                                                         max_force_threshold=self.parameters.fmax, 
-                                                                        outpath=self._outpath, 
+                                                                        outpath=self._outpath,
+                                                                        initial_step_size=self.parameters.initial_step_size,
+                                                                        nhist_max=self.parameters.nhist_max,
+                                                                        lattice_weight=self.parameters.lattice_weight,
+                                                                        alpha_min=self.parameters.alpha_min,
+                                                                        eps_subsp=self.parameters.eps_subsp, 
                                                                         verbose=self.parameters.verbose_output)
         return positions, lattice
 
@@ -496,7 +501,12 @@ class Minimahopping:
             positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps, epot_max_geopt = opt.optimization(atoms=atoms, 
                                                                     calculator=self.calculator, 
                                                                     max_force_threshold=self.parameters.fmax, 
-                                                                    outpath=self._outpath, 
+                                                                    outpath=self._outpath,
+                                                                    initial_step_size=self.parameters.initial_step_size,
+                                                                    nhist_max=self.parameters.nhist_max,
+                                                                    lattice_weight=self.parameters.lattice_weight,
+                                                                    alpha_min=self.parameters.alpha_min,
+                                                                    eps_subsp=self.parameters.eps_subsp, 
                                                                     verbose=self.parameters.verbose_output)
 
             if epot_max_geopt > epot_max_md:

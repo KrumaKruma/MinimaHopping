@@ -49,6 +49,16 @@ class minimaHoppingParameters:
     """symprec (float): Distance tolerance in Cartesian coordinates to find crystal symmetry for reshape cell operation (see spglib documentation for more info)"""
     fmax: float = 0.01
     """fmax (float): Maximal force component. Used as a stopping criterion for the geometry optimization."""
+    initial_step_size: float = None
+    """inital step size of the geometry optimizer. If None the initial step size is estimated"""
+    nhist_max: int = 10
+    """maximal length of history list in sqnm geometry optimizer"""
+    lattice_weight: float = 2.
+    """weight / size of the supercell that is used to transform lattice derivatives. Use a value between 1 and 2. Default is 2."""
+    alpha_min: float = 1e-3
+    """Lower limit on the step size. 1.e-2 is the default."""
+    eps_subsp: float = 1e-3
+    """Lower limit on linear dependencies of basis vectors in history list."""
     enhanced_feedback:bool = False
     """enhanced_feedback (bool):Enhanced feedback (rise temperature according to T = T * beta_increase * (1. + 1. * ln(n_visits)))."""
     energy_threshold: float = 0.001
