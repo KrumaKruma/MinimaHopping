@@ -29,7 +29,8 @@ setup(
         'omfpdistance=minimahopping.commandLineInterface.omfpdistance:main',
         'makemolecule=minimahopping.commandLineInterface.makemolecule:main',
         'standardizeLattice=minimahopping.commandLineInterface.standardizeLattice:main',
-        'splitFile=minimahopping.commandLineInterface.splitFile:main'
+        'splitFile=minimahopping.commandLineInterface.splitFile:main',
+        'scaleAtoms=minimahopping.commandLineInterface.scaleStructure:main'
       ]
     }
 )
