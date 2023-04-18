@@ -3,7 +3,7 @@ import warnings
 from ase.io import write
 # import minimahopping.mh.lattice_operations as lat_opt
 from sqnm.vcsqnm_for_ase import aseOptimizer
-
+from minimahopping.opt.steepestdescent import steepestdescent
 
 def optimization(atoms, calculator, max_force_threshold, outpath, initial_step_size=None, nhist_max=10, lattice_weight=2, alpha_min=1e-3, eps_subsp=1e-3, verbose=True):
     # copy the atoms object and attach calculator to it
@@ -23,19 +23,28 @@ def optimization(atoms, calculator, max_force_threshold, outpath, initial_step_s
 
     try:
         # Run geometry optimization
-        trajectory, optimizer, number_of_steps, epot_max = geometry_optimization(atoms, 
-                                                                    max_force_threshold, 
-                                                                    initial_step_size, 
-                                                                    nhist_max, 
-                                                                    lattice_weight, 
-                                                                    alpha_min, 
-                                                                    eps_subsp, 
-                                                                    verbose, 
-                                                                    optimization_trajectory_file,
-                                                                    optimization_log_file)
+       #trajectory, optimizer, number_of_steps, epot_max = geometry_optimization(atoms, 
+       #                                                            max_force_threshold, 
+       #                                                            initial_step_size, 
+       #                                                            nhist_max, 
+       #                                                            lattice_weight, 
+       #                                                            alpha_min, 
+       #                                                            eps_subsp, 
+       #                                                            verbose, 
+       #                                                            optimization_trajectory_file,
+       #                                                            optimization_log_file)
+        
+        # Run geometry optimization with steepest descent
+        trajectory, number_of_steps, epot_max = steepestdescent(atoms, 
+                                                            max_force_threshold,
+                                                            initial_step_size, 
+                                                            verbose, 
+                                                            optimization_trajectory_file, 
+                                                            optimization_log_file)
         positions_out = atoms.get_positions()
         lattice_out = atoms.get_cell()
-        noise = optimizer.optimizer.lower_bound()
+        #noise = optimizer.optimizer.lower_bound()
+        noise = 0.0
     finally:
         # Close files
         if verbose:

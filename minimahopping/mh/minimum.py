@@ -83,8 +83,8 @@ class Minimum():
             costmat = _costmatrix(self.fp, other.fp)
             ans_pos = optimize.linear_sum_assignment(costmat)
             # use this formula for euclidian fingerprint distance
-            # fp_dist = np.linalg.norm( self.fp[ans_pos[0], :] - other.fp[ans_pos[1], :]) / len(self.atoms)
-            fp_dist = np.max( np.abs(self.fp[ans_pos[0], :] - other.fp[ans_pos[1], :]) )
+            fp_dist = np.linalg.norm( self.fp[ans_pos[0], :] - other.fp[ans_pos[1], :]) / len(self.atoms)
+            #fp_dist = np.max( np.abs(self.fp[ans_pos[0], :] - other.fp[ans_pos[1], :]) )
 
         return fp_dist
 
