@@ -56,10 +56,12 @@ class Minimahopping:
     logger = None
 
 
-    def __init__(self, initial_configuration : ase.atom.Atom, **kwargs):
+    def __init__(self, initial_configuration : ase.atom.Atom, energy_calculator, **kwargs):
         """Initialize with an ASE atoms object and keyword arguments."""
 
         self.initial_configuration = initial_configuration
+        
+        self.energy_calculator = energy_calculator
 
         initalParameters = minimahopping.mh.parameters.minimaHoppingParameters(**kwargs)
 
@@ -326,6 +328,9 @@ class Minimahopping:
                 _positions, _lattice = self._restart_opt(atom,)
                 atom.set_positions(_positions)
                 atom.set_cell(_lattice)
+
+                #switch calculator for energy calculation
+                atom.calc = self.energy_calculator                
                 struct = Minimum(atom,
                             s = self.parameters.n_S_orbitals,
                             p = self.parameters.n_P_orbitals, 
@@ -335,6 +340,8 @@ class Minimahopping:
                             T=self.parameters._T,
                             ediff=self.parameters._eDiff,
                             exclude= self.parameters.exclude)
+                # switch calculator back
+                atom.calc = self.calculator 
                 logging.debug("Before initial database request in startup")
                 n_visit, label, continueSimulation = self.data.addElement(struct)
                 self.parameters._n_accepted += 1
@@ -356,6 +363,8 @@ class Minimahopping:
             filename = self.restart_path + "poscur.extxyz"
             atoms = read(filename, parallel= False)
             
+            # switch calculator for energy calculation
+            atoms.calc = self.energy_calculator 
             struct_cur = Minimum(atoms,
                         s = self.parameters.n_S_orbitals,
                         p = self.parameters.n_P_orbitals, 
@@ -365,6 +374,8 @@ class Minimahopping:
                         T=self.parameters._T,
                         ediff=self.parameters._eDiff,
                         exclude= self.parameters.exclude)
+            # switch caclulator back
+            atoms.calc = self.energy_calculator 
         
             database_index = self.data.get_element_index(struct_cur)
             if database_index == -1:
@@ -527,7 +538,9 @@ class Minimahopping:
 
             # check if the energy threshold is below the optimization noise
             self._check_energy_threshold()
-
+            
+            # switch calculator for energy calculation
+            atoms.calc = self.energy_calculator
             proposed_structure = Minimum(atoms,
                         s = self.parameters.n_S_orbitals,
                         p = self.parameters.n_P_orbitals, 
@@ -537,6 +550,9 @@ class Minimahopping:
                         T=self.parameters._T,
                         ediff=self.parameters._eDiff,
                         exclude= self.parameters.exclude)
+
+            # switch calculator back
+            atoms.calc = self.calculator
 
             # check if proposed structure is the same to the initial structure
             _escape_energy = struct.__compareto__(proposed_structure)
