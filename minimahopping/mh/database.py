@@ -73,7 +73,8 @@ class Database():
         if self.verbosity:
             t2 = time.time()
             finding_time = t2 - t1
-        if index >= self.maxNumberOfMinima:
+        if bisect.bisect(self.unique_minima_sorted, struct) >= self.maxNumberOfMinima:
+            logging.info("    More than maxNumberOfMinima minima were found. Treating this minimum as a new one.")
             struct.n_visit = 1
             struct.label = index
             return 1, index, True
