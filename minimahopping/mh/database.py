@@ -4,9 +4,10 @@ import minimahopping.mh.minimum as minimum
 import minimahopping.graph.graph
 import logging
 import time
+import numpy
 
 class Database():
-    def __init__(self,energy_threshold, minima_threshold, output_n_lowest_minima, is_restart = False, outpath='./', minima_path= "lowest_minima/", write_graph_output = True):
+    def __init__(self,energy_threshold, minima_threshold, output_n_lowest_minima, is_restart = False, outpath='./', minima_path= "lowest_minima/", write_graph_output = True, maxNumberOfMinima = 0):
         self.unique_minima_sorted = []
         self.nstructs = 0
 
@@ -22,6 +23,10 @@ class Database():
 
         self.noDublicatesFileName = self.minima_path + "all_minima_no_duplicates.extxyz"
         self.allMinimaFilename = self.minima_path + "all_minima.extxyz"
+
+        if maxNumberOfMinima <= 0:
+            self.maxNumberOfMinima = numpy.inf
+        else: self.maxNumberOfMinima = maxNumberOfMinima
 
         if logging.root.level <= logging.DEBUG:
             self.verbosity = True
@@ -68,6 +73,8 @@ class Database():
         if self.verbosity:
             t2 = time.time()
             finding_time = t2 - t1
+        if index >= self.maxNumberOfMinima:
+            return 1, index, True
         already_found = self.contains(index=index)
 
         if already_found:
@@ -108,6 +115,8 @@ class Database():
 
     def addElementandConnectGraph(self, currentMinimum: minimum.Minimum, escapedMinimum: minimum.Minimum, trajectory, epot_max):
         n_vistit, label, _ = self.addElement(escapedMinimum)
+        if label >= self.maxNumberOfMinima: # dont add structure to graph if it is to high in energy.
+            return n_vistit, label, True
         if self.write_graph_output:
             self.graph.addStructure(currentMinimum.label, escapedMinimum.label, trajectory, currentMinimum.e_pot, escapedMinimum.e_pot, epot_max)
         return n_vistit, label, True # last return determines if worker should continue. Since this class is not used with mpi True must be returned

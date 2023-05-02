@@ -87,6 +87,9 @@ class minimaHoppingParameters:
     """_n_rejected (int): Private counting variable for number of rejected minima."""
     _n_same: int = 0
     """_n_same (int): Private conting variable for number of unsuccessful escape attempts."""
+    maxNumberOfMinima: int = 0
+    """maxNumberOfMinima (int): Maximal number of minima that will be stored in database. Only the maxNumberOfMinima lowest energy structures will be stored. If a structure is higher in energy than the 
+    maxNumberOfMinima it will considered as a new structure. If the number is 0 or negative, it will be considered as infinite."""
 
 
     def getFixedParameterList(self):

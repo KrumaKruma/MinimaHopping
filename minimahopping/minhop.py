@@ -109,7 +109,7 @@ class Minimahopping:
         if not self.parameters.use_MPI:
             self.data = minimahopping.mh.database.Database(self.parameters.energy_threshold, self.parameters.fingerprint_threshold\
                     , self.parameters.output_n_lowest_minima, self.isRestart, self.restart_path, self._minima_path\
-                    , self.parameters.write_graph_output)
+                    , self.parameters.write_graph_output, maxNumberOfMinima=self.parameters.maxNumberOfMinima)
         elif self.isWorker:
             self.data = minimahopping.MPI_database.mpi_database_worker.Database(self.parameters.energy_threshold, self.parameters.fingerprint_threshold\
                     , self.parameters.output_n_lowest_minima, self.isRestart, self.restart_path, self._minima_path\
@@ -149,7 +149,7 @@ class Minimahopping:
             logging.info('starting mpi server on rank %i'%self.mpiRank)
             MPI_server.MPI_database_server_loop(self.parameters.energy_threshold, self.parameters.fingerprint_threshold
                 , self.parameters.output_n_lowest_minima, self.isRestart, self.restart_path, self._minima_path
-                , self.parameters.write_graph_output, maxTimeHours=self._get_sec() / 3600)
+                , self.parameters.write_graph_output, maxTimeHours=self._get_sec() / 3600, maxNumberOfMinima = self.parameters.maxNumberOfMinima)
             logging.info('All clients have left and the server will shut down as well.')
             return
         else:
