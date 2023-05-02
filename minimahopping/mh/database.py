@@ -74,6 +74,8 @@ class Database():
             t2 = time.time()
             finding_time = t2 - t1
         if index >= self.maxNumberOfMinima:
+            struct.n_visit = 1
+            struct.label = index
             return 1, index, True
         already_found = self.contains(index=index)
 
