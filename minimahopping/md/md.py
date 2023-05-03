@@ -41,7 +41,7 @@ def md(atoms, calculator, outpath, cell_atoms = None, dt = 0.001, n_max = 3, ver
         positions_old = atoms.get_positions()
 
         # Initialization of the MD. Get the energy and forces for the first MD step
-        e_pot, forces, lattice_force = initialize(atoms, cell_atoms, outpath, verbose)
+        e_pot, forces, lattice_force = initialize(atoms, cell_atoms)
         # Run the MD until n_max minima have been visited
         etot_max, etot_min, e_pot_max, e_pot_min, trajectory, i_steps = run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_max, verbose, outpath, collect_md_file, md_trajectory_file, md_log_file)
 
@@ -59,7 +59,7 @@ def md(atoms, calculator, outpath, cell_atoms = None, dt = 0.001, n_max = 3, ver
 
 
 
-def initialize(atoms, cell_atoms, outpath, verbose):
+def initialize(atoms, cell_atoms):
     '''
     Initialization of the MD before the iterative part starts
     '''
