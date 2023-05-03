@@ -3,7 +3,7 @@ import minimahopping.mh.lattice_operations as lat_opt
 import warnings
 from ase.io import write
 import minimahopping.md.dbscan as dbscan
-
+import logging
 
 
 
@@ -41,7 +41,7 @@ def md(atoms, calculator, outpath, cell_atoms = None, dt = 0.001, n_max = 3, ver
         positions_old = atoms.get_positions()
 
         # Initialization of the MD. Get the energy and forces for the first MD step
-        e_pot, forces, lattice_force = initialize(atoms, cell_atoms, outpath, verbose)
+        e_pot, forces, lattice_force = initialize(atoms, cell_atoms)
         # Run the MD until n_max minima have been visited
         etot_max, etot_min, e_pot_max, e_pot_min, trajectory, i_steps = run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_max, verbose, outpath, collect_md_file, md_trajectory_file, md_log_file)
 
@@ -59,7 +59,7 @@ def md(atoms, calculator, outpath, cell_atoms = None, dt = 0.001, n_max = 3, ver
 
 
 
-def initialize(atoms, cell_atoms, outpath, verbose):
+def initialize(atoms, cell_atoms):
     '''
     Initialization of the MD before the iterative part starts
     '''
@@ -77,7 +77,7 @@ def initialize(atoms, cell_atoms, outpath, verbose):
     return e_pot, forces, lattice_force
 
 
-def calc_etot_and_ekin(atoms, cell_atoms, e_pot, etot_max, etot_min):
+def calc_etot_and_ekin(atoms, cell_atoms, e_pot):
     """
     Calculation of the total and kinetic energy
     """
@@ -139,7 +139,13 @@ def run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_ma
     etot_max = -1e10
     etot_min = 1e10
 
-    for i in range(10000):
+    initial_positions = atoms.get_positions()
+    initial_lattice = atoms.get_cell()
+    initial_velocities = atoms.get_velocities()
+
+    e_pot_old, e_kin_old, e_tot_old = calc_etot_and_ekin(atoms, cell_atoms, e_pot_old)
+
+    while i_steps < 10000:
         # perform velocity verlet step
         forces_new, lattice_force_new = verlet_step(atoms, cell_atoms, dt, forces, lattice_force)
         i_steps += 1
@@ -151,7 +157,21 @@ def run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_ma
         # check if a new minimum was found
         e_pot_new, sign_new, n_change, i_max = check(atoms, e_pot_old, i_steps, i_max, n_max, n_change, sign_old)
         # calculate the kinetic and total energy
-        e_pot, e_kin, e_tot = calc_etot_and_ekin(atoms, cell_atoms, e_pot_new, etot_max, etot_min)
+        e_pot, e_kin, e_tot = calc_etot_and_ekin(atoms, cell_atoms, e_pot_new)
+
+
+        _defcon = abs(e_tot - e_tot_old)#/(3 * self._nat)
+        energy_conservation = _defcon / len(atoms) #/ abs(e_pot - e_pot_old)
+        if energy_conservation > 3.0:
+            warning_msg = "MD failed. Restart with smaller dt"
+            logging.warning(warning_msg)
+            dt = dt/10.
+            i_steps = 0
+            atoms.set_positions(initial_positions)
+            atoms.set_cell(initial_lattice)
+            atoms.set_velocities(initial_velocities)
+
+
         # update the maximal/minimal total energy
         e_tot_min_new, e_tot_max_new = update_etot_minmax(e_tot, etot_min, etot_max)
 
@@ -161,7 +181,7 @@ def run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_ma
 
         # Write a log file if verbosity is True
         if verbose:
-            write_log(atoms, e_pot, e_kin, e_tot, i_steps, dt, outpath, forces_new, md_trajectory_file, md_log_file)
+            write_log(atoms, e_pot, e_kin, e_tot, i_steps, dt, outpath, forces_new, md_trajectory_file, md_log_file, energy_conservation)
 
         # Update energy and forces
         forces = forces_new
@@ -173,6 +193,7 @@ def run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_ma
         etot_max = e_tot_max_new
         etot_min = e_tot_min_new
         sign_old = sign_new
+        e_tot_old = e_tot
 
         # Stop MD if n_max minim have been visited
         if i_max > n_max:
@@ -321,17 +342,18 @@ def check(atoms, e_pot, i_steps, i_max, n_max, n_change, sign_old):
     return e_pot_new, sign_old, n_change, i_max
 
 
-def write_log(atoms, e_pot, e_kin, e_tot, i_steps, dt, outpath, forces, md_trajectory_file, md_log_file):
+def write_log(atoms, e_pot, e_kin, e_tot, i_steps, dt, outpath, forces, md_trajectory_file, md_log_file, energy_conservation):
     '''
     Write each MD step into a file and print epot, ekin and etot. The file is overwritten each time the MD is
     started
     '''
-    md_msg = "{:4d}      {:1.5f}      {:1.5f}       {:1.8f}       {:1.5f}    {:1.5f}\n".format(i_steps,
+    md_msg = "{:4d}      {:1.5f}      {:1.5f}       {:1.8f}       {:1.5f}    {:1.5f}    {:1.5f}\n".format(i_steps,
                                                                                             e_pot,
                                                                                             e_kin,
                                                                                             e_tot,
                                                                                             dt,
-                                                                                            np.linalg.norm(forces))
+                                                                                            np.linalg.norm(forces),
+                                                                                            energy_conservation)
 
     md_log_file.write(md_msg)
     md_log_file.flush()
