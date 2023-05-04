@@ -30,12 +30,12 @@ class Minimum():
     """ 
     Minimum class for managing the database of the minima hopping. 
     """
-    def __init__(self, atoms, epot, s, p, width_cutoff, maxnatsphere, T, ediff, n_visit = None, label = None, exclude=[], fingerprint = None):
+    def __init__(self, atoms, epot, s, p, width_cutoff, T, ediff, n_visit = None, label = None, exclude=[], fingerprint = None):
         self.atoms = atoms.copy()
         self.atoms.wrap()
         self.e_pot = epot
         if fingerprint is None:
-            self.fp = self._get_OMFP(s=s, p=p, width_cutoff=width_cutoff, maxnatsphere=maxnatsphere, exclude=exclude)
+            self.fp = self._get_OMFP(s=s, p=p, width_cutoff=width_cutoff, exclude=exclude)
         else:
             self.fp = fingerprint.copy()
         self.maxNatInEnv = 0
@@ -48,7 +48,6 @@ class Minimum():
         self.s = s
         self.p = p
         self.width_cutoff = width_cutoff
-        self.maxnatsphere = maxnatsphere
         self.exclude = exclude
 
     def set_label(self, label):
@@ -61,7 +60,7 @@ class Minimum():
         return self.e_pot > other.e_pot
 
     def __copy__(self,):
-        return Minimum(self.atoms.copy(), self.e_pot, self.s, self.p, self.width_cutoff, self.maxnatsphere,
+        return Minimum(self.atoms.copy(), self.e_pot, self.s, self.p, self.width_cutoff,
             self.temperature, self.ediff, self.n_visit, self.label, self.exclude, fingerprint= self.fp)
 
     def __compareto__(self, other):
@@ -106,7 +105,7 @@ class Minimum():
         write(filename, temp_atoms, append=append, parallel=False)
 
 
-    def _get_OMFP(self,s=1, p=0, width_cutoff=1.5, maxnatsphere=100, exclude=[]):
+    def _get_OMFP(self,s=1, p=0, width_cutoff=1.5, exclude=[]):
             """
             Calculation of the Overlapmatrix fingerprint. For peridoic systems a local environment fingerprint is calculated
             and a hungarian algorithm has to be used for the fingerprint distance. For non-periodic systems a global fingerprint

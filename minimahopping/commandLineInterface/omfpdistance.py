@@ -29,8 +29,6 @@ def main():
         help='number of p orbitals for constructing the OMFP', default=defaultParams.n_P_orbitals, required= False)
     parser.add_argument('--width_cutoff', dest='width_cutoff', action='store', type=float,
         help='cutoff for the OMFP', default=defaultParams.width_cutoff, required= False)
-    parser.add_argument('--maxnatsphere', dest='maxnatsphere', action='store', type=int,
-        help='Truncation lentgh of the OMFP length', default=defaultParams.maxnatsphere, required= False)
     parser.add_argument(
         "--exclude",
         dest='exclude',
@@ -52,9 +50,9 @@ def main():
     if '.ascii' in args.file2:
         atom2.pbc = [True, True, True]
 
-    m1 = minimum.Minimum(atom1, 0.0, args.n_S_orbitals, args.n_P_orbitals, args.width_cutoff, args.maxnatsphere,
+    m1 = minimum.Minimum(atom1, 0.0, args.n_S_orbitals, args.n_P_orbitals, args.width_cutoff,
         T=0, ediff=0, exclude=args.exclude)
-    m2 = minimum.Minimum(atom2, 0.0, args.n_S_orbitals, args.n_P_orbitals, args.width_cutoff, args.maxnatsphere,
+    m2 = minimum.Minimum(atom2, 0.0, args.n_S_orbitals, args.n_P_orbitals, args.width_cutoff,
         T=0, ediff=0, exclude=args.exclude)
 
     fingerprintDistance = m1.fingerprint_distance(m2)
