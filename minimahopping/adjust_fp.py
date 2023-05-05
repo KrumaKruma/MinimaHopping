@@ -97,7 +97,6 @@ class adjust_fp():
                         s = self.parameters.n_S_orbitals,
                         p = self.parameters.n_P_orbitals, 
                         width_cutoff = self.parameters.width_cutoff,
-                        maxnatsphere = self.parameters.maxnatsphere,
                         epot = atom.get_potential_energy(),
                         T=self.parameters._T,
                         ediff=0)

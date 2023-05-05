@@ -30,14 +30,17 @@ class Minimum():
     """ 
     Minimum class for managing the database of the minima hopping. 
     """
-    def __init__(self, atoms, epot, s, p, width_cutoff, maxnatsphere, T, ediff, n_visit = None, label = None, exclude=[], fingerprint = None):
+    def __init__(self, atoms, epot, s, p, width_cutoff, T, ediff, n_visit = None, label = None, exclude=[], fingerprint = None):
         self.atoms = atoms.copy()
         self.atoms.wrap()
         self.e_pot = epot
         if fingerprint is None:
-            self.fp = self._get_OMFP(s=s, p=p, width_cutoff=width_cutoff, maxnatsphere=maxnatsphere, exclude=exclude)
+            self.fp = self._get_OMFP(s=s, p=p, width_cutoff=width_cutoff, exclude=exclude)
         else:
             self.fp = fingerprint.copy()
+        self.maxNatInEnv = 0
+        for f in self.fp:
+            self.maxNatInEnv = max(self.maxNatInEnv, f.size)
         self.temperature = T
         self.ediff = ediff
         self.n_visit = n_visit
@@ -45,7 +48,6 @@ class Minimum():
         self.s = s
         self.p = p
         self.width_cutoff = width_cutoff
-        self.maxnatsphere = maxnatsphere
         self.exclude = exclude
 
     def set_label(self, label):
@@ -58,7 +60,7 @@ class Minimum():
         return self.e_pot > other.e_pot
 
     def __copy__(self,):
-        return Minimum(self.atoms.copy(), self.e_pot, self.s, self.p, self.width_cutoff, self.maxnatsphere,
+        return Minimum(self.atoms.copy(), self.e_pot, self.s, self.p, self.width_cutoff,
             self.temperature, self.ediff, self.n_visit, self.label, self.exclude, fingerprint= self.fp)
 
     def __compareto__(self, other):
@@ -70,21 +72,25 @@ class Minimum():
          if a local environment descriptor is used. Else the distance is calculated using l2-norm.
          """
 
-        n_dim1 = len(self.fp.shape)
-        n_dim2 = len(other.fp.shape)
+        n1 = len(self.fp)
+        n2 = len(other.fp)
 
-        assert n_dim1 == n_dim2, "Dimension of vector 1 is and vector 2 is different"
-        assert n_dim1 < 3, "Dimension of vector 1 is larger that 2"
-        assert n_dim2 < 3, "Dimension of vector 2 is larger that 2"
+        assert n1 == n2, "Number of particles for vector 1 is and vector 2 is different"
+        # assert n_dim1 < 3, "Dimension of vector 1 is larger that 2"
+        # assert n_dim2 < 3, "Dimension of vector 2 is larger that 2"
 
-        if n_dim1 == 1 and n_dim2 == 1:
-            fp_dist = np.linalg.norm(self.fp - other.fp) / len(self.atoms)
-        else:
-            costmat = _costmatrix(self.fp, other.fp)
-            ans_pos = optimize.linear_sum_assignment(costmat)
-            # use this formula for euclidian fingerprint distance
-            # fp_dist = np.linalg.norm( self.fp[ans_pos[0], :] - other.fp[ans_pos[1], :]) / len(self.atoms)
-            fp_dist = np.max( np.abs(self.fp[ans_pos[0], :] - other.fp[ans_pos[1], :]) )
+        # if n_dim1 == 1 and n_dim2 == 1:
+        #     fp_dist = np.linalg.norm(self.fp - other.fp) / len(self.atoms)
+        # else:
+        maxNatInEnv = max(self.maxNatInEnv, other.maxNatInEnv)
+        fp1 = np.array(OMFP.adjustFPlen(self.fp, maxNatInEnv))
+        fp2 = np.array(OMFP.adjustFPlen(other.fp, maxNatInEnv))
+
+        costmat = _costmatrix(fp1, fp2)
+        ans_pos = optimize.linear_sum_assignment(costmat)
+        # use this formula for euclidian fingerprint distance
+        # fp_dist = np.linalg.norm( self.fp[ans_pos[0], :] - other.fp[ans_pos[1], :]) / len(self.atoms)
+        fp_dist = np.max( np.abs(fp1[ans_pos[0], :] - fp2[ans_pos[1], :]) )
 
         return fp_dist
 
@@ -99,7 +105,7 @@ class Minimum():
         write(filename, temp_atoms, append=append, parallel=False)
 
 
-    def _get_OMFP(self,s=1, p=0, width_cutoff=1.5, maxnatsphere=100, exclude=[]):
+    def _get_OMFP(self,s=1, p=0, width_cutoff=1.5, exclude=[]):
             """
             Calculation of the Overlapmatrix fingerprint. For peridoic systems a local environment fingerprint is calculated
             and a hungarian algorithm has to be used for the fingerprint distance. For non-periodic systems a global fingerprint
@@ -149,19 +155,12 @@ class Minimum():
             _selected_postions = np.array(_selected_postions)
 
 
+            _selected_positions = _selected_postions*_ang2bohr
+            _omfpCalculator = OMFP.stefansOMFP(s=s, p=p, width_cutoff=width_cutoff)
             if True in _pbc:
-                _selected_positions = _selected_postions*_ang2bohr
                 _lattice = self.atoms.get_cell()*_ang2bohr
-                _omfpCalculator = OMFP.stefansOMFP(s=s, p=p, width_cutoff=width_cutoff, maxnatsphere=maxnatsphere)
                 _omfp = _omfpCalculator.fingerprint(_selected_positions, _selected_elem, lat=_lattice)
-                _omfp = np.array(_omfp)
-
             else:
-                _selected_positions = _selected_postions*_ang2bohr
-                _elements = self.atoms.get_atomic_numbers()
-                _omfpCalculator = OMFP.stefansOMFP(s=s, p=p, width_cutoff=width_cutoff, maxnatsphere=maxnatsphere)
-                # _omfp = _omfpCalculator.globalFingerprint(_selected_positions, _selected_elem)
                 _omfp = _omfpCalculator.fingerprint(_selected_positions, _selected_elem)
-                _omfp = np.array(_omfp)
             return _omfp
 
