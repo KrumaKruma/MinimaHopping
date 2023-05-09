@@ -6,10 +6,10 @@ Python Minima Hopping requires:
 * Python >= 3.7 
 
 To install:
-```bash https://gitlab.com/goedeckergroup/ase_mh.git
-   cd ase_mh
-   pip install .
-git clone 
+```bash 
+git clone https://gitlab.com/goedeckergroup/ase_mh.git
+cd ase_mh
+pip install .
 ```
 
 ## Documentation & Tutorial
@@ -18,7 +18,7 @@ The documentation as well as tutorials for the usage of Minima Hopping can be fo
 ## Usage
 An example of how to use Python Minima Hopping can be found in the example folder on GitHub. It can be executed by
 ```bash
-    python example.py
+python example.py
 ```
 
 ## References & Citing
