@@ -285,16 +285,20 @@ class Minimahopping:
 
 
     def _write_restart(self, escaped_minimum: Minimum, intermediate_minimum: Minimum, isAccepted: bool):
-        f = open(self.restart_path+"params.json", "w")
-        json.dump(self.parameters.to_dict(),f)
-        f.close()
+        self._write_parameters()
         if isAccepted:
             intermediate_minimum.write(self.restart_path + "poscur.extxyz", append=False)
             intermediate_minimum.write(self._outpath + "accepted_minima.extxyz", append=True)
         escaped_minimum.write(self._outpath + "all_minima.extxyz", append=True)
         if escaped_minimum.n_visit == 1:
             escaped_minimum.write(self._outpath + "all_minima_no_duplicates.extxyz", append=True)
-        
+
+
+    def _write_parameters(self):
+        f = open(self.restart_path+"params.json", "w")
+        json.dump(self.parameters.to_dict(),f)
+        f.close()
+
 
     def _startup(self, atoms):
         """
@@ -550,6 +554,8 @@ class Minimahopping:
                 is_escape = False
             else: # not escaped, same minimum found
                 self.parameters._n_same += 1
+
+            self._write_parameters()
 
         log_msg = "    New minimum found with fpd {:1.2e} after looping {:d} time(s)".format(_escape, _i_steps)
         logging.info(log_msg)
