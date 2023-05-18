@@ -7,15 +7,14 @@ import minimahopping.mh.periodictable as periodictable
 import logging
 
 class OverlapMatrixFingerprint:
-    def __init__(self, lmn, rcut=-1, nex_cutoff=2, fplen=-1):
+    def __init__(self, lmn, rcut=-1, nex_cutoff=2):
         self.lmn = lmn # of the form {element_name: [(r_c, 's'), (r_c, 'p'), ...]}
         self.rcut = rcut
         self.nex_cutoff = nex_cutoff
-        self.fplen = fplen
 
     # For compatibility with Stefans fortran version
     @staticmethod
-    def stefansOMFP(s, p, width_cutoff, maxnatsphere=-1):
+    def stefansOMFP(s, p, width_cutoff):
         lmn = {}
         for el in periodictable.get_rcov_dict():
             iel = periodictable.get_elementSymbolToNumber()[el]
@@ -30,7 +29,7 @@ class OverlapMatrixFingerprint:
                 lmn[iel].append((periodictable.getRcov_n(iel) * np.sqrt(2.) ** ((pp)), 'p'))
         nex_cutoff = 2
         rcut = np.sqrt(2 * nex_cutoff) * width_cutoff
-        return OverlapMatrixFingerprint(lmn, rcut=rcut, nex_cutoff=nex_cutoff, fplen=maxnatsphere*(s+3*p))
+        return OverlapMatrixFingerprint(lmn, rcut=rcut, nex_cutoff=nex_cutoff)
 
     orbitalIndex = {'s': 0, 'p': 1, 'd': 2, 'f': 3}
 
@@ -94,22 +93,25 @@ class OverlapMatrixFingerprint:
             #fcuts = [self.fcut(self.rcut, np.linalg.norm(neiats[iat][0,:] - neiats[iat][i,:])) for i in range(nneis)]
             fcuts = self.fcut(self.rcut, np.linalg.norm(neiats[iat][:,:] - neiats[iat][0,:], axis=1))  # the above in numpy notation
             O = self.overlapMatrixSpHar(neiats[iat], neiels[iat], fcuts)
-            fps.append(self.adjustFPlen(self.diag(O)))
+            fps.append(self.diag(O))
             maxlen=max(maxlen, len(neiels[iat]))
-        logging.info('Maximal number of atoms in the sphere for fingerprint: %d'%maxlen)
+        logging.info('    Maximal number of atoms in the sphere for fingerprint: %d'%maxlen)
         return fps
 
-    def adjustFPlen(self, fp):
-        if self.fplen < 0:
-            return fp
-        if fp.size <= self.fplen:
-            f = np.zeros((self.fplen,))
-            f[:fp.size] = fp
-            return f
-        else:
-            warning_msg = "Fingerprint of length {:d} is truncated to length {:d}".format(fp.shape[0], self.fplen)
-            warnings.warn(warning_msg, FutureWarning)
-            return fp[:self.fplen]
+    def adjustFPlen(fps, fplen):
+        return_fps = []
+        if fplen < 0:
+            return fps
+        for fp in fps:
+            if fp.size <= fplen:
+                f = np.zeros((fplen,))
+                f[:fp.size] = fp
+                return_fps.append(f)
+            else:
+                warning_msg = "Fingerprint of length {:d} is truncated to length {:d}".format(fp.shape[0], fplen)
+                warnings.warn(warning_msg, FutureWarning)
+                return_fps.append(fp[:fplen])
+        return return_fps
 
     @staticmethod
     def getRcov(el):

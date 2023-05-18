@@ -33,8 +33,6 @@ class minimaHoppingParameters:
     """n_P_orbitals (int): number of p orbitals for constructing the OMFP"""
     width_cutoff: int = 4
     """width_cutoff (float): cutoff for the OMFP"""
-    maxnatsphere: int = 30
-    """maxnatsphere (int): Truncation lentgh of the OMFP length"""
     exclude: list = field(default_factory=list)
     """exclude (list): List of elements to exclude in the OMFP"""
     dt0: float = 0.01
@@ -93,7 +91,7 @@ class minimaHoppingParameters:
 
 
     def getFixedParameterList(self):
-        return ['n_S_orbitals', 'n_P_orbitals', 'width_cutoff', 'exclude', 'fingerprint_threshold', 'use_MPI', 'maxnatsphere']
+        return ['n_S_orbitals', 'n_P_orbitals', 'width_cutoff', 'exclude', 'fingerprint_threshold', 'use_MPI']
 
 if __name__ == '__main__':
     params = minimaHoppingParameters(exclude=["H", "He", 'Li'], dt0=1)
