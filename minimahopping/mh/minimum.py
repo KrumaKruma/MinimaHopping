@@ -35,12 +35,14 @@ class Minimum():
         self.atoms.wrap()
         self.e_pot = epot
         if fingerprint is None:
-            self.fp = self._get_OMFP(s=s, p=p, width_cutoff=width_cutoff, exclude=exclude)
+            self.fp = epot #use epot as criteria for different structures
+            # self.fp = self._get_OMFP(s=s, p=p, width_cutoff=width_cutoff, exclude=exclude)
         else:
             self.fp = fingerprint.copy()
         self.maxNatInEnv = 0
-        for f in self.fp:
-            self.maxNatInEnv = max(self.maxNatInEnv, f.size)
+        # for f in self.fp:
+            # self.maxNatInEnv = max(self.maxNatInEnv, f.size)
+        self.maxNatInEnv = 1 #max(self.maxNatInEnv, f.size)
         self.temperature = T
         self.ediff = ediff
         self.n_visit = n_visit
@@ -67,6 +69,11 @@ class Minimum():
         return abs(self.e_pot - other.e_pot)
 
     def fingerprint_distance(self, other):
+        
+        #Use difference in epot as distinguishing structures:
+        return abs(self.e_pot - other.e_pot)
+        
+        
         """
          Calcualtes the fingerprint distance of 2 structures with local environment descriptors using the hungarian algorithm
          if a local environment descriptor is used. Else the distance is calculated using l2-norm.
