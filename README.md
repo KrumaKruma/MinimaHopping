@@ -1,36 +1,36 @@
-# ASE_MH
+# Python Minima Hopping
+Python Minima Hopping code for global strucutre optimization. This code can simulate both, cluster and bulk systems. Moreover can any ASE calculator be coupled to the code. For periodic systems variable cell shape MD, softening and optimization is implemented. 
 
-Minima Hopping (MH) code in python coupled with the ASE library. This code can simulate both, cluster and bulk systems. The code can be used with any calcualtor which is aviable in ase where a stress tensor is present (if periodic systems are simulated). For periodic systems variable cell shape MD, softening and optimization is implemented. 
+## Installation
+Python Minima Hopping requires:
+* Python >= 3.7 
 
-## Requirements
-* Python 3.7 or later
-* ase (atomic simulation envrionment)
-* numpy
-* scipy
+To install:
+```bash 
+git clone https://gitlab.com/goedeckergroup/ase_mh.git
+cd ase_mh
+pip install .
+```
+
+## Documentation & Tutorial
+The documentation as well as tutorials for the usage of Minima Hopping can be found on LINKTOTHETUTORIAL.
 
 ## Usage
-Currently the package cannot be installed via pip. However, once the repository is cloned it can be tested by executing the main.py. 
+An example of how to use Python Minima Hopping can be found in the example folder on GitHub. It can be executed by
 ```bash
-python main.py
+python example.py
 ```
-This will start a minima hopping run with the LJ potential for the double funnel LJ38 cluster. After the simulation is finished several output files are written. The lowest n (parameter n_poslow in the Minimahopping class) minima are written in a directory minima and can be visualized by using v_sim (or any other software which can visualize .xyz and .ascii files). 
-In the min.extxyz file all uniquely found minima are stored and the corresponding fingerprints are stored in fp.dat. The acc.extxyz file stores all the accepted minima and history.dat is a log file which shows all the useful information about the found minima. 
 
-### Restart 
-If at least the min.extxyz and the history.dat file is detected in the folder, a restart of the previous run is performed. If the acc.extxyz file contains any structure the last accepted structure is taken as input structure for the restart else the last found minimum in min.extxyz is taken as starting structure. If a fp.dat file is aviable the fingerprints are read else they are calculated in the begining of the restart. 
+## References & Citing
+1. PyMH paper
+2. https://arxiv.org/abs/2206.07339
+3. https://doi.org/10.1063/1.1724816
 
 
-## ToDo
-* Implementation of active learning with Gaussian process (FLARE++)
-* setup so that it can be installed with pip
-
-## Contribution
-Several people have contributed to this code either with direct python implementations of their work or reference implementations in Fortran:
-* Marco Krummenacher (marco.krummenacher@unibas.ch) --> main development
-* Moritz Gubler --> variable cell shape [SQNM optimizer](https://github.com/moritzgubler/vc-sqnm)
-* Jonas Finkler --> overlap matrix fingerprint
-* Hannes Huber --> variable cell shape softening (Fortran reference implementation)
-* Martin Sommer --> variable cell shape MD (Fortran reference implementation)
+## Authors
+* Marco Krummenacher
+* Moritz Gubler
+* Jonas Finkler
 
 
 
