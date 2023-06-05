@@ -3,6 +3,7 @@ from scipy import optimize
 from copy import deepcopy
 from minimahopping.omfp.OverlapMatrixFingerprint import OverlapMatrixFingerprint as OMFP
 from ase.io import write
+from scipy.spatial import distance_matrix
 import logging
 import time
 try:
@@ -12,18 +13,21 @@ except ImportError:
     def njit(f):
         return f
 
-@njit
+# @njit
 def _costmatrix(desc1, desc2):
     """
     Cost matrix of the local fingerprints for the hungarian algorithm
     """
-    # assert desc1.shape[0] == desc2.shape[0], "descriptor has not the same length"
+
+    raise Exception('do not use _costmatrix. Use scipy.spatial.distance_matrix instead.')
+    assert desc1.shape[0] == desc2.shape[0], "descriptor has not the same length"
 
     costmat = np.zeros((desc1.shape[0], desc2.shape[0]))
 
     for i, vec1 in enumerate(desc1):
         for j, vec2 in enumerate(desc2):
             costmat[i, j] = np.linalg.norm(vec1 - vec2)
+
     return costmat
 
 class Minimum():
@@ -86,7 +90,7 @@ class Minimum():
         fp1 = np.array(OMFP.adjustFPlen(self.fp, maxNatInEnv))
         fp2 = np.array(OMFP.adjustFPlen(other.fp, maxNatInEnv))
 
-        costmat = _costmatrix(fp1, fp2)
+        costmat = distance_matrix(fp1, fp2)
         ans_pos = optimize.linear_sum_assignment(costmat)
         # use this formula for euclidian fingerprint distance
         # fp_dist = np.linalg.norm( self.fp[ans_pos[0], :] - other.fp[ans_pos[1], :]) / len(self.atoms)
