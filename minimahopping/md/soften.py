@@ -42,7 +42,7 @@ def soften(atoms, calculator, nsoft, alpha_pos = 1e-3, cell_atoms = None, alpha_
         # Criterion for early stopping of softening
         if res < (curve * eps_dd * 0.5):
             break
-        
+        # print(res, curve, 'res, curve')
         # Update velocities
         normed_velocities = new_normed_velocities
         normed_cell_velocities = new_normed_cell_velocities
@@ -177,6 +177,14 @@ def update_velocities(atoms, cell_atoms, positions_in, cell_positions_in, normed
     else:
         normed_velocities = elim_moment(normed_velocities)
         normed_velocities = elim_torque(normed_velocities, positions, atoms.get_masses())
+        # old_normed_velocities = elim_torque_old(normed_velocities, positions, atoms.get_masses())
+        
+        # # Compare the results
+        # if np.allclose(old_normed_velocities, normed_velocities):
+        #     print("The results are the same.")
+        # else:
+        #     print("The results are different.")
+    
         divisor = np.sqrt(np.sum(normed_velocities ** 2))
 
     sdd = eps_dd / divisor
@@ -199,6 +207,48 @@ def elim_moment(velocities):
 
 
 def elim_torque(velocities, positions, masses):
+    """
+    Elimination of the torque in the velocites
+    """
+    
+    # Calculate center of mass and subtract it from positions
+    total_mass = np.sum(masses)
+    masses_3d = np.vstack([masses] * 3).T
+    weighted_positions = positions * masses_3d
+    cm = np.sum(weighted_positions, axis=0) / total_mass
+    weighted_positions -= cm
+
+    # Calculate moments of inertia with both functions
+    evaleria, teneria = moment_of_inertia(positions, masses)
+    
+    # New vrot calculation: Vectorized operation replacing the above for loop
+    teneria_reshaped = teneria.T.reshape(3, 1, 3)
+    vrot = np.cross(teneria_reshaped, positions[None, :, :]).transpose(1, 2, 0)
+
+    # flatten velocities and reshape vrot to match dimensions
+    velocities = velocities.flatten()
+    vrot = vrot.reshape((positions.shape[0] * 3, 3), order="C")
+
+    # normalize vrot using a loop
+    for i, vec in enumerate(vrot.T):
+        vrot[:, i] = normalize(vec)
+
+    weighted_positions += cm
+
+    # New Implementation: Vectorized operation replacing the above for loop
+    # mask for elements of evaleria that are greater than 1e-10
+    mask = np.abs(evaleria) > 1e-10
+
+    # calculate alpha and update velocities using np.einsum for dot product and updating velocities
+    alpha = np.einsum('ij,i->j', vrot[:, mask], velocities)
+    velocities -= np.einsum('ij,j->i', vrot[:, mask], alpha)
+
+    # reshape velocities back to the original shape
+    velocities = velocities.reshape((positions.shape[0], 3))
+    
+    return velocities
+
+def elim_torque_old(velocities, positions, masses):
     """
     Elimination of the torque in the velocites
     """
@@ -239,10 +289,12 @@ def elim_torque(velocities, positions, masses):
     return velocities
 
 
+
 def moment_of_inertia(positions, masses):
     '''
     Calcualtion of the eigenvalues and eigenvectors of the inertia tensor
     '''
+    
     inertia_tensor = np.zeros((3, 3))
     for at, mass in zip(positions, masses):
         inertia_tensor[0, 0] += mass * (at[1] ** 2 + at[2] ** 2)
@@ -255,6 +307,8 @@ def moment_of_inertia(positions, masses):
     inertia_tensor[1, 0] = inertia_tensor[0, 1]
     inertia_tensor[2, 0] = inertia_tensor[0, 2]
     inertia_tensor[2, 1] = inertia_tensor[1, 2]
+    
+    # print(f"Inertia tensor from the old function: \n{inertia_tensor}")
 
     eigenvalues, eigenvectors = np.linalg.eig(inertia_tensor)
     return eigenvalues, eigenvectors

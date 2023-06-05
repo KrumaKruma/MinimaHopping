@@ -288,10 +288,10 @@ class Minimahopping:
         self._write_parameters()
         if isAccepted:
             intermediate_minimum.write(self.restart_path + "poscur.extxyz", append=False)
-            intermediate_minimum.write(self._outpath + "accepted_minima.extxyz", append=True)
-        escaped_minimum.write(self._outpath + "all_minima.extxyz", append=True)
-        if escaped_minimum.n_visit == 1:
-            escaped_minimum.write(self._outpath + "all_minima_no_duplicates.extxyz", append=True)
+            intermediate_minimum.write(self._outpath + "accepted_minima.extxyz", append=False)
+        # escaped_minimum.write(self._outpath + "all_minima.extxyz", append=True)
+        # if escaped_minimum.n_visit == 1:
+        #     escaped_minimum.write(self._outpath + "all_minima_no_duplicates.extxyz", append=True)
 
 
     def _write_parameters(self):
@@ -498,7 +498,8 @@ class Minimahopping:
                 atoms.calc.recalculateBasis(atoms)
             except:
                 pass
-
+            
+       
             logging.info("    OPT start")
             positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps, epot_max_geopt = opt.optimization(atoms=atoms, 
                                                                     calculator=self.calculator, 
@@ -692,7 +693,7 @@ class Minimahopping:
             print("Detected multiple MPI Processes but use_MPI parameter was set to false. Is this on purpose?")
         if self.mpiSize == 1 or not use_MPI: # no mpi should be used
             logging.basicConfig(level=logLevel, 
-                format='%(message)s'    
+                format='%(asctime)s - %(levelname)s - %(message)s'    
             )
             self.isMaster = False
             self.isWorker = False

@@ -42,7 +42,7 @@ class Database():
     def __enter__(self):
         self.read_restart_files()
         self.noDublicatesFile = open(self.noDublicatesFileName, mode='a')
-        self.allMinimaFile = open(self.allMinimaFilename, mode='a')
+        # self.allMinimaFile = open(self.allMinimaFilename, mode='a')
         if self.write_graph_output:
             self.graph.read_from_disk()
         return self
@@ -51,7 +51,7 @@ class Database():
     def __exit__(self,exc_type, exc_value, exc_traceback):
         self.minima_shelve.close()
         self.noDublicatesFile.close()
-        self.allMinimaFile.close()
+        # self.allMinimaFile.close()
         if self.write_graph_output:
             self.graph.trajectoryDict.close()
 
@@ -104,7 +104,7 @@ class Database():
             self.minima_shelve[str(label)] = struct1
         
 
-        struct.write(self.allMinimaFile, append=True)
+        # struct.write(self.allMinimaFile, append=True)
         if self.verbosity:
             t1 = time.time()
             db_time = t1 - t2
