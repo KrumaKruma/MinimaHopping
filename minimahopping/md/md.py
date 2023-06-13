@@ -7,7 +7,7 @@ import logging
 
 
 
-def md(atoms, calculator, outpath, cell_atoms = None, dt = 0.001, n_max = 3, verbose = True, collect_md_file = None):
+def md(atoms, calculator, outpath, cell_atoms = None, dt = 0.001, n_max = 3, verbose = True, collect_md_file = None, dt_min = 0.0001):
     """ 
     Performs an MD which is visiting n_max minima
     Input:
@@ -46,7 +46,7 @@ def md(atoms, calculator, outpath, cell_atoms = None, dt = 0.001, n_max = 3, ver
         etot_max, etot_min, e_pot_max, e_pot_min, trajectory, i_steps = run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_max, verbose, collect_md_file, md_trajectory_file, md_log_file)
 
         # adjust the time step for the next MD
-        new_dt = adjust_dt(etot_max, etot_min, e_pot_max, e_pot_min, dt)
+        new_dt = adjust_dt(etot_max, etot_min, e_pot_max, e_pot_min, dt, dt_min)
         # attach the last structure to the MD trajectory
         temp = atoms.copy()
         trajectory.append(temp.copy())
@@ -375,7 +375,7 @@ def write_log(atoms, e_pot, e_kin, e_tot, i_steps, dt, forces, md_trajectory_fil
     md_trajectory_file.flush()
 
 
-def adjust_dt(etot_max, etot_min, epot_max, epot_min, dt):
+def adjust_dt(etot_max, etot_min, epot_max, epot_min, dt, dt_min):
     """
     adjust the timestep according to energy conservation
     """
@@ -384,7 +384,7 @@ def adjust_dt(etot_max, etot_min, epot_max, epot_min, dt):
     if (_defcon / (epot_max-epot_min)) < 1e-2:
         dt *= 1.05
     else:
-        if dt > 0.0001:
+        if dt > dt_min:
             dt *= 1.0/1.05
     return dt
 
