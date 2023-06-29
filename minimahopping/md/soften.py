@@ -202,42 +202,44 @@ def elim_torque(velocities, positions, masses):
     """
     Elimination of the torque in the velocites
     """
-    # elimination of torque
-    # calculate center of mass and subtracti it from positions
+
+    # Calculate center of mass and subtract it from positions
     total_mass = np.sum(masses)
     masses_3d = np.vstack([masses] * 3).T
     weighted_positions = positions * masses_3d
-    cm = np.sum(weighted_positions, axis=0)
-    cm /= total_mass
+
+    cm = np.sum(weighted_positions, axis=0) / total_mass
     weighted_positions -= cm
 
+    # Calculate moments of inertia with both functions
     evaleria, teneria = moment_of_inertia(positions, masses)
 
-    vrot = np.zeros((positions.shape[0], 3, 3))
-    for iat, at in enumerate(positions):
-        vrot[iat, :, 0] = np.cross(teneria[:, 0], at)
-        vrot[iat, :, 1] = np.cross(teneria[:, 1], at)
-        vrot[iat, :, 2] = np.cross(teneria[:, 2], at)
+    # New vrot calculation: Vectorized operation replacing the loop
+    teneria_reshaped = teneria.T.reshape(3, 1, 3)
+    vrot = np.cross(teneria_reshaped, positions[None, :, :]).transpose(1, 2, 0)
 
+    # flatten velocities and reshape vrot to match dimensions
     velocities = velocities.flatten()
     vrot = vrot.reshape((positions.shape[0] * 3, 3), order="C")
 
+    # normalize vrot using a loop
     for i, vec in enumerate(vrot.T):
         vrot[:, i] = normalize(vec)
+        weighted_positions += cm
 
-    weighted_positions += cm
+    # New Implementation: Vectorized operation replacing the above for loop
+    # mask for elements of evaleria that are greater than 1e-10
+    mask = np.abs(evaleria) > 1e-10
 
-    for i, eval in enumerate(evaleria):
-        if abs(eval) > 1e-10:
-            alpha = np.dot(vrot[:, i], velocities)
-            velocities -= alpha * vrot[:, i]
+    # calculate alpha and update velocities using np.einsum for dot product and updating velocities
+    alpha = np.einsum('ij,i->j', vrot[:, mask], velocities)
+    velocities -= np.einsum('ij,j->i', vrot[:, mask], alpha)
 
+    # reshape velocities back to the original shape
     velocities = velocities.reshape((positions.shape[0], 3))
 
-    # For debugging reasons this can be switched on to controle if torque is eliminated
-    # get_torque(weighted_positions, velocities, masses)
-    return velocities
 
+    return velocities
 
 def moment_of_inertia(positions, masses):
     '''
