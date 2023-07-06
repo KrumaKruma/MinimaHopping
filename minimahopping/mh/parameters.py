@@ -39,6 +39,8 @@ class minimaHoppingParameters:
     """dt0 (float): Initial time step for the MD"""
     _dt: float = -1.0
     """_dt, Private (float): Time step of the MD for restart."""
+    dt_min: float = 0.0001
+    """dt_min, (float): minimal time step of the MD."""
     mdmin: int = 2
     """mdmin (int): Number of minima visited before stopping the MD"""
     collect_md_data: bool = False
