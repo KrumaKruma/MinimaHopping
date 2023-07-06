@@ -241,7 +241,6 @@ def elim_torque(velocities, positions, masses):
 
     return velocities
 
-
 def moment_of_inertia(positions, masses):
     '''
     Calcualtion of the eigenvalues and eigenvectors of the inertia tensor
