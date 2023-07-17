@@ -13,7 +13,7 @@ pip install .
 ```
 
 ## Documentation & Tutorial
-The documentation as well as tutorials for the usage of Minima Hopping can be found on LINKTOTHETUTORIAL.
+The documentation as well as tutorials for the usage of Minima Hopping can be found on https://python-minima-hopping.readthedocs.io/en/latest/.
 
 ## Usage
 An example of how to use Python Minima Hopping can be found in the example folder on GitHub. It can be executed by
