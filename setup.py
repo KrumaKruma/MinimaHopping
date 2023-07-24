@@ -30,7 +30,8 @@ setup(
         'makemolecule=minimahopping.commandLineInterface.makemolecule:main',
         'standardizeLattice=minimahopping.commandLineInterface.standardizeLattice:main',
         'splitFile=minimahopping.commandLineInterface.splitFile:main',
-        'scaleAtoms=minimahopping.commandLineInterface.scaleStructure:main'
+        'scaleAtoms=minimahopping.commandLineInterface.scaleStructure:main',
+        'graphParser=minimahopping.commandLineInterface.graphParser:main'
       ]
     }
 )
