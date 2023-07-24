@@ -2,6 +2,7 @@ import networkx as nx
 import argparse
 from ase.io import read, write
 from minimahopping.graph import graph
+import os
 
 def main():
     parser = argparse.ArgumentParser(description ='Utility that parses graph output, visualizes the graph and writes .dot file')
@@ -42,6 +43,8 @@ def main():
                                        Example usage:
                                        graphParsery listPath 5 3 7
                                        creates an extxyz file that contains the edge 5->3, 3->7""")
+    listParser.add_argument('edges', type=int, nargs=argparse.REMAINDER, help="""
+                            List of edges.""")
 
     args = parser.parse_args()
 
@@ -71,11 +74,26 @@ def main():
         pygraphviz_graph.graph_attr['concentrate'] = 'true'
         pygraphviz_graph.layout(args.layout)
         pygraphviz_graph.draw('stripped_graph.pdf')
+    elif args.command == 'listPath':
+        if len(args.edges) < 2:
+            print("At least two nodes required to make the trajectory. Aborting")
+            quit()
+        trajectory_list = g.getTrajectoryListFromPath(args.edges)
+        listString = ''
+        for i in args.edges:
+            listString += "_%i"%(i)
+        filename = "connection" + listString + '.extxyz'
+        if os.path.exists(filename):
+            os.remove(filename)
+        write(filename, trajectory_list, append=True)
+        
 
 def shortestPath(g: graph.MinimaHoppingGraph, n1: int, n2: int):
-    tl = g.getTrajectoryList(n1, n2)
+    trajectory_list = g.getTrajectoryList(n1, n2)
     filename = "connection_%i_%i.extxyz"%(n1, n2)
-
+    if os.path.exists(filename):
+        os.remove(filename)
+    write(filename, trajectory_list, append=True)
 
 if __name__ =='__main__':
     main()
