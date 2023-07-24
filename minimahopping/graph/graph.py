@@ -113,6 +113,7 @@ class MinimaHoppingGraph:
         graph_copy = copy.deepcopy(self.graph)
         nx.set_node_attributes(graph_copy, 0.5, 'width')
         nx.set_node_attributes(graph_copy, 0.5, 'height')
+        nx.set_node_attributes(graph_copy, 0, 'removed_leaves')
         for i in range(number_of_iterations):
             remove = [node for node, degree in graph_copy.degree() if degree <= 2]
             for i in remove:
@@ -120,6 +121,7 @@ class MinimaHoppingGraph:
                     # print(i, graph_copy.edges(i), v)
                     graph_copy.nodes[v]['width'] = graph_copy.nodes[v]['width'] + 0.05 / graph_copy.nodes[v]['width']
                     graph_copy.nodes[v]['height'] = graph_copy.nodes[v]['height'] + 0.05 / graph_copy.nodes[v]['height']
+                    graph_copy.nodes[v]['removed_leaves'] += 1
             graph_copy.remove_nodes_from(remove)
         return graph_copy
     
