@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from ase import Atoms
 import copy
 
+graphDotName = 'graph.dot'
 
 class MinimaHoppingGraph:
     
@@ -42,11 +43,10 @@ class MinimaHoppingGraph:
         Writes the graph to the disk and closes the trajectory data shelve.
         """
         self.trajectoryDict.close()
-        graph_pickle = open (self.graphFileName, "wb")
-        pickle.dump(self.graph, graph_pickle)
-        graph_pickle.close()
-
+        self.write_restart_files()
+        nx.drawing.nx_pydot.write_dot(self.graph, graphDotName)
     
+
     def write_restart_files(self):
         """
         Writes the graph to the disk and updates the trajectory data shelve.
