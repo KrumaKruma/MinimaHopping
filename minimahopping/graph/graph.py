@@ -142,6 +142,12 @@ class MinimaHoppingGraph:
         for i in range(1, len(path)):
             TList = TList + copy.deepcopy(self.trajectoryDict[self._getEdgeString(path[i - 1], path[i])])
         return TList
+    
+    def getTrajectoryListFromPath(self, path: list):
+        TList = []
+        for i in range(1, len(path)):
+            TList = TList + copy.deepcopy(self.trajectoryDict[self._getEdgeString(path[i - 1], path[i])])
+        return TList
 
     def draw(self):
         nx.draw(self.graph, with_labels=True, font_weight='bold')
