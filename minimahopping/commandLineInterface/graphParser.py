@@ -5,7 +5,10 @@ from minimahopping.graph import graph
 
 def main():
     parser = argparse.ArgumentParser(description ='Utility that parses graph output, visualizes the graph and writes .dot file')
-    subparsers = parser.add_subparsers(help="Command that database will execute", dest='command', required=False)
+    subparsers = parser.add_subparsers(help="""Command execute.
+                                       Use the -h option in combination with the command
+                                       itself for a detailed command documentation.""",
+                                       dest='command', required=False)
     parser.add_argument('-g', '--graphName', dest ='graphName',
                 action ='store', help ='input filename.', required=False,
                 default='output/master/restart/graph.dat', type=argparse.FileType('r'))
@@ -31,6 +34,14 @@ def main():
                             Must be one of: dot, neato, fdp, sfdp, circo,
                             twopi, nop, nop2,osage, patchwork"""
                             , type=str, required=False, default='fdp', action='store', dest='layout')
+
+    listParser = subparsers.add_parser("listPath", help="""Returns a trajectory (.extxyz) file
+                                       that connects the nodes that are specified in remaining arguments. If there is no connection between
+                                       any of the nodes specified, this operation fails.
+                                       
+                                       Example usage:
+                                       graphParsery listPath 5 3 7
+                                       creates an extxyz file that contains the edge 5->3, 3->7""")
 
     args = parser.parse_args()
 
