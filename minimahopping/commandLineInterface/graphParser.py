@@ -1,11 +1,14 @@
 import networkx as nx
 import argparse
 from ase.io import read, write
-from minimahopping.graph import graph
+from minimahopping.graph import graph as mh_graph
 import os
+import pickle
 
 def main():
-    parser = argparse.ArgumentParser(description ='Utility that parses graph output, visualizes the graph and writes .dot file')
+    parser = argparse.ArgumentParser(description ="""Utility that parses graph output, visualizes the graph and writes a
+                                     .dot and a binary .dat file of the graph with all modifications.
+                                     The graph_binary.dat file can be used in the graphName command line option if this script.""")
     subparsers = parser.add_subparsers(help="""Command execute.
                                        Use the -h option in combination with the command
                                        itself for a detailed command documentation.""",
@@ -48,7 +51,7 @@ def main():
 
     args = parser.parse_args()
 
-    g = graph.MinimaHoppingGraph(args.graphName, args.trajectroyName, True)
+    g = mh_graph.MinimaHoppingGraph(args.graphName.name, args.trajectoryName.name, True)
     g.read_from_disk()
     graph = g.graph
     
@@ -58,8 +61,11 @@ def main():
     if args.removeLeaves:
         graph = g.remove_leaves()
 
-    # write dot file with all operations applied
+    # write dot file with all operations applied in text and binary form.
     nx.drawing.nx_pydot.write_dot(graph, 'graph.dot')
+    with open('graph_binary.dat', 'wb') as graph_pickle:
+        pickle.dump(graph, graph_pickle)
+
 
     # execute commands
     if args.command == 'shortestPath':
@@ -88,7 +94,7 @@ def main():
         write(filename, trajectory_list, append=True)
         
 
-def shortestPath(g: graph.MinimaHoppingGraph, n1: int, n2: int):
+def shortestPath(g: mh_graph.MinimaHoppingGraph, n1: int, n2: int):
     trajectory_list = g.getTrajectoryList(n1, n2)
     filename = "connection_%i_%i.extxyz"%(n1, n2)
     if os.path.exists(filename):
