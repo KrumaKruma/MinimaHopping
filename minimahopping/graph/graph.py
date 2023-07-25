@@ -6,6 +6,7 @@ import os
 import matplotlib.pyplot as plt
 from ase import Atoms
 import copy
+import matplotlib
 
 graphDotName = 'output/graph.dot'
 
@@ -78,9 +79,9 @@ class MinimaHoppingGraph:
         if not self.graph.has_node(structureLabel):
             if self.graph.size() == 0:
                 self.graph.add_node(initialStuctureLabel, energy = e_old
-                                    , removed_leaves = 0, width=0.5, height = 0.5)
+                                    , removed_leaves = 0, width=0.5, height = 0.5, num_atoms=len(trajectory[1]))
             self.graph.add_node(structureLabel, energy = e_new
-                                , removed_leaves = 0, width=0.5, height = 0.5)
+                                , removed_leaves = 0, width=0.5, height = 0.5, num_atoms=len(trajectory[1]))
 
         if self.graph.has_edge(initialStuctureLabel, structureLabel):
             if self.graph[initialStuctureLabel][structureLabel]['weight'] > weight_old:
@@ -150,6 +151,14 @@ def get_lowest_energy_static(graph: nx.DiGraph):
             ind = n
     # graph.nodes[ind]['color'] = 'red'
     return emin, ind
+
+def color_graph(graph: nx.DiGraph):
+    cmap = matplotlib.cm.get_cmap('Reds')
+    shift_energy_to_zero_static(graph)
+    nx.set_node_attributes(graph, 'blue', 'fillcolor')
+    nx.set_node_attributes(graph, 'filled', 'style')
+    for n in graph.nodes():
+        graph.nodes()[n]['fillcolor'] = matplotlib.colors.rgb2hex(cmap(graph.nodes()[n]['shifted_energy'] / graph.nodes()[n]['num_atoms'] ))
 
 def remove_leaves_static(graph, number_of_iterations: int = 1):
     graph_copy = copy.deepcopy(graph)

@@ -31,6 +31,8 @@ def main():
     parser.add_argument('--contractEdges', help="""Contracts nodes that onyl have two edges, n times"""
                         , action='store', dest='n_contract_edges', default=0, type=int
                         , required=False)
+    parser.add_argument('--colorGraph', help="""Add background color based on energy per atom to graph."""
+                        , action='store_true', required = False)
 
     shortestPathParser = subparsers.add_parser("shortestPath", help = "Calculates the shortest path between two nodes.")
     shortestPathParser.add_argument('-n1', type=int, required=True, help='Label of first minima', action='store', dest='n1')
@@ -62,24 +64,19 @@ def main():
     
     # apply all opations:
     if args.shift2zero:
-        g.shift_energy_to_zero()
+        mh_graph.shift_energy_to_zero_static(graph)
+    if args.colorGraph:
+        mh_graph.color_graph(graph)
     if args.removeLeaves and not contractEdges:
         graph = g.remove_leaves()
     if contractEdges:
         # graph = g.remove_leaves()
         graph = mh_graph.contract(graph, args.n_contract_edges)
 
-    # write dot file with all operations applied in text and binary form.
-    nx.drawing.nx_pydot.write_dot(graph, 'graph.dot')
-    with open('graph_binary.dat', 'wb') as graph_pickle:
-        pickle.dump(graph, graph_pickle)
-
-
     # execute commands
     if args.command == 'shortestPath':
         shortestPath(g, args.n1, args.n2)
     elif args.command == 'plotGraph':
-        mh_graph.shift_energy_to_zero_static(graph)
         pygraphviz_graph = nx.nx_agraph.to_agraph(graph)
         pygraphviz_graph.graph_attr['concentrate'] = 'true'
         pygraphviz_graph.layout(args.layout)
@@ -96,6 +93,11 @@ def main():
         if os.path.exists(filename):
             os.remove(filename)
         write(filename, trajectory_list, append=True)
+
+    # write dot file with all operations applied in text and binary form.
+    nx.drawing.nx_pydot.write_dot(graph, 'graph.dot')
+    with open('graph_binary.dat', 'wb') as graph_pickle:
+        pickle.dump(graph, graph_pickle)
         
 
 def shortestPath(g: mh_graph.MinimaHoppingGraph, n1: int, n2: int):
