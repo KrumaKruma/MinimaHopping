@@ -3,6 +3,8 @@ from scipy import optimize
 from copy import deepcopy
 from minimahopping.omfp.OverlapMatrixFingerprint import OverlapMatrixFingerprint as OMFP
 from ase.io import write
+from ase.atoms import Atoms
+from scipy.spatial import distance_matrix
 import logging
 import time
 try:
@@ -12,25 +14,29 @@ except ImportError:
     def njit(f):
         return f
 
-@njit
+# @njit
 def _costmatrix(desc1, desc2):
     """
     Cost matrix of the local fingerprints for the hungarian algorithm
     """
-    # assert desc1.shape[0] == desc2.shape[0], "descriptor has not the same length"
+
+    raise Exception('do not use _costmatrix. Use scipy.spatial.distance_matrix instead.')
+    assert desc1.shape[0] == desc2.shape[0], "descriptor has not the same length"
 
     costmat = np.zeros((desc1.shape[0], desc2.shape[0]))
 
     for i, vec1 in enumerate(desc1):
         for j, vec2 in enumerate(desc2):
             costmat[i, j] = np.linalg.norm(vec1 - vec2)
+
     return costmat
 
 class Minimum():
     """ 
     Minimum class for managing the database of the minima hopping. 
     """
-    def __init__(self, atoms, epot, s, p, width_cutoff, T, ediff, n_visit = None, label = None, exclude=[], fingerprint = None):
+    def __init__(self, atoms: Atoms, epot: float, s: int, p: int, width_cutoff: float, T: float
+                 , ediff: float, n_visit: int = None, label: int = None, exclude: list = [], fingerprint: list = None):
         self.atoms = atoms.copy()
         self.atoms.wrap()
         self.e_pot = epot
@@ -50,23 +56,23 @@ class Minimum():
         self.width_cutoff = width_cutoff
         self.exclude = exclude
 
-    def set_label(self, label):
+    def set_label(self, label: int):
         self.label = label
 
-    def __lt__(self, other):
+    def __lt__(self, other: Atoms):
         return self.e_pot < other.e_pot
 
-    def __gt__(self, other):
+    def __gt__(self, other: Atoms):
         return self.e_pot > other.e_pot
 
-    def __copy__(self,):
+    def __copy__(self):
         return Minimum(self.atoms.copy(), self.e_pot, self.s, self.p, self.width_cutoff,
             self.temperature, self.ediff, self.n_visit, self.label, self.exclude, fingerprint= self.fp)
 
-    def __compareto__(self, other):
+    def __compareto__(self, other: Atoms):
         return abs(self.e_pot - other.e_pot)
 
-    def fingerprint_distance(self, other):
+    def fingerprint_distance(self, other: Atoms):
         """
          Calcualtes the fingerprint distance of 2 structures with local environment descriptors using the hungarian algorithm
          if a local environment descriptor is used. Else the distance is calculated using l2-norm.
@@ -86,7 +92,7 @@ class Minimum():
         fp1 = np.array(OMFP.adjustFPlen(self.fp, maxNatInEnv))
         fp2 = np.array(OMFP.adjustFPlen(other.fp, maxNatInEnv))
 
-        costmat = _costmatrix(fp1, fp2)
+        costmat = distance_matrix(fp1, fp2)
         ans_pos = optimize.linear_sum_assignment(costmat)
         # use this formula for euclidian fingerprint distance
         # fp_dist = np.linalg.norm( self.fp[ans_pos[0], :] - other.fp[ans_pos[1], :]) / len(self.atoms)
@@ -94,7 +100,7 @@ class Minimum():
 
         return fp_dist
 
-    def write(self, filename, append = False, info_dict: dict = {}):
+    def write(self, filename: str, append = False, info_dict: dict = {}):
         temp_atoms = self.atoms.copy()
         temp_atoms.info = {}
         temp_atoms.set_momenta(None)
@@ -105,7 +111,7 @@ class Minimum():
         write(filename, temp_atoms, append=append, parallel=False)
 
 
-    def _get_OMFP(self,s=1, p=0, width_cutoff=1.5, exclude=[]):
+    def _get_OMFP(self, s: int = 1, p: int = 0, width_cutoff: int = 1.5, exclude: list = []):
             """
             Calculation of the Overlapmatrix fingerprint. For peridoic systems a local environment fingerprint is calculated
             and a hungarian algorithm has to be used for the fingerprint distance. For non-periodic systems a global fingerprint

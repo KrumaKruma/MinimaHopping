@@ -8,7 +8,9 @@ import numpy as np
 import logging
 
 
-def MPI_database_server_loop(energy_threshold, minima_threshold, output_n_lowest_minima, is_restart = False, outpath='./', minima_path= "lowest_minima/", write_graph_output = True, maxTimeHours = np.inf, maxNumberOfMinima = 0):
+def MPI_database_server_loop(energy_threshold: float, minima_threshold: float, output_n_lowest_minima: int, is_restart = False
+                             , outpath: str = './', minima_path: str = "lowest_minima/", write_graph_output: bool = True
+                             , maxTimeHours: float = np.inf, maxNumberOfMinima: int = 0):
 
     current_workers = 0
     clientHasLeft = False

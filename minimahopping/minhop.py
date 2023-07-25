@@ -491,7 +491,8 @@ class Minimahopping:
                                                                                                         dt = self.parameters._dt, 
                                                                                                         n_max = self.parameters.mdmin,
                                                                                                         verbose = self.parameters.verbose_output,
-                                                                                                        collect_md_file = self.collect_md_file)
+                                                                                                        collect_md_file = self.collect_md_file,
+                                                                                                        dt_min=self.parameters.dt_min)
 
             log_msg = "    MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f}".format(number_of_md_steps, self.parameters.mdmin, self.parameters._dt)
 
@@ -501,12 +502,6 @@ class Minimahopping:
             # If pbc set new lattice and reshape cell
             if True in _pbc:
                 atoms.set_cell(lattice)
-                lattice_operations.reshape_cell(atoms, self.parameters.symprec)
-
-            try:
-                atoms.calc.recalculateBasis(atoms)
-            except:
-                pass
 
 
             # If second calculator is present do a pre-optimization
@@ -561,6 +556,11 @@ class Minimahopping:
             # If Pbc set optimized lattice 
             if True in _pbc:
                 atoms.set_cell(lattice)
+                lattice_operations.reshape_cell(atoms, self.parameters.symprec)
+            try:
+                atoms.calc.recalculateBasis(atoms)
+            except:
+                pass
 
             log_msg = "    OPT finished after {:d} steps.".format(number_of_opt_steps)
             logging.info(log_msg)

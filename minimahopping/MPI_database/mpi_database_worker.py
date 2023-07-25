@@ -5,7 +5,9 @@ import logging
 
 
 class Database():
-    def __init__(self,energy_threshold, minima_threshold, output_n_lowest_minima, is_restart = False, outpath='./', minima_path= "lowest_minima/", write_graph_output = True):
+    def __init__(self, energy_threshold: float, minima_threshold: float, output_n_lowest_minima: int
+                 , is_restart: bool = False, outpath: str = './'
+                 , minima_path: str = "lowest_minima/", write_graph_output: bool = True):
         self.energy_threshold = energy_threshold
         self.minima_threshold = minima_threshold
         self.output_n_lowest_minima = output_n_lowest_minima
@@ -33,7 +35,7 @@ class Database():
         struct.label = label
         return n_visit, label, continueSimulation
 
-    def addElementandConnectGraph(self, currentMinimum: minimum.Minimum, escapedMinimum: minimum.Minimum, trajectory, epot_max):
+    def addElementandConnectGraph(self, currentMinimum: minimum.Minimum, escapedMinimum: minimum.Minimum, trajectory: list, epot_max: float):
         self.comm_world.send((message.addElementandConnectGraph, [currentMinimum.__copy__(), escapedMinimum.__copy__(), trajectory, epot_max]), dest=0)
         n_visit, label, continueSimulation = self.comm_world.recv(source=0)
         escapedMinimum.n_visit = n_visit
