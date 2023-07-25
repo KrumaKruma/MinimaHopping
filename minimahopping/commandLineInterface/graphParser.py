@@ -21,11 +21,15 @@ def main():
                 default='output/master/restart/trajectory.dat', type=argparse.FileType('r'))
     parser.add_argument('--removeLeaves', help="""Removes leaves (nodes with only one edge)
                         from the graph and writes a dot file of the new graph.
-                        This is done, before any other operation is applied to the graph"""
+                        This is done, before any other operation is applied to the graph.
+                        This option greatly reduces the time of the plotGraph task."""
                         , action='store_true'
                         , required=False)
     parser.add_argument('--shift2zero', help="Shifts the energies of all nodes such that the lowest energy is zero."
                         , action='store_true'
+                        , required=False)
+    parser.add_argument('--contractEdges', help="""Contracts nodes that onyl have two edges, n times"""
+                        , action='store', dest='n_contract_edges', default=0, type=int
                         , required=False)
 
     shortestPathParser = subparsers.add_parser("shortestPath", help = "Calculates the shortest path between two nodes.")
@@ -54,12 +58,16 @@ def main():
     g = mh_graph.MinimaHoppingGraph(args.graphName.name, args.trajectoryName.name, True)
     g.read_from_disk()
     graph = g.graph
+    contractEdges = args.n_contract_edges > 0
     
     # apply all opations:
     if args.shift2zero:
         g.shift_energy_to_zero()
-    if args.removeLeaves:
+    if args.removeLeaves and not contractEdges:
         graph = g.remove_leaves()
+    if contractEdges:
+        # graph = g.remove_leaves()
+        graph = mh_graph.contract(graph, args.n_contract_edges)
 
     # write dot file with all operations applied in text and binary form.
     nx.drawing.nx_pydot.write_dot(graph, 'graph.dot')
@@ -71,15 +79,11 @@ def main():
     if args.command == 'shortestPath':
         shortestPath(g, args.n1, args.n2)
     elif args.command == 'plotGraph':
+        mh_graph.shift_energy_to_zero_static(graph)
         pygraphviz_graph = nx.nx_agraph.to_agraph(graph)
         pygraphviz_graph.graph_attr['concentrate'] = 'true'
         pygraphviz_graph.layout(args.layout)
         pygraphviz_graph.draw('graph.pdf')
-        stripped_graph = g.remove_leaves()
-        pygraphviz_graph = nx.nx_agraph.to_agraph(stripped_graph)
-        pygraphviz_graph.graph_attr['concentrate'] = 'true'
-        pygraphviz_graph.layout(args.layout)
-        pygraphviz_graph.draw('stripped_graph.pdf')
     elif args.command == 'listPath':
         if len(args.edges) < 2:
             print("At least two nodes required to make the trajectory. Aborting")

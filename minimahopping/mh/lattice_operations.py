@@ -1,8 +1,9 @@
 import numpy as np
 import spglib
 import logging
+from ase.atoms import Atoms
 
-def lattice_derivative(stress_tensor, cell):
+def lattice_derivative(stress_tensor: np.array, cell: np.array):
     """
     Calculation of the lattice derivative from the stress tensor. This function cannot be used or has to be changed
     if the stress tensor is not included in the calculator used
@@ -23,7 +24,7 @@ def lattice_derivative(stress_tensor, cell):
     return deralat
 
 
-def reshape_cell(atoms, symprec):
+def reshape_cell(atoms: Atoms, symprec: float):
     lattice, scaled_positions, numbers = spglib.standardize_cell(atoms, to_primitive=False, no_idealize=False, symprec=symprec, angle_tolerance=-1.0)
     if lattice is None:
         msg = "cell reshape did not work"
