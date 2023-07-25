@@ -37,19 +37,17 @@ def md(atoms, calculator, outpath, cell_atoms = None, dt = 0.001, n_max = 3, ver
         md_log_file = None
 
     try:
-        # Get the initial positions to get later the deviation from the calculated positions
-        positions_old = atoms.get_positions()
-
         # Initialization of the MD. Get the energy and forces for the first MD step
         e_pot, forces, lattice_force = initialize(atoms, cell_atoms)
         # Run the MD until n_max minima have been visited
-        etot_max, etot_min, e_pot_max, e_pot_min, trajectory, i_steps = run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_max, verbose, collect_md_file, md_trajectory_file, md_log_file)
+        etot_max, etot_min, e_pot_max, e_pot_min, trajectory, i_steps = run(atoms, cell_atoms, dt, forces, lattice_force, e_pot, n_max, verbose, collect_md_file, md_trajectory_file, md_log_file)
 
         # adjust the time step for the next MD
         new_dt = adjust_dt(etot_max, etot_min, e_pot_max, e_pot_min, dt, dt_min)
         # attach the last structure to the MD trajectory
-        temp = atoms.copy()
-        trajectory.append(temp.copy())
+        trajectory.append(atoms.copy())
+        trajectory[-1].info['energy'] = atoms.get_potential_energy()
+        trajectory[-1].info.pop('label', None)
     finally:
         if verbose:
             md_trajectory_file.close()
@@ -123,7 +121,7 @@ def get_cell_masses(cell_atoms):
     return cell_masses
 
 
-def run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_max, verbose, collect_md_file, md_trajectory_file, md_log_file):
+def run(atoms, cell_atoms, dt, forces, lattice_force, e_pot, n_max, verbose, collect_md_file, md_trajectory_file, md_log_file):
     '''
     Running the MD over n_max maxima. If this is not reached after 10'000 steps the MD stops
     '''
@@ -132,17 +130,21 @@ def run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_ma
     sign_old = -1
     n_change = 0
     i_max = 0
-    trajectory = []
     e_pot_old = atoms.get_potential_energy()
+    trajectory = [atoms.copy()]
+    trajectory[0].info['energy'] = e_pot_old
+    trajectory[0].info.pop('label', None)
     is_one_cluster = True
-    epot_max = -1e10
-    epot_min = 1e10
-    etot_max = -1e10
-    etot_min = 1e10
+    epot_max = np.NINF
+    epot_min = np.Inf
+    etot_max = np.NINF
+    etot_min = np.Inf
 
     initial_positions = atoms.get_positions()
     initial_lattice = atoms.get_cell()
     initial_velocities = atoms.get_velocities()
+    positions_old = initial_positions
+    lattice_old = initial_lattice
 
     e_pot_old, e_kin_old, e_tot_old = calc_etot_and_ekin(atoms, cell_atoms)
 
@@ -151,7 +153,7 @@ def run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_ma
         forces_new, lattice_force_new = verlet_step(atoms, cell_atoms, dt, forces, lattice_force)
         i_steps += 1
         # update the trajectory
-        positions_new, trajectory = update_trajectory(atoms, positions_old, trajectory, collect_md_file)
+        positions_old, lattice_old, trajectory = update_trajectory(atoms, positions_old, lattice_old, trajectory, collect_md_file)
         # update the maximal/minimal potential energy
         epot_min_new, epot_max_new = update_epot_minmax(atoms, epot_min, epot_max)
 
@@ -187,7 +189,6 @@ def run(atoms, cell_atoms, dt, forces, lattice_force, positions_old, e_pot, n_ma
         # Update energy and forces
         forces = forces_new
         lattice_force = lattice_force_new
-        positions_old = positions_new
         epot_max = epot_max_new
         epot_min = epot_min_new
         etot_max = e_tot_max_new
@@ -229,23 +230,25 @@ def update_epot_minmax(atoms, epot_min, epot_max):
     return epot_min, epot_max
 
 
-def update_trajectory(atoms, positions_old, trajectory, collect_md_file):
+def update_trajectory(atoms, positions_old, lattice_old, trajectory, collect_md_file):
     """
     Function that updates the MD trajectory if the atom have shifted max(r1-r2)>0.2
     """
     # Check if the atoms have shifted more than the threshold
-    positions_current, is_add_to_trajectory = check_coordinate_shift(atoms, positions_old)
+    positions_current, lattice_current, is_add_to_trajectory = check_coordinate_shift(atoms, positions_old, lattice_old)
     # Update trajectory if the atoms have shifted more
     if is_add_to_trajectory:
         temp = atoms.copy()
         trajectory.append(temp.copy())
+        trajectory[-1].info['energy'] = atoms.get_potential_energy()
+        trajectory[-1].info.pop('label', None)
         if collect_md_file is not None:
             atoms.info['energy'] = atoms.get_potential_energy()
             atoms.info['stress'] = atoms.get_stress()
             write(collect_md_file, atoms, parallel=False)
             collect_md_file.flush()
 
-    return positions_current, trajectory
+    return positions_current, lattice_current, trajectory
 
 
 def verlet_step(atoms, cell_atoms, dt, forces, lattice_force):
@@ -305,22 +308,28 @@ def update_lattice_velocities(atoms, cell_atoms, lattice_force, dt):
     return lattice_force_new
 
 
-def check_coordinate_shift(atoms, positions_old):
+def check_coordinate_shift(atoms, positions_old, lattice_old):
     """
     checks if maximal coordinate shift is larger than 0.1
     """
     # Get the maximal coordinate shift
     positions_cur = atoms.get_positions()
-    pos_diff = np.abs(positions_cur-positions_old)
-    max_diff = np.max(pos_diff)
+    lattice_cur = atoms.get_cell()
+    pos_diff = np.max(np.abs(positions_cur-positions_old))
+    lat_diff = 0
+    if atoms.get_cell() is not None:
+        lat_diff = np.max(np.abs(atoms.get_cell() - lattice_old))
+    max_diff = max(pos_diff, lat_diff)
     # if maximal shift is larger than 0.1 -> write to trajectory and update current position
     if max_diff > 0.1:
         append_traj = True
         positions_current = positions_cur
+        lattice_current = lattice_cur
     else:
         positions_current = positions_old
+        lattice_current = lattice_old
         append_traj = False
-    return positions_current ,append_traj
+    return positions_current, lattice_current, append_traj
 
 
 def check(atoms, cell_atoms, cell_forces, i_steps, i_max, n_max, n_change, sign_old):
