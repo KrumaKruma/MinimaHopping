@@ -26,9 +26,7 @@ we set up the corresponding calculator:
 
 .. code-block:: python
 
-    atoms = wulff_construction('Na', surfaces=[(1, 0, 0), (0, 1, 0),(0, 0, 1)], energies=[0.001, 0.001, 0.15],
-                           size=13, # maximum number of atoms
-                           structure='bcc', rounding='above')
+    atoms = Icosahedron('Na', 2, latticeconstant=None)
     calculator = EAM(potential="Na_v2.eam.fs")
     atoms.calc = calculator
 
@@ -37,22 +35,22 @@ Afterwards we set up the adjustment class.
 .. code-block:: python
 
     fnrm =  0.001
-    adjust = adjust_fp(fmax=fnrm,
-                    iterations=100,
-                    temperature=2000,
-                    dt=0.1,
-                    md_min=1,
-                    ns_orb=1,
-                    np_orb=1,
-                    width_cutoff=3.5,
-                    exclude=[])
-
+    adjust = adjust_fp(initial_configuration=atoms,
+                   iterations=10,
+                   T0=100,
+                   dt0=0.01,
+                   mdmin=1,
+                   n_S_orbitals=1,
+                   n_P_orbitals=1,
+                   width_cutoff=4,
+                   fmax=fnrm,
+                   write_graph_output=False)
 
 Now we run 100 mds followed by a geometry optimization.
 
 .. code-block:: python
 
-    outdict = adjust.run(atoms=atoms)
+    outdict = adjust.run()
 
 A dictionairy containing all the information is returned and can be printed the following way:
 
@@ -80,8 +78,7 @@ A dictionairy containing all the information is returned and can be printed the 
 
 
 .. note::
-   Please be aware to use exactly the calulator which is later used in the minima hopping as well as the same parameters
-   for the `fmax` and fingerprints.
+    Be aware that it is very important to use the same parameters for the calculation of the energy and force, the OMFP and the local geometry optimization in the Minima Hopping method.
 
 
 
@@ -94,47 +91,47 @@ classes are imported:
 
 .. code-block:: python
 
-    from ase.cluster.wulff import wulff_construction
     from ase.calculators.eam import EAM
-    from mh import Minimahopping
+    from minimahopping.minhop import Minimahopping
+    from ase.cluster.wulff import wulff_construction
+    import logging
 
 Now we read a structure and set up a calculator. As in exercise 1 we read the structure of a Lennard-Jones cluster and
 we set up the corresponding calculator:
 
 .. code-block:: python
 
-    atoms = wulff_construction('Na', surfaces=[(1, 0, 0), (0, 1, 0),(0, 0, 1)], energies=[0.001, 0.001, 0.15],
-                           size=13, # maximum number of atoms
-                           structure='bcc', rounding='above')
-    calculator = EAM(potential="Na_v2.eam.fs")
-    atoms.calc = calculator
+    initial_configuration = wulff_construction('Na',
+                                           surfaces=[(1, 0, 0), (0, 1, 0),(0, 0, 1)],
+                                           energies=[0.001, 0.001, 0.15],
+                                           size=13, # maximum number of atoms
+                                           structure='bcc',
+                                           rounding='above')
 
-Now we can set up the minima hopping class and run it. In this example we only modify the crucial parameters. In the
-above example we used a maximal force norm of fmax = 5e-3 which which gives an approximate maximal fingerprint distance
-of 1e-4. Now let's set up the minima hopping class and run it with this parameters:
+In a next step we set up the EAM calculator
 
 .. code-block:: python
 
-    fnrm = 5e-3
-    minima_threshold = 1e-4
-    with Minimahopping(atoms, fmax=fnrm, minima_threshold=minima_threshold, verbose=False, T0=2000, dt=0.1) as mh:
-        mh(totalsteps=100)
+    calculator = EAM(potential='Na_v2.eam.fs')
+    initial_configuration.calc = calculator
+
+Now we can set up the minima hopping class and run it:
+
+.. code-block:: python
+
+    with Minimahopping(initial_configuration,
+                       verbose_output=True,
+                       T0=2000, 
+                       dt0=0.1,
+                       use_MPI=False) as mh:
+
+        mh(totalsteps=50)
 
 The minima hopping algorithm cycles now through 100 escape loops.
 
 .. caution::
     Be aware that in case you want to examine periodic systems your calculator needs the stress property included so
     that variable cell shape md and geometry optimization is possible.
-
-Output
-~~~~~~
-
-
-
-Restart
-~~~~~~~
-
-
 
 
 Exercise 3: Graph construction

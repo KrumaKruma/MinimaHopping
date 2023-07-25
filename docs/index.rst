@@ -11,9 +11,9 @@ Any calculator implemented in there can be used for the calculation of the energ
 
 Code development
 -----------------
-The MH python code is developed through our GitHub repository:
+The MH python code is developed through our GitLab repository:
 
-https://github.com/KrumaKruma/
+https://gitlab.com/goedeckergroup/ase_mh.git
 
 If you detect any bug please write an issue in this repository. If you can solve the bug yourself or you would like to
 add any code please fork the code and make a pull-request to the "develop" branch. Every now and then the develop branch
