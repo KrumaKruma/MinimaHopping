@@ -3,6 +3,7 @@ import warnings
 from ase.io import write
 # import minimahopping.mh.lattice_operations as lat_opt
 from sqnm.vcsqnm_for_ase import aseOptimizer
+import minimahopping.md.md
 
 
 def optimization(atoms, calculator, max_force_threshold, outpath, initial_step_size=None, nhist_max=10, lattice_weight=2, alpha_min=1e-3, eps_subsp=1e-3, verbose=True):
@@ -52,10 +53,13 @@ def geometry_optimization(atoms, max_force_threshold,initial_step_size, nhist_ma
     geometry optimization
     '''
     # Initializations
-    trajectory = []
+    trajectory = [atoms.copy()]
+    trajectory[0].info['energy'] = atoms.get_potential_energy()
+    trajectory[0].info.pop('label', None)
     i_step = 0
     max_disp = 0
     positions_old = atoms.get_positions()
+    lattice_old = atoms.get_cell()
     max_force_comp = 100
     epot_max = -1e10
     
@@ -98,9 +102,11 @@ def geometry_optimization(atoms, max_force_threshold,initial_step_size, nhist_ma
         if verbose:
             write_log(atoms, optimizer, i_step, max_force_comp, max_disp, optimization_trajectory_file, optimization_log_file)
         
-        is_append_trajectory, positions_current = check_coordinate_shift(atoms, positions_old)
+        positions_old, lattice_old, is_append_trajectory = minimahopping.md.md.check_coordinate_shift(atoms, positions_old, lattice_old)
         if is_append_trajectory:
             trajectory.append(atoms.copy())
+            trajectory[-1].info['energy'] = energy
+            trajectory[-1].info.pop('label', None)
 
         is_aboard = check(i_step)
         if is_aboard:
@@ -108,7 +114,6 @@ def geometry_optimization(atoms, max_force_threshold,initial_step_size, nhist_ma
 
         pos_out = atoms.get_positions()
         max_disp = get_max_disp(pos_in, pos_out)
-        positions_old = positions_current
 
     return trajectory, optimizer, i_step, epot_max
 
@@ -132,24 +137,6 @@ def write_log(atoms, optimizer, i_step, max_force_comp, max_disp, optimization_t
     optimization_log_file.flush()
     write(optimization_trajectory_file, atoms, parallel=False)
     optimization_trajectory_file.flush()
-
-def check_coordinate_shift(atoms, positions_old):
-    """
-    checks if maximal coordinate shift is larger than 0.1
-    """
-    # Get the maximal coordinate shift
-    positions_cur = atoms.get_positions()
-    pos_diff = np.abs(positions_cur-positions_old)
-    max_diff = np.max(pos_diff)
-    # if maximal shift is larger than 0.1 -> write to trajectory and update current position
-    if max_diff > 0.1:
-        append_traj = True
-        positions_current = positions_cur
-    else:
-        positions_current = positions_old
-        append_traj = False
-    return append_traj, positions_current
-
 
 def check(i_step):
     '''

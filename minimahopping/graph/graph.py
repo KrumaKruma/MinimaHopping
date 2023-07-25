@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from ase import Atoms
 import copy
 
+graphDotName = 'graph.dot'
 
 class MinimaHoppingGraph:
     
@@ -42,11 +43,10 @@ class MinimaHoppingGraph:
         Writes the graph to the disk and closes the trajectory data shelve.
         """
         self.trajectoryDict.close()
-        graph_pickle = open (self.graphFileName, "wb")
-        pickle.dump(self.graph, graph_pickle)
-        graph_pickle.close()
-
+        self.write_restart_files()
+        nx.drawing.nx_pydot.write_dot(self.graph, graphDotName)
     
+
     def write_restart_files(self):
         """
         Writes the graph to the disk and updates the trajectory data shelve.
@@ -113,6 +113,7 @@ class MinimaHoppingGraph:
         graph_copy = copy.deepcopy(self.graph)
         nx.set_node_attributes(graph_copy, 0.5, 'width')
         nx.set_node_attributes(graph_copy, 0.5, 'height')
+        nx.set_node_attributes(graph_copy, 0, 'removed_leaves')
         for i in range(number_of_iterations):
             remove = [node for node, degree in graph_copy.degree() if degree <= 2]
             for i in remove:
@@ -120,6 +121,7 @@ class MinimaHoppingGraph:
                     # print(i, graph_copy.edges(i), v)
                     graph_copy.nodes[v]['width'] = graph_copy.nodes[v]['width'] + 0.05 / graph_copy.nodes[v]['width']
                     graph_copy.nodes[v]['height'] = graph_copy.nodes[v]['height'] + 0.05 / graph_copy.nodes[v]['height']
+                    graph_copy.nodes[v]['removed_leaves'] += 1
             graph_copy.remove_nodes_from(remove)
         return graph_copy
     
@@ -138,6 +140,12 @@ class MinimaHoppingGraph:
 
     def getTrajectoryList(self, a, b):
         path = self.shortestPath(a, b)
+        TList = []
+        for i in range(1, len(path)):
+            TList = TList + copy.deepcopy(self.trajectoryDict[self._getEdgeString(path[i - 1], path[i])])
+        return TList
+    
+    def getTrajectoryListFromPath(self, path: list):
         TList = []
         for i in range(1, len(path)):
             TList = TList + copy.deepcopy(self.trajectoryDict[self._getEdgeString(path[i - 1], path[i])])

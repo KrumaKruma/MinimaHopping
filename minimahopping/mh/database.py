@@ -44,7 +44,7 @@ class Database():
         self.noDublicatesFile = open(self.noDublicatesFileName, mode='a')
         self.allMinimaFile = open(self.allMinimaFilename, mode='a')
         if self.write_graph_output:
-            self.graph.read_from_disk()
+            self.graph.__enter__()
         return self
 
 
@@ -53,7 +53,7 @@ class Database():
         self.noDublicatesFile.close()
         self.allMinimaFile.close()
         if self.write_graph_output:
-            self.graph.trajectoryDict.close()
+            self.graph.__exit__(0, 0, 0)
 
 
     def read_restart_files(self):   
