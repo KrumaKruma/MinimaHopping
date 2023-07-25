@@ -28,24 +28,25 @@ and a description of them.
     soften_lattice, 1e-3, step size for softening the lattice (only relevant for periodic boundary conditions)
     n_S_orbitals, 1, number of s orbitals for constructing the OMFP
     n_P_orbitals, 0, number of p orbitals for constructing the OMFP
-    width_cutoff, 3.5, cutoff for the OMFP
+    width_cutoff, 4.0, cutoff for the OMFP
     exclude, [], List of elements to exclude in the OMFP
-    dt0, 0.01, Initial time step for the MD
+    dt0, 0.08, Initial time step for the MD
     _dt, -1.0, Time step of the MD for restart (if -1 then last dt is read)
+    dt_min, 0.0001, minimal time step of the MD
     mdmin, 2, Number of minima visited before stopping the MD
     collect_md_data, False, flag to collect MD data which later could be used e.g. in machine learning
     symprec, 1e-5, Distance tolerance in Cartesian coordinates to find crystal symmetry for reshape cell operation (see spglib documentation for more info)
-    fmax, 0.01, Maximal force component. Used as a stopping criterion for the geometry optimization.
+    fmax, 0.007, Maximal force component. Used as a stopping criterion for the geometry optimization.
     initial_step_size, None, Inital step size of the geometry optimizer. If None the initial step size is estimated
     nhist_max, 10, Maximal length of history list in sqnm geometry optimizer
-    lattice_weight, 2, Weight / size of the supercell that is used to transform lattice derivatives. Use a value between 1 and 2. Default is 2.
+    lattice_weight, 2.0, Weight / size of the supercell that is used to transform lattice derivatives. Use a value between 1 and 2. Default is 2.
     alpha_min,  1e-3, Lower limit on the step size.
     eps_subsp, 1e-3, Lower limit on linear dependencies of basis vectors in history list.
     enhanced_feedback, False, enhanced_feedback (bool):Enhanced feedback (rise temperature according to T = T * beta_increase * (1. + 1. * ln(n_visits))).
     energy_threshold, 0.001, if the energy difference of two structures is below the fingerprint is compared
     output_n_lowest_minima, 20, Outputs the n lowest minima
     fingerprint_threshold, 1e-3, OMFP distance threshold for distinguishing minima
-    verbose_output, True, If True MD and OPT logs are written
+    verbose_output, False, If True MD and OPT logs are written
     new_start, False, Start from scratch even if restart files are present (deporecated)
     run_time, 'infinity', Runtime in the format (d-hh:mm:ss) or inifinite for infinite runtime.
     use_intermediate_mechanism, False, Sets if intermediate minimas will be stored and accepted if necessary.
