@@ -36,7 +36,7 @@ def main():
 
     shortestPathParser = subparsers.add_parser("shortestPath", help = "Calculates the shortest path between two nodes.")
     shortestPathParser.add_argument('-n1', type=int, required=True, help='Label of first minima', action='store', dest='n1')
-    shortestPathParser.add_argument('-n2', type=int, required=True, help='Label of second minima', action='store', dest='n1')
+    shortestPathParser.add_argument('-n2', type=int, required=True, help='Label of second minima', action='store', dest='n2')
 
     plotParser = subparsers.add_parser('plotGraph'
                     , help="Creates a pdf represantation of the graph. Requires graphviz and pygraphviz installed on your system.")
