@@ -493,6 +493,10 @@ class Minimahopping:
             # If pbc set new lattice and reshape cell
             if True in _pbc:
                 atoms.set_cell(lattice)
+            try:
+                atoms.calc.recalculateBasis(atoms)
+            except:
+                pass
 
             logging.info("    OPT start")
             positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps, epot_max_geopt = opt.optimization(atoms=atoms, 
