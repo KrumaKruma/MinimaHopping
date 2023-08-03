@@ -52,6 +52,7 @@ def md(atoms, calculator, outpath, cell_atoms = None, dt = 0.001, n_max = 3, ver
         if verbose:
             md_trajectory_file.close()
             md_log_file.close()
+            quit()
     return atoms.get_positions(), atoms.get_cell(), new_dt, trajectory, e_pot_max, i_steps
 
 
@@ -289,13 +290,9 @@ def verlet_step(atoms, cell_atoms, dt, forces, lattice_force):
 
 
 def transform_deralat(atoms, forces, deralat):
-    nat = len(atoms)
     reduced_positions = atoms.get_scaled_positions(wrap=False)
     sumsum = np.zeros((3,3))
-    for iat in range(nat):
-        for i in range(3):
-            for j in range(3):
-                sumsum[i,j] = sumsum[i,j] + forces[iat,i] * reduced_positions[iat,j]
+    sumsum = np.dot(forces.T, reduced_positions)
 
     new_deralat = deralat - sumsum.T
     return new_deralat
