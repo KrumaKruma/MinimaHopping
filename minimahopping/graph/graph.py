@@ -5,8 +5,6 @@ import pickle
 import os
 from ase import Atoms
 import copy
-from matplotlib import rcParams
-rcParams['font.family'] = 'Times New Roman'
 import matplotlib
 import matplotlib.pyplot as plt
 
@@ -176,7 +174,7 @@ def color_graph(graph: nx.DiGraph):
     plt.xticks([0, 20, 40, 60, 80, 100])
     axs.imshow(gradient, aspect=7.0, cmap=cmap)
     # plt.show()
-    fig.savefig('coloourbar.pdf')
+    fig.savefig('colourbar.pdf')
 
 def remove_leaves_static(graph, number_of_iterations: int = 1):
     graph_copy = copy.deepcopy(graph)
