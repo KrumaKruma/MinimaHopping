@@ -148,7 +148,7 @@ def run(atoms, cell_atoms, dt, forces, lattice_force, e_pot, n_max, verbose, col
 
     e_pot_old, e_kin_old, e_tot_old = calc_etot_and_ekin(atoms, cell_atoms)
 
-    while i_steps < 10000:
+    while i_steps < 1000000:
         # perform velocity verlet step
         forces_new, lattice_force_new = verlet_step(atoms, cell_atoms, dt, forces, lattice_force)
         i_steps += 1
@@ -260,12 +260,15 @@ def verlet_step(atoms, cell_atoms, dt, forces, lattice_force):
     positions = atoms.get_positions()
     masses = get_masses(atoms)
     
-    # Update the positions
-    atoms.set_positions(positions + dt * velocities + 0.5 * dt * dt * (forces / masses))
-
     # if the system is periodic update the cell vectors
     if cell_atoms is not None:
-        update_lattice_positions(atoms, cell_atoms, lattice_force, dt)
+        # transform lattice force so that atoms are not moved
+        lattice_force_transformed = transform_deralat(atoms, forces, lattice_force)
+        # update the positions of the lattice
+        update_lattice_positions(atoms, cell_atoms, lattice_force_transformed, dt)
+    
+    # Update the positions
+    atoms.set_positions(positions + dt * velocities + 0.5 * dt * dt * (forces / masses))
     
     # Calculate the new forces
     forces_new = atoms.get_forces()
@@ -274,12 +277,28 @@ def verlet_step(atoms, cell_atoms, dt, forces, lattice_force):
     
     # If system is periodic update the cell velocites
     if cell_atoms is not None:
-        lattice_force_new = update_lattice_velocities(atoms, cell_atoms, lattice_force, dt)
+        stress_tensor = atoms.get_stress(voigt=False, apply_constraint=False)
+        lattice_force_new = lat_opt.lattice_derivative(stress_tensor, cell_atoms.positions)
+        lattice_force_new_transformed = transform_deralat(atoms, forces_new, lattice_force_new)
+        update_lattice_velocities(cell_atoms, lattice_force_transformed, lattice_force_new_transformed, dt)
     else:
         lattice_force_new = None
 
 
     return forces_new, lattice_force_new
+
+
+def transform_deralat(atoms, forces, deralat):
+    nat = len(atoms)
+    reduced_positions = atoms.get_scaled_positions(wrap=False)
+    sumsum = np.zeros((3,3))
+    for iat in range(nat):
+        for i in range(3):
+            for j in range(3):
+                sumsum[i,j] = sumsum[i,j] + forces[iat,i] * reduced_positions[iat,j]
+
+    new_deralat = deralat - sumsum.T
+    return new_deralat
 
 
 def update_lattice_positions(atoms, cell_atoms, lattice_force, dt):
@@ -290,22 +309,17 @@ def update_lattice_positions(atoms, cell_atoms, lattice_force, dt):
     cell_masses = get_cell_masses(cell_atoms)
     # Update the cell positions
     cell_atoms.positions = cell_atoms.positions + dt * cell_atoms.velocities + 0.5 * dt * dt * (lattice_force / cell_masses)
-    atoms.set_cell(cell_atoms.positions, scale_atoms=True, apply_constraint=False)
+    atoms.cell = cell_atoms.positions
 
 
-def update_lattice_velocities(atoms, cell_atoms, lattice_force, dt):
+def update_lattice_velocities(cell_atoms, lattice_force, lattice_force_new, dt):
     '''
     Update the lattice velocities
     '''
-    # Get stress tensor, lattice and cell masses
-    stress_tensor = atoms.get_stress(voigt=False, apply_constraint=False)
-    lattice = atoms.get_cell()
+    # get the masses of the cell
     cell_masses = get_cell_masses(cell_atoms)
-    # Get new lattice derivatives
-    lattice_force_new = lat_opt.lattice_derivative(stress_tensor, lattice)
     # update cell velocities
     cell_atoms.velocities = cell_atoms.velocities + 0.5 * dt * ((lattice_force + lattice_force_new) / cell_masses)
-    return lattice_force_new
 
 
 def check_coordinate_shift(atoms, positions_old, lattice_old):
