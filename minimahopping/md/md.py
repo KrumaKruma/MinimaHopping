@@ -52,7 +52,6 @@ def md(atoms, calculator, outpath, cell_atoms = None, dt = 0.001, n_max = 3, ver
         if verbose:
             md_trajectory_file.close()
             md_log_file.close()
-            quit()
     return atoms.get_positions(), atoms.get_cell(), new_dt, trajectory, e_pot_max, i_steps
 
 
