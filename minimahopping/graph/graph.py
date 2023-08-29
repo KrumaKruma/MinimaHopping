@@ -7,6 +7,7 @@ from ase import Atoms
 import copy
 import matplotlib
 import matplotlib.pyplot as plt
+import minimahopping.logging.logger as logging
 
 graphDotName = 'output/graph.dot'
 
@@ -46,7 +47,11 @@ class MinimaHoppingGraph:
         """
         self.trajectoryDict.close()
         self.write_restart_files()
-        nx.drawing.nx_pydot.write_dot(self.graph, graphDotName)
+        try:
+            nx.drawing.nx_pydot.write_dot(self.graph, graphDotName)
+        except ModuleNotFoundError:
+            logging.logger.warning("pydot is not installed on your system. Failed to save the graph in the dot format")
+            logging.logger.warning("The graph was still saved but only in binary format. It must be converted manually using the graph command line tool.")
     
 
     def write_restart_files(self):
