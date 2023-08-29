@@ -3,7 +3,7 @@ import minimahopping.mh.lattice_operations as lat_opt
 import warnings
 from ase.io import write
 import minimahopping.md.dbscan as dbscan
-import logging
+import minimahopping.logging.logger as logging
 
 
 
@@ -168,7 +168,7 @@ def run(atoms, cell_atoms, dt, forces, lattice_force, e_pot, n_max, verbose, col
         energy_conservation = _defcon / len(atoms) #/ abs(e_pot - e_pot_old)
         if energy_conservation > 3.0:
             warning_msg = "MD failed. Restart with smaller dt"
-            logging.warning(warning_msg)
+            logging.logger.warning(warning_msg)
             dt = dt/10.
             i_steps = 0
             atoms.set_positions(initial_positions)

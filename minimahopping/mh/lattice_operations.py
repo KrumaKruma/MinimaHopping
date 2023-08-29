@@ -1,6 +1,6 @@
 import numpy as np
 import spglib
-import logging
+import minimahopping.logging.logger as logging
 from ase.atoms import Atoms
 
 def lattice_derivative(stress_tensor: np.array, cell: np.array):
@@ -28,7 +28,7 @@ def reshape_cell(atoms: Atoms, symprec: float):
     lattice, scaled_positions, numbers = spglib.standardize_cell(atoms, to_primitive=False, no_idealize=False, symprec=symprec, angle_tolerance=-1.0)
     if lattice is None:
         msg = "cell reshape did not work"
-        logging.warning(msg)
+        logging.logger.warning(msg)
     else:
         atoms.set_cell(lattice)
         atoms.set_scaled_positions(scaled_positions)

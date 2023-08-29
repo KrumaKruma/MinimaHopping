@@ -2,7 +2,7 @@ import bisect
 import shelve
 import minimahopping.mh.minimum as minimum
 import minimahopping.graph.graph
-import logging
+import minimahopping.logging.logger as logging
 import time
 import numpy
 
@@ -30,11 +30,6 @@ class Database():
         if maxNumberOfMinima <= 0:
             self.maxNumberOfMinima = numpy.inf
         else: self.maxNumberOfMinima = maxNumberOfMinima
-
-        if logging.root.level <= logging.DEBUG:
-            self.verbosity = True
-        else:
-            self.verbosity = False
 
         if self.write_graph_output:
             self.graphFilename = self.outpath + "graph.dat"
@@ -70,14 +65,12 @@ class Database():
 
 
     def addElement(self, struct: minimum.Minimum):
-        if self.verbosity:
-            t1 = time.time()
+        t1 = time.time()
         index = self.get_element_index(struct=struct)
-        if self.verbosity:
-            t2 = time.time()
-            finding_time = t2 - t1
+        t2 = time.time()
+        finding_time = t2 - t1
         if bisect.bisect(self.unique_minima_sorted, struct) >= self.maxNumberOfMinima:
-            logging.info("    More than maxNumberOfMinima minima were found. Treating this minimum as a new one.")
+            logging.logger.info("    More than maxNumberOfMinima minima were found. Treating this minimum as a new one.")
             struct.n_visit = 1
             struct.label = index
             return 1, index, True
@@ -108,14 +101,13 @@ class Database():
         
 
         struct.write(self.allMinimaFile, append=True)
-        if self.verbosity:
-            t1 = time.time()
-            db_time = t1 - t2
-            if already_found:
-                timingMessage = "Database search time: %.4f, adjusting minima shelve time: %.3f"%(finding_time, db_time)
-            else:
-                timingMessage = "Database search time: %.4f, adding minima shelve time: %.3f"%(finding_time, db_time)
-            logging.info(timingMessage)
+        t1 = time.time()
+        db_time = t1 - t2
+        if already_found:
+            timingMessage = "    Database search time: %.4f, adjusting minima shelve time: %.3f"%(finding_time, db_time)
+        else:
+            timingMessage = "    Database search time: %.4f, adding minima shelve time: %.3f"%(finding_time, db_time)
+        logging.logger.info(timingMessage)
 
         return self.unique_minima_sorted[index].n_visit, self.unique_minima_sorted[index].label, True
 
