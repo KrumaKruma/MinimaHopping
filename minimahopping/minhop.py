@@ -543,17 +543,14 @@ class Minimahopping:
                         ediff=self.parameters._eDiff,
                         exclude= self.parameters.exclude)
 
-            # check if proposed structure is the same to the initial structure
-            _escape_energy = struct.__compareto__(proposed_structure)
-            _escape = struct.fingerprint_distance(proposed_structure)
-
             _i_steps += 1
             self._n_min += 1
-            if  _escape > self.parameters.fingerprint_threshold:
+
+            # check if proposed structure is the same to the initial structure
+            is_different = self.isEqualTo(struct, proposed_structure)
+            if is_different:
                 is_escape = False
-            elif _escape_energy > self.parameters._eDiff:
-                is_escape = False
-            else: # not escaped, same minimum found
+            else:
                 self.parameters._n_same += 1
 
             self._write_parameters()
@@ -563,6 +560,20 @@ class Minimahopping:
 
         return proposed_structure, _epot_max, _md_trajectory, _opt_trajectory
 
+
+    def isEqualTo(self, structure1: Minimum, structure2: Minimum):
+
+        energy_difference = structure1.__compareto__(structure2)
+        if energy_difference < self.parameters.energy_threshold:
+            fingerprint_distance = structure1.fingerprint_distance(structure2)
+            if fingerprint_distance > self.parameters.fingerprint_threshold:
+                is_different = True
+            else:
+                is_different = False
+        else:
+            is_different = True
+
+        return is_different
 
     def _hoplog(self, struct):
         """
