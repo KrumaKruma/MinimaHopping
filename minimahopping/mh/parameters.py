@@ -43,6 +43,8 @@ class minimaHoppingParameters:
     """dt_min, (float): minimal time step of the MD."""
     mdmin: int = 2
     """mdmin (int): Number of minima visited before stopping the MD"""
+    md_max_steps: int = 10000
+    """md_max_steps (int): Maximum number of MD steps. If reached MH continous"""
     collect_md_data: bool = False
     """collect_md_data (bool): flag to collect MD data which later could be used e.g. in machine learning"""
     symprec: float = 1e-5

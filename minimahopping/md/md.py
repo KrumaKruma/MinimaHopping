@@ -7,7 +7,7 @@ import minimahopping.logging.logger as logging
 
 
 
-def md(atoms, calculator, outpath, cell_atoms = None, dt = 0.001, n_max = 3, verbose = True, collect_md_file = None, dt_min = 0.0001):
+def md(atoms, calculator, outpath, cell_atoms = None, dt = 0.001, n_max = 3, verbose = True, collect_md_file = None, dt_min = 0.0001, md_max_steps=10000):
     """ 
     Performs an MD which is visiting n_max minima
     Input:
@@ -40,7 +40,7 @@ def md(atoms, calculator, outpath, cell_atoms = None, dt = 0.001, n_max = 3, ver
         # Initialization of the MD. Get the energy and forces for the first MD step
         e_pot, forces, lattice_force = initialize(atoms, cell_atoms)
         # Run the MD until n_max minima have been visited
-        etot_max, etot_min, e_pot_max, e_pot_min, trajectory, i_steps = run(atoms, cell_atoms, dt, forces, lattice_force, e_pot, n_max, verbose, collect_md_file, md_trajectory_file, md_log_file)
+        etot_max, etot_min, e_pot_max, e_pot_min, trajectory, i_steps = run(atoms, cell_atoms, dt, forces, lattice_force, e_pot, n_max, verbose, collect_md_file, md_trajectory_file, md_log_file, md_max_steps)
 
         # adjust the time step for the next MD
         new_dt = adjust_dt(etot_max, etot_min, e_pot_max, e_pot_min, dt, dt_min)
@@ -121,7 +121,7 @@ def get_cell_masses(cell_atoms):
     return cell_masses
 
 
-def run(atoms, cell_atoms, dt, forces, lattice_force, e_pot, n_max, verbose, collect_md_file, md_trajectory_file, md_log_file):
+def run(atoms, cell_atoms, dt, forces, lattice_force, e_pot, n_max, verbose, collect_md_file, md_trajectory_file, md_log_file, md_max_steps):
     '''
     Running the MD over n_max maxima. If this is not reached after 10'000 steps the MD stops
     '''
@@ -148,7 +148,7 @@ def run(atoms, cell_atoms, dt, forces, lattice_force, e_pot, n_max, verbose, col
 
     e_pot_old, e_kin_old, e_tot_old = calc_etot_and_ekin(atoms, cell_atoms)
 
-    while i_steps < 1000000:
+    while i_steps < md_max_steps:
         # perform velocity verlet step
         forces_new, lattice_force_new = verlet_step(atoms, cell_atoms, dt, forces, lattice_force)
         i_steps += 1
@@ -158,7 +158,7 @@ def run(atoms, cell_atoms, dt, forces, lattice_force, e_pot, n_max, verbose, col
         epot_min_new, epot_max_new = update_epot_minmax(atoms, epot_min, epot_max)
 
         # check if a new minimum was found
-        sign_new, n_change, i_max = check(atoms, cell_atoms, lattice_force_new, i_steps, i_max, n_max, n_change, sign_old)
+        sign_new, n_change, i_max = check(atoms, cell_atoms, lattice_force_new, i_max, n_change, sign_old)
         # calculate the kinetic and total energy
         e_pot, e_kin, e_tot = calc_etot_and_ekin(atoms, cell_atoms)
 
@@ -200,6 +200,11 @@ def run(atoms, cell_atoms, dt, forces, lattice_force, e_pot, n_max, verbose, col
         if i_max > n_max:
             if is_one_cluster:
                 break
+    
+    if i_steps >= md_max_steps:
+        warning_msg = "MD finished after maximal given steps: {:d}".format(i_steps)
+        logging.logger.warning(warning_msg)
+
 
     return etot_max, etot_min, epot_max, epot_min, trajectory, i_steps
 
@@ -344,15 +349,10 @@ def check_coordinate_shift(atoms, positions_old, lattice_old):
     return positions_current, lattice_current, append_traj
 
 
-def check(atoms, cell_atoms, cell_forces, i_steps, i_max, n_max, n_change, sign_old):
+def check(atoms, cell_atoms, cell_forces, i_max, n_change, sign_old):
     '''
     Check if a new maximum is found
     '''
-    # if i_steps > 10000:
-    #     warning_msg = "MD did not overcome {:d} maxima in 10000 steps".format(n_max)
-    #     warnings.warn(warning_msg, UserWarning)
-    #     n_change = n_max
-    # else:
     sign = calculate_sign(atoms, cell_atoms, cell_forces) 
     if sign_old != sign:
         sign_old = sign
