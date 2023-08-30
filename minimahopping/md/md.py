@@ -210,6 +210,8 @@ def check_and_fix_fragmentation(atoms):
     elements = atoms.get_atomic_numbers()
     is_one_cluster = dbscan.one_cluster(positions, elements)
     if not is_one_cluster:
+        warning_msg = "Cluster fragmented: fixing fragmentation"
+        logging.logger.warning(warning_msg)
         velocities = atoms.get_velocities()
         masses = atoms.get_masses()
         velocities = dbscan.adjust_velocities(positions, velocities, elements, masses)
