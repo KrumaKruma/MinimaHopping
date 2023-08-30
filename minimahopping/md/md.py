@@ -346,19 +346,19 @@ def check_coordinate_shift(atoms, positions_old, lattice_old):
 
 def check(atoms, cell_atoms, cell_forces, i_steps, i_max, n_max, n_change, sign_old):
     '''
-    Check if a new maximum is found or if 10000 steps are reached
+    Check if a new maximum is found
     '''
-    if i_steps > 10000:
-        warning_msg = "MD did not overcome {:d} maxima in 10000 steps".format(n_max)
-        warnings.warn(warning_msg, UserWarning)
-        n_change = n_max
-    else:
-        sign = calculate_sign(atoms, cell_atoms, cell_forces) 
-        if sign_old != sign:
-            sign_old = sign
-            n_change += 1
-            if n_change%2 == 0:
-                i_max += 1
+    # if i_steps > 10000:
+    #     warning_msg = "MD did not overcome {:d} maxima in 10000 steps".format(n_max)
+    #     warnings.warn(warning_msg, UserWarning)
+    #     n_change = n_max
+    # else:
+    sign = calculate_sign(atoms, cell_atoms, cell_forces) 
+    if sign_old != sign:
+        sign_old = sign
+        n_change += 1
+        if n_change%2 == 0:
+            i_max += 1
     return sign_old, n_change, i_max
 
 
