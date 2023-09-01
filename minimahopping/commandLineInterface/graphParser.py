@@ -18,7 +18,7 @@ def main():
                 default='output/master/restart/graph.dat', type=argparse.FileType('r'))
     parser.add_argument('-t', '--trajectoryName', dest ='trajectoryName',
                 action ='store', help ='trajectory filename.', required=False,
-                default='output/master/restart/trajectory.dat', type=argparse.FileType('r'))
+                default='output/master/restart/trajectory', type=str)
     parser.add_argument('--removeLeaves', help="""Removes leaves (nodes with only one edge)
                         from the graph and writes a dot file of the new graph.
                         This is done, before any other operation is applied to the graph.
@@ -36,7 +36,7 @@ def main():
 
     shortestPathParser = subparsers.add_parser("shortestPath", help = "Calculates the shortest path between two nodes.")
     shortestPathParser.add_argument('-n1', type=int, required=True, help='Label of first minima', action='store', dest='n1')
-    shortestPathParser.add_argument('-n2', type=int, required=True, help='Label of second minima', action='store', dest='n1')
+    shortestPathParser.add_argument('-n2', type=int, required=True, help='Label of second minima', action='store', dest='n2')
 
     plotParser = subparsers.add_parser('plotGraph'
                     , help="Creates a pdf represantation of the graph. Requires graphviz and pygraphviz installed on your system.")
@@ -57,7 +57,7 @@ def main():
 
     args = parser.parse_args()
 
-    g = mh_graph.MinimaHoppingGraph(args.graphName.name, args.trajectoryName.name, True)
+    g = mh_graph.MinimaHoppingGraph(args.graphName.name, args.trajectoryName, True)
     g.read_from_disk()
     graph = g.graph
     contractEdges = args.n_contract_edges > 0
@@ -102,6 +102,8 @@ def main():
 
 def shortestPath(g: mh_graph.MinimaHoppingGraph, n1: int, n2: int):
     trajectory_list = g.getTrajectoryList(n1, n2)
+    print("The connection from %i to %i that minimizes the sum of transition energies is:"%(n1, n2))
+    print(trajectory_list)
     filename = "connection_%i_%i.extxyz"%(n1, n2)
     if os.path.exists(filename):
         os.remove(filename)
