@@ -56,7 +56,7 @@ class Minimahopping:
     logger = None
 
 
-    def __init__(self, initial_configuration : ase.atom.Atom, calculator2 = None,  **kwargs):
+    def __init__(self, initial_configuration : ase.atom.Atom, calculator2 : ase.calculators.calculator.Calculator = None,  **kwargs):
         """Initialize with an ASE atoms object and keyword arguments."""
 
         self.initial_configuration = initial_configuration
@@ -428,7 +428,7 @@ class Minimahopping:
             # set calculator. If a second calculator is given take this for soften, MD and pre-opt
             if self.calculator2 is not None:
                 atoms.calc = self.calculator2
-                print(self.calculator2)
+                logging.logger.info("    Switched Calculator for MD and Pre-Optimization")
             else:
                 atoms.calc = self.calculator
             
@@ -514,7 +514,7 @@ class Minimahopping:
                 logging.logger.info("    PRE-OPT start")
                 positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps, epot_max_geopt = opt.optimization(atoms=atoms, 
                                                                         calculator=atoms.calc, 
-                                                                        max_force_threshold=self.parameters.fmax, 
+                                                                        max_force_threshold=self.parameters.fmax_pre_optimization, 
                                                                         outpath=self._outpath,
                                                                         initial_step_size=self.parameters.initial_step_size,
                                                                         nhist_max=self.parameters.nhist_max,
