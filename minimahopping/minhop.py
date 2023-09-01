@@ -24,7 +24,7 @@ import minimahopping.MPI_database.mpi_database_worker
 import signal
 import sys
 
-import logging
+import minimahopping.logging.logger as logging
 
 """
 MH Software written by Marco Krummenacher (marco.krummenacher@unibas.ch), Moritz Gubler and Jonas Finkler
@@ -78,7 +78,7 @@ class Minimahopping:
 
             for i in initalParameters.getFixedParameterList():
                 if compinedDictionary[i] != parameter_dictionary[i]:
-                    logging.error("Parameter %s was changed between restart. Changing %s between restarts is not safe. Therefore, the previous value will be used"%(i, i))
+                    logging.logger.error("Parameter %s was changed between restart. Changing %s between restarts is not safe. Therefore, the previous value will be used"%(i, i))
                     compinedDictionary[i] = parameter_dictionary[i]
 
             self.parameters = minimahopping.mh.parameters.minimaHoppingParameters(**compinedDictionary)
@@ -136,7 +136,7 @@ class Minimahopping:
         self.data.__exit__(exc_type, exc_value, exc_traceback)
         if self.isWorker: # slave threads must send exit signals to master.
             MPI.COMM_WORLD.send((mpi_messages.clientWorkDone, None), 0)
-            logging.info('client set work done signal to server')
+            logging.logger.info('client set work done signal to server')
         # close MD collection file if MD is collected for ML
         if self.parameters.collect_md_data:
             self.collect_md_file.close()
@@ -148,18 +148,18 @@ class Minimahopping:
         counter = 0
 
         if self.isMaster:
-            logging.info('starting mpi server on rank %i'%self.mpiRank)
+            logging.logger.info('starting mpi server on rank %i'%self.mpiRank)
             MPI_server.MPI_database_server_loop(self.parameters.energy_threshold, self.parameters.fingerprint_threshold
                 , self.parameters.output_n_lowest_minima, self.isRestart, self.restart_path, self._minima_path
                 , self.parameters.write_graph_output, maxTimeHours=self._get_sec() / 3600, maxNumberOfMinima = self.parameters.maxNumberOfMinima)
-            logging.info('All clients have left and the server will shut down as well.')
+            logging.logger.info('All clients have left and the server will shut down as well.')
             return
         else:
             # time.sleep(1)
-            logging.info('Worker %i starting work '%self.mpiRank)
+            logging.logger.info('Worker %i starting work '%self.mpiRank)
 
         if self.data is None:
-            logging.info("The minimahopping class must be accessed through a context manager.")
+            logging.logger.info("The minimahopping class must be accessed through a context manager.")
             quit()
 
         # Start up minimahopping 
@@ -174,13 +174,13 @@ class Minimahopping:
             
             # if not accepted start reject loop until a minimum has been accepted
 
-            logging.info("START HOPPING STEP NR.  {:d}".format(counter))
+            logging.logger.info("START HOPPING STEP NR.  {:d}".format(counter))
             while not is_accepted:
-                logging.info("  Start escape loop")
-                logging.info("  ---------------------------------------------------------------")
+                logging.logger.info("  Start escape loop")
+                logging.logger.info("  ---------------------------------------------------------------")
                 escaped_minimum, epot_max, md_trajectory, opt_trajectory = self._escape(current_minimum) 
-                logging.info("  ---------------------------------------------------------------")
-                logging.info("  Succesfully escaped minimum")
+                logging.logger.info("  ---------------------------------------------------------------")
+                logging.logger.info("  Succesfully escaped minimum")
                 n_visit, label, continueSimulation = self.data.addElementandConnectGraph(current_minimum, escaped_minimum, md_trajectory + opt_trajectory, epot_max)
 
                 # write output
@@ -219,25 +219,25 @@ class Minimahopping:
                         status = "Rejected"
                     self._history_log(escaped_minimum, status)
 
-                logging.info("  New minimum has been found {:d} time(s)".format(escaped_minimum.n_visit))
+                logging.logger.info("  New minimum has been found {:d} time(s)".format(escaped_minimum.n_visit))
 
                 # adjust the temperature according to the number of visits
                 self._adj_temperature(escaped_minimum.n_visit)
                 counter += 1
                 self._write_restart(escaped_minimum, intermediate_minimum, is_accepted)
                 if not continueSimulation:
-                    logging.info("Client got shut down signal from server and is shutting down.")
+                    logging.logger.info("Client got shut down signal from server and is shutting down.")
                     return
 
-            logging.info("DONE")
-            logging.info("=================================================================")
+            logging.logger.info("DONE")
+            logging.logger.info("=================================================================")
 
             if self.parameters.run_time != "infinite":
                 if time.time() - self._time_in > self._run_time_sec:
                     msg = 'Simulation stopped because the given time is over\n'
                     msg += 'Run terminated after {:d} steps'.format(counter)
-                    logging.info(msg)
-                    logging.info("=================================================================")
+                    logging.logger.info(msg)
+                    logging.logger.info("=================================================================")
                     return
         
         self.print_elapsed_time(totalsteps)
@@ -312,8 +312,8 @@ class Minimahopping:
         """
 
         # Input is a list of ASE atoms objects
-        logging.info("=================================================================")
-        logging.info("MINIMAHOPPING SETUP START")
+        logging.logger.info("=================================================================")
+        logging.logger.info("MINIMAHOPPING SETUP START")
 
         # Convert given time to seconds
         if self.parameters.run_time != "infinite":
@@ -322,7 +322,7 @@ class Minimahopping:
 
         # Check if this is a fresh start
         if not self.isRestart:
-            logging.info('  New MH run is started')
+            logging.logger.info('  New MH run is started')
             for atom in atoms:
                 try:
                     self.calc.recalculateBasis(atom)
@@ -340,12 +340,12 @@ class Minimahopping:
                             T=self.parameters._T,
                             ediff=self.parameters._eDiff,
                             exclude= self.parameters.exclude)
-                logging.debug("Before initial database request in startup")
+                logging.logger.debug("Before initial database request in startup")
                 n_visit, label, continueSimulation = self.data.addElement(struct)
                 self.parameters._n_accepted += 1
-                logging.debug("After initial database request in startup")
+                logging.logger.debug("After initial database request in startup")
                 if not continueSimulation:
-                    logging.info("received shutdown signal after adding first element.")
+                    logging.logger.info("received shutdown signal after adding first element.")
                     quit()
             # add input structure to database after optimization
             struct_cur = self.data.get_element(0)
@@ -355,7 +355,7 @@ class Minimahopping:
             except:
                 pass
         else:
-            logging.info('  Restart MH run')
+            logging.logger.info('  Restart MH run')
 
             # Read current structure
             filename = self.restart_path + "poscur.extxyz"
@@ -372,7 +372,7 @@ class Minimahopping:
         
             database_index = self.data.get_element_index(struct_cur)
             if database_index == -1:
-                logging.critical("restart structure not in database, quitting")
+                logging.logger.critical("restart structure not in database, quitting")
                 quit()
             struct_cur = self.data.get_element(database_index)
             struct_cur.atoms = atoms
@@ -443,7 +443,7 @@ class Minimahopping:
                 self._history_log(struct, status)
                 self.parameters._T *= self.parameters.beta_increase
                 log_msg = "    Same minimum found with fpd {:1.2e} {:d} time(s). Increase temperature to {:1.5f}".format(_escape, self._n_same, self.parameters._T)
-                logging.info(log_msg)
+                logging.logger.info(log_msg)
 
             MaxwellBoltzmannDistribution(atoms, temperature_K=self.parameters._T, communicator='serial')
 
@@ -453,7 +453,7 @@ class Minimahopping:
 
             # if periodic boundary conditions create cell atom object
             if True in _pbc:
-                logging.info("    VARIABLE CELL SHAPE SOFTENING, MD AND OPTIMIZATION ARE PERFORMED")
+                logging.logger.info("    VARIABLE CELL SHAPE SOFTENING, MD AND OPTIMIZATION ARE PERFORMED")
                 # calculate mass for cell atoms
                 # Formula if for the MD real masses are used
                 # mass = .75 * np.sum(atoms.get_masses()) / 10. # Formula if for the MD real masses are used
@@ -483,7 +483,7 @@ class Minimahopping:
                 cell_atoms.velocities = cell_velocities
    
             # Perfom MD run
-            logging.info("    MD Start")
+            logging.logger.info("    MD Start")
             positions, lattice, self.parameters._dt, _md_trajectory, epot_max_md, number_of_md_steps = md.md(atoms = atoms, 
                                                                                                         calculator = atoms.calc,
                                                                                                         outpath = self._outpath, 
@@ -492,21 +492,26 @@ class Minimahopping:
                                                                                                         n_max = self.parameters.mdmin,
                                                                                                         verbose = self.parameters.verbose_output,
                                                                                                         collect_md_file = self.collect_md_file,
-                                                                                                        dt_min=self.parameters.dt_min)
+                                                                                                        dt_min=self.parameters.dt_min,
+                                                                                                        md_max_steps=self.parameters.md_max_steps)
 
             log_msg = "    MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f}".format(number_of_md_steps, self.parameters.mdmin, self.parameters._dt)
 
-            logging.info(log_msg)
+            logging.logger.info(log_msg)
             # Set new positions after the MD
             atoms.set_positions(positions)
             # If pbc set new lattice and reshape cell
             if True in _pbc:
                 atoms.set_cell(lattice)
+            try:
+                atoms.calc.recalculateBasis(atoms)
+            except:
+                pass
 
 
             # If second calculator is present do a pre-optimization
             if self.calculator2 is not None:
-                logging.info("    PRE-OPT start")
+                logging.logger.info("    PRE-OPT start")
                 positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps, epot_max_geopt = opt.optimization(atoms=atoms, 
                                                                         calculator=atoms.calc, 
                                                                         max_force_threshold=self.parameters.fmax, 
@@ -528,11 +533,11 @@ class Minimahopping:
                 atoms.calc = self.calculator
 
                 log_msg = "    PRE-OPT finished after {:d} steps.".format(number_of_opt_steps)
-                logging.info(log_msg)
+                logging.logger.info(log_msg)
 
 
 
-            logging.info("    OPT start")
+            logging.logger.info("    OPT start")
             positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps, epot_max_geopt = opt.optimization(atoms=atoms, 
                                                                     calculator=atoms.calc, 
                                                                     max_force_threshold=self.parameters.fmax, 
@@ -547,7 +552,7 @@ class Minimahopping:
             if epot_max_geopt > epot_max_md:
                 _epot_max = epot_max_geopt
                 msg = "maximal potential energy in geometry optimization"
-                logging.warning(msg)
+                logging.logger.warning(msg)
             else:
                 _epot_max = epot_max_md
 
@@ -563,7 +568,7 @@ class Minimahopping:
                 pass
 
             log_msg = "    OPT finished after {:d} steps.".format(number_of_opt_steps)
-            logging.info(log_msg)
+            logging.logger.info(log_msg)
 
             # check if the energy threshold is below the optimization noise
             self._check_energy_threshold()
@@ -577,26 +582,37 @@ class Minimahopping:
                         ediff=self.parameters._eDiff,
                         exclude= self.parameters.exclude)
 
-            # check if proposed structure is the same to the initial structure
-            _escape_energy = struct.__compareto__(proposed_structure)
-            _escape = struct.fingerprint_distance(proposed_structure)
-
             _i_steps += 1
             self._n_min += 1
-            if  _escape > self.parameters.fingerprint_threshold:
+
+            # check if proposed structure is the same to the initial structure
+            is_different = self.isEqualTo(struct, proposed_structure)
+            if is_different:
                 is_escape = False
-            elif _escape_energy > self.parameters._eDiff:
-                is_escape = False
-            else: # not escaped, same minimum found
+            else:
                 self.parameters._n_same += 1
 
             self._write_parameters()
 
         log_msg = "    New minimum found with fpd {:1.2e} after looping {:d} time(s)".format(_escape, _i_steps)
-        logging.info(log_msg)
+        logging.logger.info(log_msg)
 
         return proposed_structure, _epot_max, _md_trajectory, _opt_trajectory
 
+
+    def isEqualTo(self, structure1: Minimum, structure2: Minimum):
+
+        energy_difference = structure1.__compareto__(structure2)
+        if energy_difference < self.parameters.energy_threshold:
+            fingerprint_distance = structure1.fingerprint_distance(structure2)
+            if fingerprint_distance > self.parameters.fingerprint_threshold:
+                is_different = True
+            else:
+                is_different = False
+        else:
+            is_different = True
+
+        return is_different
 
     def _hoplog(self, struct):
         """
@@ -607,7 +623,7 @@ class Minimahopping:
         log_msg = "  Epot:  {:1.5f}   E_diff:  {:1.5f}    Temp:   {:1.5f} ".format(atoms.get_potential_energy(),
                                                                                              self.parameters._eDiff,
                                                                                              self.parameters._T)
-        logging.info(log_msg)
+        logging.logger.info(log_msg)
 
 
     def _accept_reject_step(self, struct_cur: Minimum, struct: Minimum):
@@ -642,11 +658,11 @@ class Minimahopping:
         if is_accepted:
             log_msg = "  Minimum was accepted:  Enew - Ecur = {:1.5f} < {:1.5f} = Ediff".format(ediff_acc,
                                                                                                 _ediff_in)
-            logging.info(log_msg)
+            logging.logger.info(log_msg)
         else:
             log_msg = "  Minimum was rejected:  Enew - Ecur = {:1.5f} > {:1.5f} = Ediff".format(ediff_rej,
                                                                                                 _ediff_in)
-            logging.info(log_msg)
+            logging.logger.info(log_msg)
 
         return is_accepted
 
@@ -729,9 +745,7 @@ class Minimahopping:
         if self.mpiSize > 1 and not use_MPI:
             print("Detected multiple MPI Processes but use_MPI parameter was set to false. Is this on purpose?")
         if self.mpiSize == 1 or not use_MPI: # no mpi should be used
-            logging.basicConfig(level=logLevel, 
-                format='%(message)s'    
-            )
+            logging.setupLogger(logLevel=logLevel)
             self.isMaster = False
             self.isWorker = False
             self._outpath = 'output/'
@@ -742,7 +756,7 @@ class Minimahopping:
             if not os.path.exists(self._minima_path):
                 os.mkdir(self._minima_path)
             if use_MPI:
-                logging.error('UseMPI is true but only one rank is present. simulation will be stopped.')
+                logging.logger.error('UseMPI is true but only one rank is present. simulation will be stopped.')
                 quit()
             
         else: # mpi parallelized simulation
@@ -786,17 +800,14 @@ class Minimahopping:
                     os.mkdir(self.restart_path)
                 MPI.COMM_WORLD.send((mpi_messages.loginRequestFromClient, 1), dest=0)
             
-            logging.basicConfig(filename=self._outpath + 'minimahopping.log', 
-                level=logLevel, 
-                format='%(message)s'    
-            )
+            logging.setupLogger(logLevel=logLevel, file=self._outpath + 'minimahopping.log')
 
 
     def sigTermCatcher(self, *args):
         if self.isMaster:
-            logging.info("Received sigterm on master. Closing files and send mpi abort to comm_world")
+            logging.logger.info("Received sigterm on master. Closing files and send mpi abort to comm_world")
         else:
-            logging.info("Received sigterm. I will close files and exit.")
+            logging.logger.info("Received sigterm. I will close files and exit.")
         # if self.isMaster:
         #     MPI.COMM_WORLD.Abort()
         sys.exit()
@@ -818,4 +829,4 @@ class Minimahopping:
                                                                                 int(hour),
                                                                                 int(minutes),
                                                                                 int(seconds))
-        logging.info(msg)
+        logging.logger.info(msg)

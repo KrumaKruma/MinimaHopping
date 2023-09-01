@@ -3,10 +3,11 @@ import numpy as np
 import shelve
 import pickle
 import os
-import matplotlib.pyplot as plt
 from ase import Atoms
 import copy
 import matplotlib
+import matplotlib.pyplot as plt
+import minimahopping.logging.logger as logging
 
 graphDotName = 'output/graph.dot'
 
@@ -46,7 +47,11 @@ class MinimaHoppingGraph:
         """
         self.trajectoryDict.close()
         self.write_restart_files()
-        nx.drawing.nx_pydot.write_dot(self.graph, graphDotName)
+        try:
+            nx.drawing.nx_pydot.write_dot(self.graph, graphDotName)
+        except ModuleNotFoundError:
+            logging.logger.warning("pydot is not installed on your system. Failed to save the graph in the dot format")
+            logging.logger.warning("The graph was still saved but only in binary format. It must be converted manually using the graph command line tool.")
     
 
     def write_restart_files(self):
@@ -158,7 +163,23 @@ def color_graph(graph: nx.DiGraph):
     nx.set_node_attributes(graph, 'blue', 'fillcolor')
     nx.set_node_attributes(graph, 'filled', 'style')
     for n in graph.nodes():
-        graph.nodes()[n]['fillcolor'] = matplotlib.colors.rgb2hex(cmap(graph.nodes()[n]['shifted_energy'] / graph.nodes()[n]['num_atoms'] ))
+        intensity = graph.nodes()[n]['shifted_energy'] / graph.nodes()[n]['num_atoms']
+        intensity = intensity * 10
+        graph.nodes()[n]['fillcolor'] = matplotlib.colors.rgb2hex(cmap( intensity ))
+
+    # todo: create a colorbar pdf
+    cm = 1/2.54
+    gradient = np.linspace(0, 1, 101, endpoint=True)
+    gradient = np.vstack((gradient, gradient))
+    fig, axs = plt.subplots(figsize=( 6.8 * cm, 2.8* cm))
+    # fig, axs = plt.subplots()
+    # fig.set_size_inches(6*cm, 5*cm)
+    axs.set_xlabel('meV per Atom', fontsize=10)
+    plt.yticks([])
+    plt.xticks([0, 20, 40, 60, 80, 100])
+    axs.imshow(gradient, aspect=7.0, cmap=cmap)
+    # plt.show()
+    fig.savefig('colourbar.pdf')
 
 def remove_leaves_static(graph, number_of_iterations: int = 1):
     graph_copy = copy.deepcopy(graph)

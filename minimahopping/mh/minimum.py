@@ -5,8 +5,6 @@ from minimahopping.omfp.OverlapMatrixFingerprint import OverlapMatrixFingerprint
 from ase.io import write
 from ase.atoms import Atoms
 from scipy.spatial import distance_matrix
-import logging
-import time
 try:
     from numba import njit
 except ImportError:

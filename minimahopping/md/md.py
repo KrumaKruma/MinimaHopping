@@ -3,11 +3,11 @@ import minimahopping.mh.lattice_operations as lat_opt
 import warnings
 from ase.io import write
 import minimahopping.md.dbscan as dbscan
-import logging
+import minimahopping.logging.logger as logging
 
 
 
-def md(atoms, calculator, outpath, cell_atoms = None, dt = 0.001, n_max = 3, verbose = True, collect_md_file = None, dt_min = 0.0001):
+def md(atoms, calculator, outpath, cell_atoms = None, dt = 0.001, n_max = 3, verbose = True, collect_md_file = None, dt_min = 0.0001, md_max_steps=10000):
     """ 
     Performs an MD which is visiting n_max minima
     Input:
@@ -40,7 +40,7 @@ def md(atoms, calculator, outpath, cell_atoms = None, dt = 0.001, n_max = 3, ver
         # Initialization of the MD. Get the energy and forces for the first MD step
         e_pot, forces, lattice_force = initialize(atoms, cell_atoms)
         # Run the MD until n_max minima have been visited
-        etot_max, etot_min, e_pot_max, e_pot_min, trajectory, i_steps = run(atoms, cell_atoms, dt, forces, lattice_force, e_pot, n_max, verbose, collect_md_file, md_trajectory_file, md_log_file)
+        etot_max, etot_min, e_pot_max, e_pot_min, trajectory, i_steps = run(atoms, cell_atoms, dt, forces, lattice_force, e_pot, n_max, verbose, collect_md_file, md_trajectory_file, md_log_file, md_max_steps)
 
         # adjust the time step for the next MD
         new_dt = adjust_dt(etot_max, etot_min, e_pot_max, e_pot_min, dt, dt_min)
@@ -121,7 +121,7 @@ def get_cell_masses(cell_atoms):
     return cell_masses
 
 
-def run(atoms, cell_atoms, dt, forces, lattice_force, e_pot, n_max, verbose, collect_md_file, md_trajectory_file, md_log_file):
+def run(atoms, cell_atoms, dt, forces, lattice_force, e_pot, n_max, verbose, collect_md_file, md_trajectory_file, md_log_file, md_max_steps):
     '''
     Running the MD over n_max maxima. If this is not reached after 10'000 steps the MD stops
     '''
@@ -148,7 +148,7 @@ def run(atoms, cell_atoms, dt, forces, lattice_force, e_pot, n_max, verbose, col
 
     e_pot_old, e_kin_old, e_tot_old = calc_etot_and_ekin(atoms, cell_atoms)
 
-    while i_steps < 10000:
+    while i_steps < md_max_steps:
         # perform velocity verlet step
         forces_new, lattice_force_new = verlet_step(atoms, cell_atoms, dt, forces, lattice_force)
         i_steps += 1
@@ -158,7 +158,7 @@ def run(atoms, cell_atoms, dt, forces, lattice_force, e_pot, n_max, verbose, col
         epot_min_new, epot_max_new = update_epot_minmax(atoms, epot_min, epot_max)
 
         # check if a new minimum was found
-        sign_new, n_change, i_max = check(atoms, cell_atoms, lattice_force_new, i_steps, i_max, n_max, n_change, sign_old)
+        sign_new, n_change, i_max = check(atoms, cell_atoms, lattice_force_new, i_max, n_change, sign_old)
         # calculate the kinetic and total energy
         e_pot, e_kin, e_tot = calc_etot_and_ekin(atoms, cell_atoms)
 
@@ -167,7 +167,7 @@ def run(atoms, cell_atoms, dt, forces, lattice_force, e_pot, n_max, verbose, col
         energy_conservation = _defcon / len(atoms) #/ abs(e_pot - e_pot_old)
         if energy_conservation > 3.0:
             warning_msg = "MD failed. Restart with smaller dt"
-            logging.warning(warning_msg)
+            logging.logger.warning(warning_msg)
             dt = dt/10.
             i_steps = 0
             atoms.set_positions(initial_positions)
@@ -200,6 +200,11 @@ def run(atoms, cell_atoms, dt, forces, lattice_force, e_pot, n_max, verbose, col
         if i_max > n_max:
             if is_one_cluster:
                 break
+    
+    if i_steps >= md_max_steps:
+        warning_msg = "MD finished after maximal given steps: {:d}".format(i_steps)
+        logging.logger.warning(warning_msg)
+
 
     return etot_max, etot_min, epot_max, epot_min, trajectory, i_steps
 
@@ -210,6 +215,8 @@ def check_and_fix_fragmentation(atoms):
     elements = atoms.get_atomic_numbers()
     is_one_cluster = dbscan.one_cluster(positions, elements)
     if not is_one_cluster:
+        warning_msg = "Cluster fragmented: fixing fragmentation"
+        logging.logger.warning(warning_msg)
         velocities = atoms.get_velocities()
         masses = atoms.get_masses()
         velocities = dbscan.adjust_velocities(positions, velocities, elements, masses)
@@ -260,12 +267,15 @@ def verlet_step(atoms, cell_atoms, dt, forces, lattice_force):
     positions = atoms.get_positions()
     masses = get_masses(atoms)
     
-    # Update the positions
-    atoms.set_positions(positions + dt * velocities + 0.5 * dt * dt * (forces / masses))
-
     # if the system is periodic update the cell vectors
     if cell_atoms is not None:
-        update_lattice_positions(atoms, cell_atoms, lattice_force, dt)
+        # transform lattice force so that atoms are not moved
+        lattice_force_transformed = transform_deralat(atoms, forces, lattice_force)
+        # update the positions of the lattice
+        update_lattice_positions(atoms, cell_atoms, lattice_force_transformed, dt)
+    
+    # Update the positions
+    atoms.set_positions(positions + dt * velocities + 0.5 * dt * dt * (forces / masses))
     
     # Calculate the new forces
     forces_new = atoms.get_forces()
@@ -274,12 +284,24 @@ def verlet_step(atoms, cell_atoms, dt, forces, lattice_force):
     
     # If system is periodic update the cell velocites
     if cell_atoms is not None:
-        lattice_force_new = update_lattice_velocities(atoms, cell_atoms, lattice_force, dt)
+        stress_tensor = atoms.get_stress(voigt=False, apply_constraint=False)
+        lattice_force_new = lat_opt.lattice_derivative(stress_tensor, cell_atoms.positions)
+        lattice_force_new_transformed = transform_deralat(atoms, forces_new, lattice_force_new)
+        update_lattice_velocities(cell_atoms, lattice_force_transformed, lattice_force_new_transformed, dt)
     else:
         lattice_force_new = None
 
 
     return forces_new, lattice_force_new
+
+
+def transform_deralat(atoms, forces, deralat):
+    reduced_positions = atoms.get_scaled_positions(wrap=False)
+    sumsum = np.zeros((3,3))
+    sumsum = np.dot(forces.T, reduced_positions)
+
+    new_deralat = deralat - sumsum.T
+    return new_deralat
 
 
 def update_lattice_positions(atoms, cell_atoms, lattice_force, dt):
@@ -290,22 +312,17 @@ def update_lattice_positions(atoms, cell_atoms, lattice_force, dt):
     cell_masses = get_cell_masses(cell_atoms)
     # Update the cell positions
     cell_atoms.positions = cell_atoms.positions + dt * cell_atoms.velocities + 0.5 * dt * dt * (lattice_force / cell_masses)
-    atoms.set_cell(cell_atoms.positions, scale_atoms=True, apply_constraint=False)
+    atoms.cell = cell_atoms.positions
 
 
-def update_lattice_velocities(atoms, cell_atoms, lattice_force, dt):
+def update_lattice_velocities(cell_atoms, lattice_force, lattice_force_new, dt):
     '''
     Update the lattice velocities
     '''
-    # Get stress tensor, lattice and cell masses
-    stress_tensor = atoms.get_stress(voigt=False, apply_constraint=False)
-    lattice = atoms.get_cell()
+    # get the masses of the cell
     cell_masses = get_cell_masses(cell_atoms)
-    # Get new lattice derivatives
-    lattice_force_new = lat_opt.lattice_derivative(stress_tensor, lattice)
     # update cell velocities
     cell_atoms.velocities = cell_atoms.velocities + 0.5 * dt * ((lattice_force + lattice_force_new) / cell_masses)
-    return lattice_force_new
 
 
 def check_coordinate_shift(atoms, positions_old, lattice_old):
@@ -332,21 +349,16 @@ def check_coordinate_shift(atoms, positions_old, lattice_old):
     return positions_current, lattice_current, append_traj
 
 
-def check(atoms, cell_atoms, cell_forces, i_steps, i_max, n_max, n_change, sign_old):
+def check(atoms, cell_atoms, cell_forces, i_max, n_change, sign_old):
     '''
-    Check if a new maximum is found or if 10000 steps are reached
+    Check if a new maximum is found
     '''
-    if i_steps > 10000:
-        warning_msg = "MD did not overcome {:d} maxima in 10000 steps".format(n_max)
-        warnings.warn(warning_msg, UserWarning)
-        n_change = n_max
-    else:
-        sign = calculate_sign(atoms, cell_atoms, cell_forces) 
-        if sign_old != sign:
-            sign_old = sign
-            n_change += 1
-            if n_change%2 == 0:
-                i_max += 1
+    sign = calculate_sign(atoms, cell_atoms, cell_forces) 
+    if sign_old != sign:
+        sign_old = sign
+        n_change += 1
+        if n_change%2 == 0:
+            i_max += 1
     return sign_old, n_change, i_max
 
 
