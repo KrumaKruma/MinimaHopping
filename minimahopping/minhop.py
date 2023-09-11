@@ -414,8 +414,6 @@ class Minimahopping:
         Escape loop to find a new minimum
         """
         self._n_same = 0
-        _escape = 0.0
-        _escape_energy = 0.0
         _i_steps = 0
 
         is_escape = True
@@ -433,7 +431,7 @@ class Minimahopping:
                 status = 'Same'
                 self._history_log(struct, status)
                 self.parameters._T *= self.parameters.beta_increase
-                log_msg = "    Same minimum found with fpd {:1.2e} {:d} time(s). Increase temperature to {:1.5f}".format(_escape, self._n_same, self.parameters._T)
+                log_msg = "    Same minimum found {:d} time(s). Increase temperature to {:1.5f}".format(self._n_same, self.parameters._T)
                 logging.logger.info(log_msg)
 
             MaxwellBoltzmannDistribution(atoms, temperature_K=self.parameters._T, communicator='serial')
@@ -455,7 +453,7 @@ class Minimahopping:
                 # set velocities of the cell atoms
                 cell_atoms.set_velocities_boltzmann(temperature=self.parameters._T)
             else:
-                # IMPORTANT: cell atoms has to be None for soften/md/geopt if no pbc
+                # cell_atoms has to be None for soften/md/geopt if no pbc
                 cell_atoms = None
 
             # softening of the velocities
@@ -513,7 +511,7 @@ class Minimahopping:
 
             if epot_max_geopt > epot_max_md:
                 _epot_max = epot_max_geopt
-                msg = "maximal potential energy in geometry optimization"
+                msg = "maximal potential energy of escape loop in geometry optimization"
                 logging.logger.warning(msg)
             else:
                 _epot_max = epot_max_md
@@ -555,10 +553,6 @@ class Minimahopping:
                 self.parameters._n_same += 1
 
             self._write_parameters()
-
-        log_msg = "    New minimum found with fpd {:1.2e} after looping {:d} time(s)".format(_escape, _i_steps)
-        logging.logger.info(log_msg)
-
         return proposed_structure, _epot_max, _md_trajectory, _opt_trajectory
 
 
@@ -569,10 +563,13 @@ class Minimahopping:
             fingerprint_distance = structure1.fingerprint_distance(structure2)
             if fingerprint_distance > self.parameters.fingerprint_threshold:
                 is_different = True
+                logging.logger.info("    Successfully escaped minimum because fingerprint distance is large enough (%f)"%fingerprint_distance)
             else:
                 is_different = False
+                logging.logger.info("    Back to same minimum, fingerprint distance too small: %f"%fingerprint_distance)
         else:
             is_different = True
+            logging.logger.info("    Successfully escaped minimum because energy difference is large enough (%f)"%energy_difference)
 
         return is_different
 
