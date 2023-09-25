@@ -56,12 +56,12 @@ class Minimahopping:
     logger = None
 
 
-    def __init__(self, initial_configuration : ase.atom.Atom, calculator2 : ase.calculators.calculator.Calculator = None,  **kwargs):
+    def __init__(self, initial_configuration : ase.atom.Atom, md_calculator : ase.calculators.calculator.Calculator = None,  **kwargs):
         """Initialize with an ASE atoms object and keyword arguments."""
 
         self.initial_configuration = initial_configuration
 
-        self.calculator2 = calculator2
+        self.calculator2 = md_calculator
 
         initalParameters = minimahopping.mh.parameters.minimaHoppingParameters(**kwargs)
 
