@@ -64,7 +64,7 @@ class Minimahopping:
         structure_list, calculator = self._initialize_structures(initial_configuration)
         self.calculator = calculator
         
-        if self.md_calculator is not None:
+        if md_calculator is not None:
             self.md_calculator = md_calculator
             self.preoptimizationNeeded = True
         else:
@@ -474,7 +474,7 @@ class Minimahopping:
 
             # softening of the velocities
             velocities, cell_velocities = softening.soften(atoms=atoms, 
-                            calculator=atoms.calc, 
+                            calculator=self.md_calculator, 
                             nsoft = self.parameters.n_soft,
                             alpha_pos = self.parameters.soften_positions, 
                             cell_atoms = cell_atoms,
@@ -542,7 +542,7 @@ class Minimahopping:
 
             logging.logger.info("    OPT start")
             positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps, epot_max_geopt = opt.optimization(atoms=atoms, 
-                                                                    calculator=self.calcualator, 
+                                                                    calculator=self.calculator, 
                                                                     max_force_threshold=self.parameters.fmax, 
                                                                     outpath=self._outpath,
                                                                     initial_step_size=self.parameters.initial_step_size,
@@ -572,7 +572,7 @@ class Minimahopping:
 
             log_msg = "    OPT finished after {:d} steps.".format(number_of_opt_steps)
             logging.logger.info(log_msg)
-
+            atoms.calc = self.calculator
             # check if the energy threshold is below the optimization noise
             self._check_energy_threshold()
 
