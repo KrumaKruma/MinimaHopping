@@ -1,6 +1,6 @@
 import os
 
-def restart(outpath, restart_path, minima_path, is_master):
+def restart(outpath: str, restart_path: str, minima_path: str, is_master: bool):
         
     if not os.path.exists(outpath):
         os.mkdir(outpath)
@@ -23,7 +23,7 @@ def restart(outpath, restart_path, minima_path, is_master):
     return is_restart
 
 
-def checkfiles(restart_path, is_master):
+def checkfiles(restart_path: str, is_master: bool):
     is_files = True
     if is_master:
         is_database = os.path.exists(restart_path + "minima.pickle.shelve.dat") or os.path.exists(restart_path + "minima.pickle.shelve.dat.dat")

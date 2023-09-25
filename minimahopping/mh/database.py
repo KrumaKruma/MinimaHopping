@@ -2,12 +2,15 @@ import bisect
 import shelve
 import minimahopping.mh.minimum as minimum
 import minimahopping.graph.graph
-import logging
+import minimahopping.logging.logger as logging
 import time
 import numpy
 
 class Database():
-    def __init__(self,energy_threshold, minima_threshold, output_n_lowest_minima, is_restart = False, outpath='./', minima_path= "lowest_minima/", write_graph_output = True, maxNumberOfMinima = 0):
+    def __init__(self, energy_threshold: float, minima_threshold: float
+                 , output_n_lowest_minima: int, is_restart: bool = False
+                 , outpath: str ='./', minima_path: str = "lowest_minima/"
+                 , write_graph_output: bool = True, maxNumberOfMinima: int = 0):
         self.unique_minima_sorted = []
         self.nstructs = 0
 
@@ -28,11 +31,6 @@ class Database():
             self.maxNumberOfMinima = numpy.inf
         else: self.maxNumberOfMinima = maxNumberOfMinima
 
-        if logging.root.level <= logging.DEBUG:
-            self.verbosity = True
-        else:
-            self.verbosity = False
-
         if self.write_graph_output:
             self.graphFilename = self.outpath + "graph.dat"
             self.graphTrajectoryFilename = self.outpath + 'trajectory.dat'
@@ -44,16 +42,16 @@ class Database():
         self.noDublicatesFile = open(self.noDublicatesFileName, mode='a')
         self.allMinimaFile = open(self.allMinimaFilename, mode='a')
         if self.write_graph_output:
-            self.graph.read_from_disk()
+            self.graph.__enter__()
         return self
 
 
-    def __exit__(self,exc_type, exc_value, exc_traceback):
+    def __exit__(self, exc_type, exc_value, exc_traceback):
         self.minima_shelve.close()
         self.noDublicatesFile.close()
         self.allMinimaFile.close()
         if self.write_graph_output:
-            self.graph.trajectoryDict.close()
+            self.graph.__exit__(0, 0, 0)
 
 
     def read_restart_files(self):   
@@ -66,15 +64,13 @@ class Database():
             self.nstructs = len(self.unique_minima_sorted)
 
 
-    def addElement(self,struct: minimum.Minimum):
-        if self.verbosity:
-            t1 = time.time()
+    def addElement(self, struct: minimum.Minimum):
+        t1 = time.time()
         index = self.get_element_index(struct=struct)
-        if self.verbosity:
-            t2 = time.time()
-            finding_time = t2 - t1
+        t2 = time.time()
+        finding_time = t2 - t1
         if bisect.bisect(self.unique_minima_sorted, struct) >= self.maxNumberOfMinima:
-            logging.info("    More than maxNumberOfMinima minima were found. Treating this minimum as a new one.")
+            logging.logger.info("    More than maxNumberOfMinima minima were found. Treating this minimum as a new one.")
             struct.n_visit = 1
             struct.label = index
             return 1, index, True
@@ -105,18 +101,17 @@ class Database():
         
 
         struct.write(self.allMinimaFile, append=True)
-        if self.verbosity:
-            t1 = time.time()
-            db_time = t1 - t2
-            if already_found:
-                timingMessage = "Database search time: %.4f, adjusting minima shelve time: %.3f"%(finding_time, db_time)
-            else:
-                timingMessage = "Database search time: %.4f, adding minima shelve time: %.3f"%(finding_time, db_time)
-            logging.info(timingMessage)
+        t1 = time.time()
+        db_time = t1 - t2
+        if already_found:
+            timingMessage = "    Database search time: %.4f, adjusting minima shelve time: %.3f"%(finding_time, db_time)
+        else:
+            timingMessage = "    Database search time: %.4f, adding minima shelve time: %.3f"%(finding_time, db_time)
+        logging.logger.info(timingMessage)
 
         return self.unique_minima_sorted[index].n_visit, self.unique_minima_sorted[index].label, True
 
-    def addElementandConnectGraph(self, currentMinimum: minimum.Minimum, escapedMinimum: minimum.Minimum, trajectory, epot_max):
+    def addElementandConnectGraph(self, currentMinimum: minimum.Minimum, escapedMinimum: minimum.Minimum, trajectory: list, epot_max: float):
         n_vistit, label, _ = self.addElement(escapedMinimum)
         if label >= self.maxNumberOfMinima: # dont add structure to graph if it is to high in energy.
             return n_vistit, label, True
@@ -141,7 +136,7 @@ class Database():
 
         return index
 
-    def get_index_energyrange(self, struct):
+    def get_index_energyrange(self, struct: minimum.Minimum):
         if self.nstructs == 0:
             return []
 
@@ -188,14 +183,14 @@ class Database():
 
         return indices
 
-    def contains(self, index):
+    def contains(self, index: int):
         if index < 0:
             already_found = False
         else:
             already_found = True
         return already_found
 
-    def _write_poslow(self, n_poslow, path):
+    def _write_poslow(self, n_poslow: int, path: str):
         i_poslow = 0
         for s in self.unique_minima_sorted:
             filename = 'min'+str(i_poslow).zfill(6)

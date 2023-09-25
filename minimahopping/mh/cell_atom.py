@@ -1,13 +1,13 @@
 import numpy as np
 from ase import units
 
-class Cell_atom:
-    def __init__(self, positions, mass=None, velocities=None):
+class Cell_atom: 
+    def __init__(self, positions: np. array, mass: np.array = None, velocities: np. array = None):
         self.positions = positions
         self.masses = np.array([mass, mass, mass])
         self.velocities = velocities
 
-    def set_velocities_boltzmann(self, temperature):
+    def set_velocities_boltzmann(self, temperature: float):
         """
         Set the velocity of the cell atoms for the MD part accorting to a temperature and the boltzmann distribution
         Input:
