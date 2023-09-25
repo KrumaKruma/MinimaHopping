@@ -49,7 +49,9 @@ class minimaHoppingParameters:
     """collect_md_data (bool): flag to collect MD data which later could be used e.g. in machine learning"""
     symprec: float = 1e-5
     """symprec (float): Distance tolerance in Cartesian coordinates to find crystal symmetry for reshape cell operation (see spglib documentation for more info)"""
-    fmax: float = 0.007
+    fmax_pre_optimization : float = 0.1
+    """fmax_pre_optimization: Maximal force component. Used as stopping criterion for pre geometry optimization (only used if second calculator is aviable)"""
+    fmax: float = 0.01
     """fmax (float): Maximal force component. Used as a stopping criterion for the geometry optimization."""
     initial_step_size: float = None
     """inital step size of the geometry optimizer. If None the initial step size is estimated"""

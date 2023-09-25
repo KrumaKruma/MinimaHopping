@@ -56,10 +56,20 @@ class Minimahopping:
     logger = None
 
 
-    def __init__(self, initial_configuration : ase.atom.Atom, **kwargs):
+    def __init__(self, initial_configuration : ase.atom.Atom, md_calculator : ase.calculators.calculator.Calculator = None,  **kwargs):
         """Initialize with an ASE atoms object and keyword arguments."""
 
         self.initial_configuration = initial_configuration
+
+        structure_list, calculator = self._initialize_structures(initial_configuration)
+        self.calculator = calculator
+        
+        if md_calculator is not None:
+            self.md_calculator = md_calculator
+            self.preoptimizationNeeded = True
+        else:
+            self.md_calculator = calculator 
+            self.preoptimizationNeeded = False
 
         initalParameters = minimahopping.mh.parameters.minimaHoppingParameters(**kwargs)
 
@@ -162,7 +172,6 @@ class Minimahopping:
 
         # Start up minimahopping 
         structure_list, calculator = self._initialize_structures(self.initial_configuration)
-        self.calculator = calculator
         current_minimum = self._startup(structure_list)  # gets an atoms object and a minimum object is returned.
 
         # Start hopping loop
@@ -313,6 +322,7 @@ class Minimahopping:
         logging.logger.info("=================================================================")
         logging.logger.info("MINIMAHOPPING SETUP START")
 
+        
         # Convert given time to seconds
         if self.parameters.run_time != "infinite":
             self._run_time_sec = self._get_sec()
@@ -420,7 +430,11 @@ class Minimahopping:
 
         while is_escape:
             atoms = struct.atoms.copy()
-            atoms.calc = self.calculator
+
+            # set calculator. If a second calculator is given take this for soften, MD and pre-opt
+            if self.preoptimizationNeeded:
+                logging.logger.info("    Switched Calculator for MD and Pre-Optimization")
+            
             try:
                 atoms.calc.recalculateBasis(atoms)
             except:
@@ -458,7 +472,7 @@ class Minimahopping:
 
             # softening of the velocities
             velocities, cell_velocities = softening.soften(atoms=atoms, 
-                            calculator=self.calculator, 
+                            calculator=self.md_calculator, 
                             nsoft = self.parameters.n_soft,
                             alpha_pos = self.parameters.soften_positions, 
                             cell_atoms = cell_atoms,
@@ -474,7 +488,7 @@ class Minimahopping:
             # Perfom MD run
             logging.logger.info("    MD Start")
             positions, lattice, self.parameters._dt, _md_trajectory, epot_max_md, number_of_md_steps = md.md(atoms = atoms, 
-                                                                                                        calculator = self.calculator,
+                                                                                                        calculator = self.md_calculator,
                                                                                                         outpath = self._outpath, 
                                                                                                         cell_atoms = cell_atoms,
                                                                                                         dt = self.parameters._dt, 
@@ -496,6 +510,33 @@ class Minimahopping:
                 atoms.calc.recalculateBasis(atoms)
             except:
                 pass
+
+
+            # If second calculator is present do a pre-optimization
+            if self.preoptimizationNeeded:
+                logging.logger.info("    PRE-OPT start")
+                positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps, epot_max_geopt = opt.optimization(atoms=atoms, 
+                                                                        calculator=self.md_calculator, 
+                                                                        max_force_threshold=self.parameters.fmax_pre_optimization, 
+                                                                        outpath=self._outpath,
+                                                                        initial_step_size=self.parameters.initial_step_size,
+                                                                        nhist_max=self.parameters.nhist_max,
+                                                                        lattice_weight=self.parameters.lattice_weight,
+                                                                        alpha_min=self.parameters.alpha_min,
+                                                                        eps_subsp=self.parameters.eps_subsp, 
+                                                                        verbose=self.parameters.verbose_output)
+                
+                # Set pre-optimized positions
+                atoms.set_positions(positions)
+                # If Pbc set pre-optimized lattice 
+                if True in _pbc:
+                    atoms.set_cell(lattice)
+
+                # Change calculator for geometry optimization
+                atoms.calc = self.calculator
+
+                log_msg = "    PRE-OPT finished after {:d} steps.".format(number_of_opt_steps)
+                logging.logger.info(log_msg)
 
             logging.logger.info("    OPT start")
             positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps, epot_max_geopt = opt.optimization(atoms=atoms, 
@@ -529,7 +570,7 @@ class Minimahopping:
 
             log_msg = "    OPT finished after {:d} steps.".format(number_of_opt_steps)
             logging.logger.info(log_msg)
-
+            atoms.calc = self.calculator
             # check if the energy threshold is below the optimization noise
             self._check_energy_threshold()
 

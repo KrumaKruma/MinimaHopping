@@ -1,5 +1,4 @@
 import numpy as np
-from copy import deepcopy
 import minimahopping.mh.lattice_operations as lat_opt
 import minimahopping.biomode.biomode as split_forces 
 import minimahopping.logging.logger as logging
