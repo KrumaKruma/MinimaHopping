@@ -95,7 +95,7 @@ class OverlapMatrixFingerprint:
             O = self.overlapMatrixSpHar(neiats[iat], neiels[iat], fcuts)
             fps.append(self.diag(O))
             maxlen=max(maxlen, len(neiels[iat]))
-        logging.logger.info('    Maximal number of atoms in the sphere for fingerprint: %d'%maxlen)
+        #logging.logger.info('    Maximal number of atoms in the sphere for fingerprint: %d'%maxlen)
         return fps
 
     def adjustFPlen(fps, fplen):
