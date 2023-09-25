@@ -1,7 +1,6 @@
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 import logging
-import ase
 
 @dataclass_json
 @dataclass
