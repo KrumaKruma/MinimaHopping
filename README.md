@@ -18,12 +18,18 @@ The documentation as well as tutorials for the usage of Minima Hopping can be fo
 ## Usage
 An example of how to use Python Minima Hopping can be found in the example folder on GitHub. It can be executed by
 ```bash
-python example.py
+python example/mh_na13.py
 ```
+An example of the pre-processing is given in the script:
+``` bash
+python example/fp_adjust.py
+```
+Further examples, tutorials as well as description of the input parameters can be found in the code documentation (https://python-minima-hopping.readthedocs.io/en/latest/). 
+
 
 ## References & Citing
-1. PyMH paper
-2. https://arxiv.org/abs/2206.07339
+1. https://arxiv.org/abs/2309.08418
+2. https://doi.org/10.1016/j.jcpx.2023.100131
 3. https://doi.org/10.1063/1.1724816
 
 
@@ -31,6 +37,9 @@ python example.py
 * Marco Krummenacher
 * Moritz Gubler
 * Jonas Finkler
+* Hannes Huber
+* Martin Sommer-Jörgensen
+* Stefan Goedecker
 
 
 
