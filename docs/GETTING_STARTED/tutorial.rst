@@ -129,6 +129,23 @@ Now we can set up the minima hopping class and run it:
 
 The minima hopping algorithm cycles now through 100 escape loops.
 
+.. note::
+    If a second calculator is desired this can easily be done by setting up a second md calculator and give it as an argument to the ```MinimaHopping``` class.
+    .. code-block:: python
+
+        calculator = SOME_ASE_CALCULATOR
+        md_calculator = SOME_OTHER_ASE_CALCULATOR
+
+        with Minimahopping(initial_configuration,
+                           md_calculator = md_calculator
+                           verbose_output=True,
+                           T0=2000, 
+                           dt0=0.1,
+                           use_MPI=False) as mh:
+
+        mh(totalsteps=50)
+
+
 .. caution::
     Be aware that in case you want to examine periodic systems your calculator needs the stress property included so
     that variable cell shape md and geometry optimization is possible.
@@ -198,7 +215,6 @@ it can be quite confusing so that we can removes the leafs from the traijectory 
     stripped_graph = g.remove_leaves()
     draw_pygraphviz(nx.nx_agraph.to_agraph(stripped_graph), 'no_leaves.pdf', layout='fdp')
     draw_pygraphviz(nx.nx_agraph.to_agraph(g.graph), 'with_leaves.pdf', layout='fdp')
-
 
 
 
@@ -303,15 +319,6 @@ processes with the same color will be put into one group:
     
     msg = 'group rank: {:d}   group size: {:d}  rank: {:d}  size: {:d}'.format(group_rank, group_size, rank, size)
     print(msg)
-
-
-For initializing SIRIUS an input file is needed as well as an input structure. The SIRIUS input file can be found here:
-
-PATH TO INPUTFILE
-
-and the input structure can be found here:
-
-PATH TO INPUT STRUCTURE
 
 .. code-block:: python
 
