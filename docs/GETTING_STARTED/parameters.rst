@@ -34,9 +34,11 @@ and a description of them.
     _dt, -1.0, Time step of the MD for restart (if -1 then last dt is read)
     dt_min, 0.0001, minimal time step of the MD
     mdmin, 2, Number of minima visited before stopping the MD
+    md_max_steps, 1000, Maximum number of MD steps. If reached MH continous.
     collect_md_data, False, flag to collect MD data which later could be used e.g. in machine learning
     symprec, 1e-5, Distance tolerance in Cartesian coordinates to find crystal symmetry for reshape cell operation (see spglib documentation for more info)
     fmax, 0.007, Maximal force component. Used as a stopping criterion for the geometry optimization.
+    fmax_pre_optimization, 0.1, Maximal force component. Used as stopping criterion for the pre-optimization.
     initial_step_size, None, Inital step size of the geometry optimizer. If None the initial step size is estimated
     nhist_max, 10, Maximal length of history list in sqnm geometry optimizer
     lattice_weight, 2.0, Weight / size of the supercell that is used to transform lattice derivatives. Use a value between 1 and 2. Default is 2.
