@@ -451,11 +451,10 @@ class Minimahopping:
             MaxwellBoltzmannDistribution(atoms, temperature_K=self.parameters._T, communicator='serial')
 
             # check that periodic boundaries are the same in all directions (no mixed boundary conditions)
-            # _pbc = list(set(atoms.pbc))
             assert sum(atoms.pbc) == 0 or sum(atoms.pbc) == 3, "mixed boundary conditions"
 
             # if periodic boundary conditions create cell atom object
-            if sum(atoms.pbc) == 3:
+            if sum(atoms.pbc) == 3 and not self.parameters.fixed_cell_simulation:
                 logging.logger.info("    VARIABLE CELL SHAPE SOFTENING, MD AND OPTIMIZATION ARE PERFORMED")
                 # calculate mass for cell atoms
                 # Formula if for the MD real masses are used
@@ -482,14 +481,15 @@ class Minimahopping:
             atoms.set_velocities(velocities)
 
             # set cell velocities if pbc
-            if sum(atoms.pbc) == 3:
+            if sum(atoms.pbc) == 3 and not self.parameters.fixed_cell_simulation:
                 cell_atoms.velocities = cell_velocities
    
             # Perfom MD run
             logging.logger.info("    MD Start")
             positions, lattice, self.parameters._dt, _md_trajectory, epot_max_md, number_of_md_steps = md.md(atoms = atoms, 
                                                                                                         calculator = self.md_calculator,
-                                                                                                        outpath = self._outpath, 
+                                                                                                        outpath = self._outpath,
+                                                                                                        fixed_cell_simulation = self.parameters.fixed_cell_simulation, 
                                                                                                         cell_atoms = cell_atoms,
                                                                                                         dt = self.parameters._dt, 
                                                                                                         n_max = self.parameters.mdmin,
@@ -499,12 +499,12 @@ class Minimahopping:
                                                                                                         md_max_steps=self.parameters.md_max_steps)
 
             log_msg = "    MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f}".format(number_of_md_steps, self.parameters.mdmin, self.parameters._dt)
-
+            
             logging.logger.info(log_msg)
             # Set new positions after the MD
             atoms.set_positions(positions)
             # If pbc set new lattice and reshape cell
-            if sum(atoms.pbc) == 3:
+            if sum(atoms.pbc) == 3 and not self.parameters.fixed_cell_simulation:
                 atoms.set_cell(lattice)
             try:
                 atoms.calc.recalculateBasis(atoms)
@@ -529,7 +529,7 @@ class Minimahopping:
                 # Set pre-optimized positions
                 atoms.set_positions(positions)
                 # If Pbc set pre-optimized lattice 
-                if sum(atoms.pbc) == 3:
+                if sum(atoms.pbc) == 3 and not self.parameters.fixed_cell_simulation:
                     atoms.set_cell(lattice)
 
                 # Change calculator for geometry optimization
@@ -560,7 +560,7 @@ class Minimahopping:
             # Set optimized positions
             atoms.set_positions(positions)
             # If Pbc set optimized lattice 
-            if sum(atoms.pbc) == 3:
+            if sum(atoms.pbc) == 3 and not self.parameters.fixed_cell_simulation:
                 atoms.set_cell(lattice)
                 lattice_operations.reshape_cell(atoms, self.parameters.symprec)
             try:
