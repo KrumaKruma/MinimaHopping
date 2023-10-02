@@ -64,15 +64,15 @@ def geometry_optimization(atoms, max_force_threshold,initial_step_size, nhist_ma
     epot_max = -1e10
     
     # Assert that no mixed boundary conditions
-    _pbc = list(set(atoms.pbc))
-    assert len(_pbc) == 1, "mixed boundary conditions"
+    
+    assert sum(atoms.pbc) == 0 or sum(atoms.pbc) == 3, "mixed boundary conditions"
 
     # Negative value to get automatic initialize step size
     if initial_step_size is None:
         initial_step_size = -0.001
     
     # Set if free relax or vcs relax
-    if True in _pbc:
+    if sum(atoms.pbc) == 3:
         vc_relax = True
     else:
         vc_relax = False
