@@ -6,7 +6,7 @@ from sqnm.vcsqnm_for_ase import aseOptimizer
 import minimahopping.md.md
 
 
-def optimization(atoms, calculator, max_force_threshold, outpath, initial_step_size=None, nhist_max=10, lattice_weight=2, alpha_min=1e-3, eps_subsp=1e-3, verbose=True):
+def optimization(atoms, calculator, max_force_threshold, outpath, fixed_cell_simulation=False, initial_step_size=None, nhist_max=10, lattice_weight=2, alpha_min=1e-3, eps_subsp=1e-3, verbose=True):
     # copy the atoms object and attach calculator to it
     atoms = atoms.copy()
     atoms.calc = calculator
@@ -24,7 +24,8 @@ def optimization(atoms, calculator, max_force_threshold, outpath, initial_step_s
 
     try:
         # Run geometry optimization
-        trajectory, optimizer, number_of_steps, epot_max = geometry_optimization(atoms, 
+        trajectory, optimizer, number_of_steps, epot_max = geometry_optimization(atoms,
+                                                                    fixed_cell_simulation, 
                                                                     max_force_threshold, 
                                                                     initial_step_size, 
                                                                     nhist_max, 
@@ -47,7 +48,7 @@ def optimization(atoms, calculator, max_force_threshold, outpath, initial_step_s
 
 
 
-def geometry_optimization(atoms, max_force_threshold,initial_step_size, nhist_max, lattice_weight, alpha_min, eps_subsp, verbose, optimization_trajectory_file, optimization_log_file):
+def geometry_optimization(atoms, fixed_cell_simulation,max_force_threshold,initial_step_size, nhist_max, lattice_weight, alpha_min, eps_subsp, verbose, optimization_trajectory_file, optimization_log_file):
     # check if periodic boundary condition and assert that either fully periodic or non-periodic
     '''
     geometry optimization
@@ -72,7 +73,7 @@ def geometry_optimization(atoms, max_force_threshold,initial_step_size, nhist_ma
         initial_step_size = -0.001
     
     # Set if free relax or vcs relax
-    if sum(atoms.pbc) == 3:
+    if sum(atoms.pbc) == 3 and not fixed_cell_simulation:
         vc_relax = True
     else:
         vc_relax = False

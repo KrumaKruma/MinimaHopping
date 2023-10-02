@@ -21,6 +21,8 @@ class minimaHoppingParameters:
     """alpha_accept (float): Factor for decreasing Ediff"""
     alpha_reject: float = 1.05
     """alpha_reject (float): Factor for increasing Ediff"""
+    fixed_cell_simulation = False
+    """fixed_cell_simulation(bool): if True the simulation cell is fixed and no vcs MD and opt are performed"""
     n_soft: int = 20
     """n_soft (int): number of softening steps"""
     soften_positions: float = 1e-3
