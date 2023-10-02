@@ -26,6 +26,8 @@ import sys
 
 import minimahopping.logging.logger as logging
 
+from ase.constraints import FixAtoms
+
 """
 MH Software written by Marco Krummenacher (marco.krummenacher@unibas.ch), Moritz Gubler and Jonas Finkler
 Parts of the software were originally developped (some in Fortran) from other people:
@@ -173,6 +175,11 @@ class Minimahopping:
         # Start up minimahopping 
         structure_list, calculator = self._initialize_structures(self.initial_configuration)
         current_minimum = self._startup(structure_list)  # gets an atoms object and a minimum object is returned.
+
+        # fix atomic postions of atoms if they are to be fixed
+        if len(self.parameters.fixed_positions) != []:
+            constraint = FixAtoms(indices=self.parameters.fixed_positions)
+            current_minimum.atoms.set_constraint(constraint)
 
         # Start hopping loop
         while (counter <= totalsteps):
@@ -510,7 +517,7 @@ class Minimahopping:
                 atoms.calc.recalculateBasis(atoms)
             except:
                 pass
-
+            quit()
 
             # If second calculator is present do a pre-optimization
             if self.preoptimizationNeeded:
