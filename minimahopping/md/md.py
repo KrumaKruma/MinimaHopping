@@ -178,7 +178,7 @@ def run(atoms, cell_atoms, dt, forces, lattice_force, e_pot, n_max, verbose, col
         # update the maximal/minimal total energy
         e_tot_min_new, e_tot_max_new = update_etot_minmax(e_tot, etot_min, etot_max)
 
-        if cell_atoms is None:
+        if sum(atoms.pbc) == 0:
             if i_steps%5 == 0:
                 is_one_cluster = check_and_fix_fragmentation(atoms)
 
@@ -268,12 +268,13 @@ def verlet_step(atoms, cell_atoms, dt, forces, lattice_force):
     masses = get_masses(atoms)
     
     # if the system is periodic update the cell vectors
-    if cell_atoms is not None:
+    if sum(atoms.pbc) == 3:
+        assert cell_atoms is not None, "Cell atom class not defined"
         # transform lattice force so that atoms are not moved
         lattice_force_transformed = transform_deralat(atoms, forces, lattice_force)
         # update the positions of the lattice
         update_lattice_positions(atoms, cell_atoms, lattice_force_transformed, dt)
-    
+
     # Update the positions
     atoms.set_positions(positions + dt * velocities + 0.5 * dt * dt * (forces / masses))
     
@@ -283,13 +284,15 @@ def verlet_step(atoms, cell_atoms, dt, forces, lattice_force):
     atoms.set_velocities(velocities + 0.5 * dt * ((forces + forces_new) / masses))
     
     # If system is periodic update the cell velocites
-    if cell_atoms is not None:
+    if sum(atoms.pbc) == 3:
+        assert cell_atoms is not None, "Cell atom class not defined"
         stress_tensor = atoms.get_stress(voigt=False, apply_constraint=False)
         lattice_force_new = lat_opt.lattice_derivative(stress_tensor, cell_atoms.positions)
         lattice_force_new_transformed = transform_deralat(atoms, forces_new, lattice_force_new)
         update_lattice_velocities(cell_atoms, lattice_force_transformed, lattice_force_new_transformed, dt)
     else:
         lattice_force_new = None
+        
 
 
     return forces_new, lattice_force_new
@@ -366,7 +369,7 @@ def calculate_sign(atoms, cell_atoms, cell_forces):
     '''
     Calculation whether the energy goes up or down with dot product of forces and veliocities.
     '''
-    if True in atoms.pbc:
+    if sum(atoms.pbc) == 3:
         f = np.concatenate([atoms.get_forces(),cell_forces]).flatten()
         v = np.concatenate([atoms.get_velocities(),cell_atoms.velocities]).flatten()
     else:
