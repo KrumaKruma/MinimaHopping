@@ -176,10 +176,6 @@ class Minimahopping:
         structure_list, calculator = self._initialize_structures(self.initial_configuration)
         current_minimum = self._startup(structure_list)  # gets an atoms object and a minimum object is returned.
 
-        # fix atomic postions of atoms if they are to be fixed
-        if len(self.parameters.fixed_positions) != []:
-            constraint = FixAtoms(indices=self.parameters.fixed_positions)
-            current_minimum.atoms.set_constraint(constraint)
 
         # Start hopping loop
         while (counter <= totalsteps):
@@ -335,6 +331,12 @@ class Minimahopping:
             self._run_time_sec = self._get_sec()
         self._time_in = time.time()
 
+        # fix atomic postions of atoms if they are to be fixed
+        if len(self.parameters.fixed_positions) != []:
+            constraint = FixAtoms(indices=self.parameters.fixed_positions)
+            for atom in atoms:
+                atom.set_constraint(constraint)
+        
         # Check if this is a fresh start
         if not self.isRestart:
             logging.logger.info('  New MH run is started')
@@ -394,7 +396,6 @@ class Minimahopping:
 
         status = 'Initial'
         self._history_log(struct_cur, status)
-
         return struct_cur
 
 
@@ -517,7 +518,6 @@ class Minimahopping:
                 atoms.calc.recalculateBasis(atoms)
             except:
                 pass
-            quit()
 
             # If second calculator is present do a pre-optimization
             if self.preoptimizationNeeded:

@@ -1,7 +1,7 @@
 import numpy as np
 import warnings
 from ase.io import write
-# import minimahopping.mh.lattice_operations as lat_opt
+import minimahopping.mh.lattice_operations as lat_opt
 from sqnm.vcsqnm_for_ase import aseOptimizer
 import minimahopping.md.md
 
@@ -93,7 +93,7 @@ def geometry_optimization(atoms, fixed_cell_simulation,max_force_threshold,initi
         
         optimizer.step(atoms)
         max_force_comp = optimizer._getDerivativeNorm()
-
+        
         i_step += 1
         
         energy = atoms.get_potential_energy()
@@ -133,7 +133,8 @@ def write_log(atoms, optimizer, i_step, max_force_comp, max_disp, optimization_t
                                                                                                             optimizer.optimizer.optimizer.alpha,
                                                                                                             optimizer.optimizer.optimizer.dim_subspace,
                                                                                                             max_disp)
-    
+     
+    forces = atoms.get_forces()
     optimization_log_file.write(opt_msg)
     optimization_log_file.flush()
     write(optimization_trajectory_file, atoms, parallel=False)
