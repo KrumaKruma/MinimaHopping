@@ -451,11 +451,11 @@ class Minimahopping:
             MaxwellBoltzmannDistribution(atoms, temperature_K=self.parameters._T, communicator='serial')
 
             # check that periodic boundaries are the same in all directions (no mixed boundary conditions)
-            _pbc = list(set(atoms.pbc))
-            assert len(_pbc) == 1, "mixed boundary conditions"
+            # _pbc = list(set(atoms.pbc))
+            assert sum(atoms.pbc) == 0 or sum(atoms.pbc) == 3, "mixed boundary conditions"
 
             # if periodic boundary conditions create cell atom object
-            if True in _pbc:
+            if sum(atoms.pbc) == 3:
                 logging.logger.info("    VARIABLE CELL SHAPE SOFTENING, MD AND OPTIMIZATION ARE PERFORMED")
                 # calculate mass for cell atoms
                 # Formula if for the MD real masses are used
@@ -482,7 +482,7 @@ class Minimahopping:
             atoms.set_velocities(velocities)
 
             # set cell velocities if pbc
-            if True in _pbc:
+            if sum(atoms.pbc) == 3:
                 cell_atoms.velocities = cell_velocities
    
             # Perfom MD run
@@ -504,7 +504,7 @@ class Minimahopping:
             # Set new positions after the MD
             atoms.set_positions(positions)
             # If pbc set new lattice and reshape cell
-            if True in _pbc:
+            if sum(atoms.pbc) == 3:
                 atoms.set_cell(lattice)
             try:
                 atoms.calc.recalculateBasis(atoms)
@@ -529,7 +529,7 @@ class Minimahopping:
                 # Set pre-optimized positions
                 atoms.set_positions(positions)
                 # If Pbc set pre-optimized lattice 
-                if True in _pbc:
+                if sum(atoms.pbc) == 3:
                     atoms.set_cell(lattice)
 
                 # Change calculator for geometry optimization
@@ -560,7 +560,7 @@ class Minimahopping:
             # Set optimized positions
             atoms.set_positions(positions)
             # If Pbc set optimized lattice 
-            if True in _pbc:
+            if sum(atoms.pbc) == 3:
                 atoms.set_cell(lattice)
                 lattice_operations.reshape_cell(atoms, self.parameters.symprec)
             try:
