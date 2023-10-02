@@ -331,11 +331,19 @@ class Minimahopping:
             self._run_time_sec = self._get_sec()
         self._time_in = time.time()
 
+        # print info that cell is not moved
+        if self.parameters.fixed_cell_simulation:
+            logging.logger.info("  Fixed cell simulation: Variable cell features are turned off!")
+
         # fix atomic postions of atoms if they are to be fixed
         if len(self.parameters.fixed_positions) != []:
+            logging.logger.info("  Fixing the atoms: {}".format(', '.join(map(str, self.parameters.fixed_positions))))
             constraint = FixAtoms(indices=self.parameters.fixed_positions)
             for atom in atoms:
                 atom.set_constraint(constraint)
+            if not self.parameters.fixed_cell_simulation:
+                logging.logger.warn("  you are fixing atoms and variable cell shape features. This has not been tested.")
+            
         
         # Check if this is a fresh start
         if not self.isRestart:
