@@ -225,9 +225,9 @@ The main difference is now that the mpi4py library has to be imported too:
 
 .. code-block:: python
 
-    from minimahopping.adjust_fp import adjust_fp
+    from minimahopping.minhop import Minimahopping
     from ase.calculators.eam import EAM
-    from ase.cluster import Icosahedron
+    from ase.cluster.wulff import wulff_construction
     from mpi4py import MPI
 
 
@@ -242,8 +242,8 @@ in the minima hopping constructure
     calculator = EAM(potential="Na_v2.eam.fs")
     atoms.calc = calculator
     fnrm = 5e-3
-    minima_threshold = 1e-4
-    with Minimahopping(atoms, fmax=fnrm, minima_threshold=minima_threshold, verbose=False, T0=2000, dt=0.1) as mh:
+    fingerprint_threshold = 1e-4
+    with Minimahopping(atoms, fmax=fnrm, fingerprint_threshold=fingerprint_threshold, verbose_output=False, T0=2000, dt0=0.1) as mh:
         mh(totalsteps=100)
 
 
