@@ -14,13 +14,6 @@ cd ase_mh
 pip install .
 ```
 
-Our code is also available on GitHub (https://github.com/KrumaKruma/MinimaHopping.git) and can be installed the same way:
-```bash
-git clone https://github.com/KrumaKruma/MinimaHopping.git
-cd MinimaHopping
-pip install .
-```
-
 ## Documentation & Tutorial
 The documentation including a description of the parameters as well as the output and several tutorials for the usage of Minima Hopping can be found on https://python-minima-hopping.readthedocs.io/en/latest/.
 
