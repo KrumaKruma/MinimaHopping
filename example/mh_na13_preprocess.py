@@ -2,9 +2,11 @@
 from ase.calculators.eam import EAM
 from minimahopping.adjust_fp import adjust_fp
 from ase.cluster import Icosahedron
+import logging
 
 def main():
 
+    logging.INFO
     atoms = Icosahedron('Na', 2, latticeconstant=None)
     calculator = EAM(potential="Na_v2.eam.fs")
     atoms.calc = calculator
