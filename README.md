@@ -20,19 +20,13 @@ The documentation including a description of the parameters as well as the outpu
 ## Usage
 An example of the pre-processing is given in the script:
 ``` bash
-python example/mh_na13_preprocess.py
+python example/fp_adjust.py
 ```
 
 An example of how to use Python Minima Hopping can be found in the example folder on GitHub. It can be executed by
 ```bash
 python example/mh_na13.py
 ```
-
-The MPI parallelization can be tested by executing the following script:
-```bash
-mpirun python example/mh_na13_mpi.py
-```
-
 Further examples, tutorials as well as description of the input parameters can be found in the code documentation (https://python-minima-hopping.readthedocs.io/en/latest/). 
 
 
