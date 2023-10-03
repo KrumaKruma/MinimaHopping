@@ -10,7 +10,7 @@ setup(
     url='https://github.com/',
     keywords='development, setup, setuptools',
     python_requires='>=3.7, <4',
-    packages=find_packages(include=['src', 'src.*']),
+    packages=find_packages(include=['minimahopping', 'minimahopping.*']),
     install_requires=[
         'numpy',
         'ase',
