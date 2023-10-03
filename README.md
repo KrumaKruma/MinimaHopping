@@ -25,19 +25,19 @@ pip install .
 The documentation including a description of the parameters as well as the output and several tutorials for the usage of Minima Hopping can be found on https://python-minima-hopping.readthedocs.io/en/latest/.
 
 ## Usage
-An example of the pre-processing is given in the script:
+An example of the pre-processing is given in the script in the example folder:
 ``` bash
-python example/mh_na13_preprocess.py
+python mh_na13_preprocess.py
 ```
 
 An example of how to use Python Minima Hopping can be found in the example folder on GitHub. It can be executed by
 ```bash
-python example/mh_na13.py
+python mh_na13.py
 ```
 
 The MPI parallelization can be tested by executing the following script:
 ```bash
-mpirun python example/mh_na13_mpi.py
+mpirun python mh_na13_mpi.py
 ```
 
 Note: if you ran first the single thread simulation we recommend to delete the output of these simulation before starting with the MPI parallelized simulation.
