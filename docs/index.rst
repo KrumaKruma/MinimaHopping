@@ -41,6 +41,9 @@ Current list of contributors:
 
 Citing MinimaHopping
 --------------------
+This implementation
+
+   M. Krummenacher, M. Gubler, J. A. Finkler, H. Huber, M. Sommer-Jörgensen, S.Goedecker, `Performing highly efficient Minima Hopping strucutre predictions using the Atomic Simulation Environment <https://arxiv.org/abs/2309.08418>`
 
 Original Paper
 
