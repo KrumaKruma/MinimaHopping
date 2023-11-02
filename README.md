@@ -1,36 +1,63 @@
-# ASE_MH
+# Python Minima Hopping
+Python Minima Hopping code for global strucutre optimization. This code can simulate both, cluster and bulk systems. Moreover can any ASE calculator be coupled to the code. For periodic systems variable cell shape MD, softening and optimization are implemented. 
 
-Minima Hopping (MH) code in python coupled with the ASE library. This code can simulate both, cluster and bulk systems. The code can be used with any calcualtor which is aviable in ase where a stress tensor is present (if periodic systems are simulated). For periodic systems variable cell shape MD, softening and optimization is implemented. 
+## Installation
+Python Minima Hopping requires:
+* Python >= 3.7
 
-## Requirements
-* Python 3.7 or later
-* ase (atomic simulation envrionment)
-* numpy
-* scipy
+For the usage of the MPI parallelization mpi4py (https://mpi4py.readthedocs.io/en/stable/) must be installed correctly and to generate graphs in the post-processing graphviz and PyGraphviz (https://pygraphviz.github.io/documentation/stable/) have to be installed.  
+
+The code is installed by using Python pip:
+```bash 
+git clone https://gitlab.com/goedeckergroup/ase_mh.git
+cd ase_mh
+pip install .
+```
+
+Our code is also available on GitHub (https://github.com/KrumaKruma/MinimaHopping.git) and can be installed the same way:
+```bash
+git clone https://github.com/KrumaKruma/MinimaHopping.git
+cd MinimaHopping
+pip install .
+```
+
+## Documentation & Tutorial
+The documentation including a description of the parameters as well as the output and several tutorials for the usage of Minima Hopping can be found on https://python-minima-hopping.readthedocs.io/en/latest/.
 
 ## Usage
-Currently the package cannot be installed via pip. However, once the repository is cloned it can be tested by executing the main.py. 
-```bash
-python main.py
+An example of the pre-processing is given in the script in the example folder:
+``` bash
+python mh_na13_preprocess.py
 ```
-This will start a minima hopping run with the LJ potential for the double funnel LJ38 cluster. After the simulation is finished several output files are written. The lowest n (parameter n_poslow in the Minimahopping class) minima are written in a directory minima and can be visualized by using v_sim (or any other software which can visualize .xyz and .ascii files). 
-In the min.extxyz file all uniquely found minima are stored and the corresponding fingerprints are stored in fp.dat. The acc.extxyz file stores all the accepted minima and history.dat is a log file which shows all the useful information about the found minima. 
 
-### Restart 
-If at least the min.extxyz and the history.dat file is detected in the folder, a restart of the previous run is performed. If the acc.extxyz file contains any structure the last accepted structure is taken as input structure for the restart else the last found minimum in min.extxyz is taken as starting structure. If a fp.dat file is aviable the fingerprints are read else they are calculated in the begining of the restart. 
+An example of how to use Python Minima Hopping can be found in the example folder on GitHub. It can be executed by
+```bash
+python mh_na13.py
+```
+
+The MPI parallelization can be tested by executing the following script:
+```bash
+mpirun python mh_na13_mpi.py
+```
+
+Note: if you ran first the single thread simulation we recommend to delete the output of these simulation before starting with the MPI parallelized simulation.
+
+Further examples, tutorials as well as description of the input parameters can be found in the code documentation (https://python-minima-hopping.readthedocs.io/en/latest/). 
 
 
-## ToDo
-* Implementation of active learning with Gaussian process (FLARE++)
-* setup so that it can be installed with pip
+## References & Citing
+1. Reference for this code: https://arxiv.org/abs/2309.08418
+2. Reference to the original implementation: https://doi.org/10.1063/1.1724816
+3. Reference for the local geometry optimizer: https://doi.org/10.1016/j.jcpx.2023.100131
+4. Reference for the Overlap Matrix Fingerprint: https://doi.org/10.1063/1.4940026 and https://doi.org/10.1063/1.4828704
 
-## Contribution
-Several people have contributed to this code either with direct python implementations of their work or reference implementations in Fortran:
-* Marco Krummenacher (marco.krummenacher@unibas.ch) --> main development
-* Moritz Gubler --> variable cell shape [SQNM optimizer](https://github.com/moritzgubler/vc-sqnm)
-* Jonas Finkler --> overlap matrix fingerprint
-* Hannes Huber --> variable cell shape softening (Fortran reference implementation)
-* Martin Sommer --> variable cell shape MD (Fortran reference implementation)
+## Authors
+* Marco Krummenacher
+* Moritz Gubler
+* Jonas Finkler
+* Hannes Huber
+* Martin Sommer-Jörgensen
+* Stefan Goedecker
 
 
 

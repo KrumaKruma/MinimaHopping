@@ -23,7 +23,7 @@ def main():
     # or using mpi in the minima hopping simulation:
     # with Minimahopping(initial_configuration, verbose_output=True, T0=2000, dt=0.1, use_MPI=True) as mh:
 
-        mh(totalsteps=5)
+        mh(totalsteps=50)
 
 
 if __name__ == '__main__':
