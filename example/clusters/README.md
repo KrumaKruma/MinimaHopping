@@ -15,5 +15,10 @@ In this example the Minima Hopping for Na13 is performed. First an initial struc
 python mh_na13.py
 ```
 
+It is also possible to run multiple Minima Hopping processes sharing a single database with MPI. To do that the mpi4py library must be installed correctly on your system. Running the follwing command will perfom such a simulation:
+```bash
+mpirun python mh_na13_mpi.py
+```
+
 
 
