@@ -336,14 +336,27 @@ class Minimahopping:
             logging.logger.info("  Fixed cell simulation: Variable cell features are turned off!")
 
         # fix atomic postions of atoms if they are to be fixed
-        if len(self.parameters.fixed_positions) != []:
+        if len(self.parameters.fixed_positions) != 0:
             logging.logger.info("  Fixing the atoms: {}".format(', '.join(map(str, self.parameters.fixed_positions))))
             constraint = FixAtoms(indices=self.parameters.fixed_positions)
             for atom in atoms:
                 atom.set_constraint(constraint)
             if not self.parameters.fixed_cell_simulation:
-                logging.logger.warn("  you are fixing atoms and variable cell shape features. This has not been tested.")
-            
+                logging.logger.warn("  you are fixing atoms and variable cell shape features. This can lead to problems with the variable cell shape optimization.")
+
+        for atom in atoms: 
+            if  sum(atom.pbc) == 2:
+                logging.logger.info("slab boundary condition simulation")
+                if not self.parameters.fixed_cell_simulation:
+                    index = np.where(atom.pbc==False)[0]
+                    if index == 2:
+                        logging.logger.info("lattice is adjusted so that variable cell shape slab can be used.")
+                        logging.logger.warn("plase make sure that the stress is returned for slab boundary conditions.")
+                        atom.cell[:,2] = 0. 
+                        atom.cell[2,:] = 0. 
+                        atom.cell[2,2] = 0. 
+                    else:
+                        logging.logger.info("Abort simulation: For slab simulations z-dimension has to be non-periodic")
         
         # Check if this is a fresh start
         if not self.isRestart:
@@ -467,9 +480,6 @@ class Minimahopping:
 
             MaxwellBoltzmannDistribution(atoms, temperature_K=self.parameters._T, communicator='serial')
 
-            # check that periodic boundaries are the same in all directions (no mixed boundary conditions)
-            #assert sum(atoms.pbc) == 0 or sum(atoms.pbc) == 3, "mixed boundary conditions"
-
             # if periodic boundary conditions create cell atom object
             if True in atoms.pbc and not self.parameters.fixed_cell_simulation:
                 logging.logger.info("    VARIABLE CELL SHAPE SOFTENING, MD AND OPTIMIZATION ARE PERFORMED")
@@ -482,7 +492,6 @@ class Minimahopping:
                 cell_atoms = Cell_atom(mass=mass, positions=atoms.get_cell())
                 # set velocities of the cell atoms
                 cell_atoms.set_velocities_boltzmann(temperature=self.parameters._T)
-
             else:
                 # cell_atoms has to be None for soften/md/geopt if no pbc
                 cell_atoms = None
@@ -501,6 +510,8 @@ class Minimahopping:
             # set cell velocities if pbc
             if True in atoms.pbc and not self.parameters.fixed_cell_simulation:
                 cell_atoms.velocities = cell_velocities
+                #set the cell velocities to zero if for the turned off boundary conditions
+                self.set_cell_velocity_mixed_boundary_conditions(atoms,cell_atoms)
    
             # Perfom MD run
             logging.logger.info("    MD Start")
@@ -616,8 +627,21 @@ class Minimahopping:
         return proposed_structure, _epot_max, _md_trajectory, _opt_trajectory
 
 
-    def isEqualTo(self, structure1: Minimum, structure2: Minimum):
 
+    def set_cell_velocity_mixed_boundary_conditions(self,atoms, cell_atoms):
+        '''
+        Function to set the cell velocities to zero if there is no periodic boundary condition
+        '''
+        for i in np.where(atoms.pbc==False):
+            ind = i[0]
+            cell_atoms.velocities[:,ind] = 0.
+            cell_atoms.velocities[ind,:] = 0.
+
+
+    def isEqualTo(self, structure1: Minimum, structure2: Minimum):
+        '''
+        Checking if two strucutres are different.
+        '''
         energy_difference = structure1.__compareto__(structure2)
         if energy_difference < self.parameters.energy_threshold:
             fingerprint_distance = structure1.fingerprint_distance(structure2)
