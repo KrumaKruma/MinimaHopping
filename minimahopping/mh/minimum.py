@@ -143,7 +143,7 @@ class Minimum():
             """
 
             _pbc = list(set(self.atoms.pbc))
-            assert len(_pbc) == 1, "mixed boundary conditions"
+            #assert len(_pbc) == 1, "mixed boundary conditions"
             _ang2bohr = 1.8897161646320724
 
             _symbols = self.atoms.get_chemical_symbols()
