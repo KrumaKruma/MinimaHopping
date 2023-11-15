@@ -415,6 +415,7 @@ class Minimahopping:
                                                                         calculator=self.calculator, 
                                                                         max_force_threshold=self.parameters.fmax, 
                                                                         outpath=self._outpath,
+                                                                        fixed_cell_simulation=self.parameters.fixed_cell_simulation,
                                                                         initial_step_size=self.parameters.initial_step_size,
                                                                         nhist_max=self.parameters.nhist_max,
                                                                         lattice_weight=self.parameters.lattice_weight,
@@ -467,10 +468,10 @@ class Minimahopping:
             MaxwellBoltzmannDistribution(atoms, temperature_K=self.parameters._T, communicator='serial')
 
             # check that periodic boundaries are the same in all directions (no mixed boundary conditions)
-            assert sum(atoms.pbc) == 0 or sum(atoms.pbc) == 3, "mixed boundary conditions"
+            #assert sum(atoms.pbc) == 0 or sum(atoms.pbc) == 3, "mixed boundary conditions"
 
             # if periodic boundary conditions create cell atom object
-            if sum(atoms.pbc) == 3 and not self.parameters.fixed_cell_simulation:
+            if True in atoms.pbc and not self.parameters.fixed_cell_simulation:
                 logging.logger.info("    VARIABLE CELL SHAPE SOFTENING, MD AND OPTIMIZATION ARE PERFORMED")
                 # calculate mass for cell atoms
                 # Formula if for the MD real masses are used
@@ -481,6 +482,7 @@ class Minimahopping:
                 cell_atoms = Cell_atom(mass=mass, positions=atoms.get_cell())
                 # set velocities of the cell atoms
                 cell_atoms.set_velocities_boltzmann(temperature=self.parameters._T)
+
             else:
                 # cell_atoms has to be None for soften/md/geopt if no pbc
                 cell_atoms = None
@@ -497,7 +499,7 @@ class Minimahopping:
             atoms.set_velocities(velocities)
 
             # set cell velocities if pbc
-            if sum(atoms.pbc) == 3 and not self.parameters.fixed_cell_simulation:
+            if True in atoms.pbc and not self.parameters.fixed_cell_simulation:
                 cell_atoms.velocities = cell_velocities
    
             # Perfom MD run
@@ -520,7 +522,7 @@ class Minimahopping:
             # Set new positions after the MD
             atoms.set_positions(positions)
             # If pbc set new lattice and reshape cell
-            if sum(atoms.pbc) == 3 and not self.parameters.fixed_cell_simulation:
+            if True in atoms.pbc and not self.parameters.fixed_cell_simulation:
                 atoms.set_cell(lattice)
             try:
                 atoms.calc.recalculateBasis(atoms)
