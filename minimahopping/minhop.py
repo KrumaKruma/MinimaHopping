@@ -349,15 +349,18 @@ class Minimahopping:
                 logging.logger.info("slab boundary condition simulation")
                 if not self.parameters.fixed_cell_simulation:
                     index = np.where(atom.pbc==False)[0]
-                    if index == 2:
-                        logging.logger.info("lattice is adjusted so that variable cell shape slab can be used.")
-                        logging.logger.warn("plase make sure that the stress is returned for slab boundary conditions.")
-                        atom.cell[:,2] = 0. 
-                        atom.cell[2,:] = 0. 
-                        atom.cell[2,2] = 0. 
-                    else:
+                    sum_offset_zcell = np.sum(atom.cell[2,:2] + atom.cell[:2,2])
+                    if index == 2 and sum_offset_zcell < 1e-10:
+                        logging.logger.info("Lattice is adjusted so that variable cell shape slab can be used.")
+                        logging.logger.warn("Plase make sure that the stress is returned for slab boundary conditions.")
+                        atom.cell[2,2] = 1. 
+                    elif index != 2:
                         logging.logger.info("Abort simulation: For slab simulations z-dimension has to be non-periodic")
-        
+                        quit()
+                    else:
+                        logging.logger.info("Abort simulation: Cell is not in the shape [[a,b,0],[c,d,0],[0,0,1]]")
+                        quit()
+
         # Check if this is a fresh start
         if not self.isRestart:
             logging.logger.info('  New MH run is started')
