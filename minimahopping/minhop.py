@@ -632,10 +632,11 @@ class Minimahopping:
         '''
         Function to set the cell velocities to zero if there is no periodic boundary condition
         '''
-        for i in np.where(atoms.pbc==False):
-            ind = i[0]
-            cell_atoms.velocities[:,ind] = 0.
-            cell_atoms.velocities[ind,:] = 0.
+        if sum(atoms.pbc) > 0 and sum(atoms.pbc) < 3:
+            for i in np.where(atoms.pbc==False):
+                ind = i[0]
+                cell_atoms.velocities[:,ind] = 0.
+                cell_atoms.velocities[ind,:] = 0.
 
 
     def isEqualTo(self, structure1: Minimum, structure2: Minimum):
