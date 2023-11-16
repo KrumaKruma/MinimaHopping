@@ -43,7 +43,7 @@ def optimization(atoms, calculator, max_force_threshold, outpath, fixed_cell_sim
         if verbose:
             optimization_trajectory_file.close()
             optimization_log_file.close()
-
+    print("Lattice:   ", lattice_out)
     return positions_out, lattice_out, noise, trajectory, number_of_steps, epot_max
 
 
@@ -66,18 +66,18 @@ def geometry_optimization(atoms, fixed_cell_simulation,max_force_threshold,initi
     
     # Assert that no mixed boundary conditions
     
-    assert sum(atoms.pbc) == 0 or sum(atoms.pbc) == 3, "mixed boundary conditions"
+    #assert sum(atoms.pbc) == 0 or sum(atoms.pbc) == 3, "mixed boundary conditions"
 
     # Negative value to get automatic initialize step size
     if initial_step_size is None:
         initial_step_size = -0.001
     
     # Set if free relax or vcs relax
-    if sum(atoms.pbc) == 3 and not fixed_cell_simulation:
+    if True in atoms.pbc and not fixed_cell_simulation:
         vc_relax = True
     else:
         vc_relax = False
-    
+
     # Initialize optimizer
     optimizer = aseOptimizer(initial_structure=atoms, 
                              vc_relax=vc_relax, 

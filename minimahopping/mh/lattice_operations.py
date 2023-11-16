@@ -17,7 +17,7 @@ def lattice_derivative(stress_tensor: np.array, cell: np.array):
     """
     assert stress_tensor.shape == (3,3), 'Stress tensor is not a 3x3 array'
     assert cell.shape == (3,3), 'Cell is not a 3x3 array'
-
+    
     inv_cell = np.linalg.inv(cell)
     prefact = np.linalg.det(cell)
     deralat = (- prefact * np.matmul(stress_tensor, inv_cell)).T
