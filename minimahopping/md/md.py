@@ -22,8 +22,7 @@ def md(atoms, calculator, outpath, fixed_cell_simulation=False,cell_atoms = None
     # Make a copy of the atoms object and attach a calculator
     atoms = atoms.copy()
     atoms.calc = calculator
-
-    # If verbosity is true make the output files
+    
     if verbose:
         md_trajectory_file = open(outpath + "MD_trajectory.extxyz", "w")
 
@@ -64,6 +63,7 @@ def md(atoms, calculator, outpath, fixed_cell_simulation=False,cell_atoms = None
         if verbose:
             md_trajectory_file.close()
             md_log_file.close()
+    
     return atoms.get_positions(), atoms.get_cell(), new_dt, trajectory, e_pot_max, i_steps
 
 
@@ -159,7 +159,7 @@ def run(atoms, fixed_cell_simulation, cell_atoms, dt, forces, lattice_force, e_p
     lattice_old = initial_lattice
 
     e_pot_old, e_kin_old, e_tot_old = calc_etot_and_ekin(atoms, cell_atoms)
-
+    
     while i_steps < md_max_steps:
         # perform velocity verlet step
         forces_new, lattice_force_new = verlet_step(atoms, fixed_cell_simulation,cell_atoms, dt, forces, lattice_force)
@@ -280,7 +280,7 @@ def verlet_step(atoms, fixed_cell_simulation, cell_atoms, dt, forces, lattice_fo
     masses = get_masses(atoms)
     
     # if the system is periodic update the cell vectors
-    if sum(atoms.pbc) == 3 and not fixed_cell_simulation:
+    if True in atoms.pbc and not fixed_cell_simulation:
         assert cell_atoms is not None, "Cell atom class not defined"
         # transform lattice force so that atoms are not moved
         lattice_force_transformed = transform_deralat(atoms, forces, lattice_force)
@@ -296,7 +296,7 @@ def verlet_step(atoms, fixed_cell_simulation, cell_atoms, dt, forces, lattice_fo
     atoms.set_velocities(velocities + 0.5 * dt * ((forces + forces_new) / masses))
     
     # If system is periodic update the cell velocites
-    if sum(atoms.pbc) == 3 and not fixed_cell_simulation:
+    if True in atoms.pbc and not fixed_cell_simulation:
         assert cell_atoms is not None, "Cell atom class not defined"
         stress_tensor = atoms.get_stress(voigt=False, apply_constraint=False)
         lattice_force_new = lat_opt.lattice_derivative(stress_tensor, cell_atoms.positions)
@@ -311,11 +311,12 @@ def verlet_step(atoms, fixed_cell_simulation, cell_atoms, dt, forces, lattice_fo
 
 
 def transform_deralat(atoms, forces, deralat):
+    index = len(np.where(atoms.pbc==True)[0])
+    new_deralat = deralat.copy()
     reduced_positions = atoms.get_scaled_positions(wrap=False)
-    sumsum = np.zeros((3,3))
-    sumsum = np.dot(forces.T, reduced_positions)
-
-    new_deralat = deralat - sumsum.T
+    sumsum = np.zeros((index,index))
+    sumsum = np.dot(forces.T[:index,:], reduced_positions[:,:index])
+    new_deralat[:index,:index] = deralat[:index,:index] - sumsum.T
     return new_deralat
 
 
@@ -338,6 +339,7 @@ def update_lattice_velocities(cell_atoms, lattice_force, lattice_force_new, dt):
     cell_masses = get_cell_masses(cell_atoms)
     # update cell velocities
     cell_atoms.velocities = cell_atoms.velocities + 0.5 * dt * ((lattice_force + lattice_force_new) / cell_masses)
+
 
 
 def check_coordinate_shift(atoms, positions_old, lattice_old):
@@ -381,7 +383,7 @@ def calculate_sign(atoms, fixed_cell_simulation,cell_atoms, cell_forces):
     '''
     Calculation whether the energy goes up or down with dot product of forces and veliocities.
     '''
-    if sum(atoms.pbc) == 3 and not fixed_cell_simulation:
+    if True in atoms.pbc and not fixed_cell_simulation:
         f = np.concatenate([atoms.get_forces(),cell_forces]).flatten()
         v = np.concatenate([atoms.get_velocities(),cell_atoms.velocities]).flatten()
     else:
