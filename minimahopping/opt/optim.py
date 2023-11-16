@@ -43,7 +43,6 @@ def optimization(atoms, calculator, max_force_threshold, outpath, fixed_cell_sim
         if verbose:
             optimization_trajectory_file.close()
             optimization_log_file.close()
-    print("Lattice:   ", lattice_out)
     return positions_out, lattice_out, noise, trajectory, number_of_steps, epot_max
 
 
