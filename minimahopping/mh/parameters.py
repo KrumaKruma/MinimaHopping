@@ -23,8 +23,6 @@ class minimaHoppingParameters:
     """alpha_reject (float): Factor for increasing Ediff"""
     fixed_cell_simulation: bool = False
     """fixed_cell_simulation(bool): if True the simulation cell is fixed and no vcs MD and opt are performed"""
-    fixed_positions: list = field(default_factory=list)
-    """fixed_positions (list): index list of atoms which are fixed during the mh run"""
     n_soft: int = 20
     """n_soft (int): number of softening steps"""
     soften_positions: float = 1e-3
