@@ -162,7 +162,11 @@ class Minimum():
             _selected_positions = _selected_postions*_ang2bohr
             _omfpCalculator = OMFP.stefansOMFP(s=s, p=p, width_cutoff=width_cutoff)
             if True in _pbc:
-                _lattice = self.atoms.get_cell()*_ang2bohr
+                _lattice = self.atoms.get_cell()
+                if sum(self.atoms.pbc) != 3 and _lattice[2,2] == 1.0:
+                    _lattice[2,2] = 100
+                _lattice = _lattice*_ang2bohr
+
                 _omfp = _omfpCalculator.fingerprint(_selected_positions, _selected_elem, lat=_lattice)
             else:
                 _omfp = _omfpCalculator.fingerprint(_selected_positions, _selected_elem)
