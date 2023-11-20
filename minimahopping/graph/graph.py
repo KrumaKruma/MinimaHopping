@@ -51,7 +51,8 @@ class MinimaHoppingGraph:
             nx.drawing.nx_pydot.write_dot(self.graph, graphDotName)
         except ModuleNotFoundError:
             logging.logger.warning("pydot is not installed on your system. Failed to save the graph in the dot format")
-            logging.logger.warning("The graph was still saved but only in binary format. It must be converted manually using the graph command line tool.")
+            logging.logger.warning("The graph was still saved but only in binary format.")
+            logging.logger.warning("It must be converted manually using the graph command line tool on a machine that can read the pickled binary graph file and has pydot installed.")
     
 
     def write_restart_files(self):
