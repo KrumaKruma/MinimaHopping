@@ -1,7 +1,7 @@
 import numpy as np
 import warnings
 from ase.io import write
-import minimahopping.mh.lattice_operations as lat_opt
+import minimahopping.mh.lattice_operations as lattice_operations
 from sqnm.vcsqnm_for_ase import aseOptimizer
 import minimahopping.md.md
 
@@ -72,7 +72,8 @@ def geometry_optimization(atoms, fixed_cell_simulation,max_force_threshold,initi
         initial_step_size = -0.001
     
     # Set if free relax or vcs relax
-    if True in atoms.pbc and not fixed_cell_simulation:
+    periodic_type = lattice_operations.check_boundary_conditions(atoms)
+    if periodic_type != 0 and not fixed_cell_simulation:
         vc_relax = True
     else:
         vc_relax = False
