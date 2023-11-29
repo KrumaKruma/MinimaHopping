@@ -7,13 +7,13 @@ import logging
 def main():
 
     logging.INFO
-    atoms = Icosahedron('Na', 2, latticeconstant=None)
+    initial_configuration = Icosahedron('Na', 2, latticeconstant=None)
     calculator = EAM(potential="Na_v2.eam.fs")
-    atoms.calc = calculator
+    initial_configuration.calc = calculator
 
 
     fnrm =  0.001
-    adjust = adjust_fp(initial_configuration=atoms, iterations=10, T0=100, dt0=0.01, mdmin=1, n_S_orbitals=1, n_P_orbitals=1, width_cutoff=4, fmax=fnrm, write_graph_output=False)
+    adjust = adjust_fp(initial_configuration=initial_configuration, iterations=10, T0=100, dt0=0.01, mdmin=1, n_S_orbitals=1, n_P_orbitals=1, width_cutoff=4, fmax=fnrm, write_graph_output=False)
 
     outdict = adjust.run()
 

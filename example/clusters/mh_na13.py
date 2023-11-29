@@ -6,11 +6,6 @@ from ase.cluster.wulff import wulff_construction
 
 def main():
     # construct a chain with 13 atoms:
-    # initial_configuration = Icosahedron('Na', 2, latticeconstant=None)
-
-    # initial_configuration = wulff_construction('Na', surfaces=[(1, 0, 0), (0, 1, 0),(0, 0, 1)], energies=[0.001, 0.001, 0.25],
-    #                         size=55, # maximum number of atoms
-    #                         structure='bcc', rounding='above')
 
     initial_configuration = wulff_construction('Na', surfaces=[(1, 0, 0), (0, 1, 0),(0, 0, 1)], energies=[0.001, 0.001, 0.15],
                             size=13, # maximum number of atoms
