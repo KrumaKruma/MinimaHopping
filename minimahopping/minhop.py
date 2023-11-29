@@ -489,7 +489,8 @@ class Minimahopping:
             MaxwellBoltzmannDistribution(atoms, temperature_K=self.parameters._T, communicator='serial')
 
             # if periodic boundary conditions create cell atom object
-            if True in atoms.pbc and not self.parameters.fixed_cell_simulation:
+            periodicity_type = lattice_operations.check_boundary_conditions(atoms)
+            if periodicity_type != 0 and not self.parameters.fixed_cell_simulation:
                 logging.logger.info("    VARIABLE CELL SHAPE SOFTENING, MD AND OPTIMIZATION ARE PERFORMED")
                 # calculate mass for cell atoms
                 # Formula if for the MD real masses are used
