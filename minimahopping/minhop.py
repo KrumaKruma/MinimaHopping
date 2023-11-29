@@ -598,10 +598,12 @@ class Minimahopping:
 
             # Set optimized positions
             atoms.set_positions(positions)
-            # If Pbc set optimized lattice 
-            if sum(atoms.pbc) == 3 and not self.parameters.fixed_cell_simulation:
+            # If Pbc set optimized lattice
+            periodicity_type = lattice_operations.check_boundary_conditions(atoms)
+            if periodicity_type != 0 and not self.parameters.fixed_cell_simulation:
                 atoms.set_cell(lattice)
-                lattice_operations.reshape_cell(atoms, self.parameters.symprec)
+                if periodicity_type == 3:
+                    lattice_operations.reshape_cell(atoms, self.parameters.symprec)
             try:
                 atoms.calc.recalculateBasis(atoms)
             except:
