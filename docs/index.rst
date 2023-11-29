@@ -30,14 +30,17 @@ Current list of contributors:
 
 .. toctree::
    :maxdepth: 2
-   :caption: GETTING STARTED:
+   :caption: MINIMA HOPPING DOCUMENTATION:
 
    GETTING_STARTED/install
    GETTING_STARTED/theory
    GETTING_STARTED/parameters
    GETTING_STARTED/output
-   GETTING_STARTED/tutorial
-
+   EXAMPLES/clusters
+   EXAMPLES/bulk
+   EXAMPLES/md_calculator
+   EXAMPLES/slab
+   EXAMPLES/constraints
 
 Citing MinimaHopping
 --------------------
