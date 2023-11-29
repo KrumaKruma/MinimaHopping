@@ -10,13 +10,13 @@ def main():
     
     
     
-    atoms = FaceCenteredCubic(symbol='Si', latticeconstant=4., size=(1,1,1))
+    initial_configuration = FaceCenteredCubic(symbol='Si', latticeconstant=4., size=(1,1,1))
     calculator = KIM("SW_StillingerWeber_1985_Si__MO_405512056662_005")
-    atoms.calc = calculator
+    initial_configuration.calc = calculator
 
 
     fnrm =  0.001
-    adjust = adjust_fp(initial_configuration=atoms, iterations=10, T0=100, dt0=0.01, mdmin=1, n_S_orbitals=1, n_P_orbitals=1, width_cutoff=4, fmax=fnrm, write_graph_output=False)
+    adjust = adjust_fp(initial_configuration=initial_configuration, iterations=10, T0=100, dt0=0.01, mdmin=1, n_S_orbitals=1, n_P_orbitals=1, width_cutoff=4, fmax=fnrm, write_graph_output=False)
 
     outdict = adjust.run()
 
