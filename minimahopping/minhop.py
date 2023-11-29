@@ -404,7 +404,7 @@ class Minimahopping:
     def set_constraints(self, atoms):
         # fix atomic postions of atoms if they are to be fixed
         if len(self.constraints) != 0:
-            logging.logger.info("  Constraints are applied to your system. In the periodic case this usually does not work with variable cell shape features.")
+            logging.logger.warn("  Constraints are applied to your system. In the periodic case this might not work with variable cell shape features.")
             atoms.set_constraint(self.constraints)
             if not self.parameters.fixed_cell_simulation:
                 logging.logger.warn("  you are fixing atoms and variable cell shape features. This can lead to problems with the variable cell shape optimization.")
