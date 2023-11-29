@@ -19,7 +19,7 @@ def main():
     initial_configuration.calc = calc
 
 
-    with Minimahopping(initial_configuration, mdmin=3,verbose_output=True, T0=500, dt0=0.01, use_MPI=False) as mh:
+    with Minimahopping(initial_configuration, mdmin=3,verbose_output=True, T0=2000, dt0=0.01, use_MPI=False) as mh:
         mh(totalsteps=50)
 
 
