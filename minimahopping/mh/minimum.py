@@ -5,6 +5,7 @@ from minimahopping.omfp.OverlapMatrixFingerprint import OverlapMatrixFingerprint
 from ase.io import write
 from ase.atoms import Atoms
 from scipy.spatial import distance_matrix
+import minimahopping.mh.lattice_operations as lattice_operations
 try:
     from numba import njit
 except ImportError:
@@ -142,32 +143,35 @@ class Minimum():
             }
             """
 
-            _pbc = list(set(self.atoms.pbc))
-            _ang2bohr = 1.8897161646320724
+            periodic_type = lattice_operations.check_boundary_conditions(self.atoms)
+            
+            ang2bohr = 1.8897161646320724
 
-            _symbols = self.atoms.get_chemical_symbols()
-            _positions = self.atoms.get_positions()
-            _elements = self.atoms.get_atomic_numbers()
-            _selected_postions = []
-            _selected_elem = []
+            symbols = self.atoms.get_chemical_symbols()
+            positions = self.atoms.get_positions()
+            elements = self.atoms.get_atomic_numbers()
+            selected_postions = []
+            selected_elem = []
 
-            for symb,elem, pos in zip(_symbols, _elements,_positions):
+            for symb,elem, pos in zip(symbols, elements,positions):
                 if symb not in exclude:
-                    _selected_postions.append(pos)
-                    _selected_elem.append(elem)
-            _selected_postions = np.array(_selected_postions)
+                    selected_postions.append(pos)
+                    selected_elem.append(elem)
+            selected_postions = np.array(selected_postions)
 
 
-            _selected_positions = _selected_postions*_ang2bohr
-            _omfpCalculator = OMFP.stefansOMFP(s=s, p=p, width_cutoff=width_cutoff)
-            if True in _pbc:
-                _lattice = self.atoms.get_cell()
-                if sum(self.atoms.pbc) != 3 and _lattice[2,2] == 1.0:
-                    _lattice[2,2] = 100
-                _lattice = _lattice*_ang2bohr
-
-                _omfp = _omfpCalculator.fingerprint(_selected_positions, _selected_elem, lat=_lattice)
+            selected_positions = selected_postions*ang2bohr
+            omfpCalculator = OMFP.stefansOMFP(s=s, p=p, width_cutoff=width_cutoff)
+            if periodic_type == 3:
+                lattice = self.atoms.get_cell()
+                lattice = lattice * ang2bohr
+                omfp = omfpCalculator.fingerprint(selected_positions, selected_elem, lat=lattice)
+            elif periodic_type == 2:
+                lattice = self.atoms.get_cell()
+                lattice[2,2] = 100
+                lattice = lattice * ang2bohr
+                omfp = omfpCalculator.fingerprint(selected_positions, selected_elem, lat=lattice)
             else:
-                _omfp = _omfpCalculator.fingerprint(_selected_positions, _selected_elem)
-            return _omfp
+                omfp = omfpCalculator.fingerprint(selected_positions, selected_elem)
+            return omfp
 
