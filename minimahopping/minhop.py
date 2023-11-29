@@ -517,10 +517,11 @@ class Minimahopping:
             atoms.set_velocities(velocities)
 
             # set cell velocities if pbc
-            if True in atoms.pbc and not self.parameters.fixed_cell_simulation:
+            if periodicity_type != 0 and not self.parameters.fixed_cell_simulation:
+                if periodicity_type == 2:
+                    self.set_cell_velocity_mixed_boundary_conditions(cell_velocities)
                 cell_atoms.velocities = cell_velocities
                 #set the cell velocities to zero if for the turned off boundary conditions
-                self.set_cell_velocity_mixed_boundary_conditions(atoms,cell_atoms)
    
             # Perfom MD run
             logging.logger.info("    MD Start")
@@ -638,15 +639,12 @@ class Minimahopping:
 
 
 
-    def set_cell_velocity_mixed_boundary_conditions(self,atoms, cell_atoms):
+    def set_cell_velocity_mixed_boundary_conditions(self, cell_velocities):
         '''
         Function to set the cell velocities to zero if there is no periodic boundary condition
         '''
-        if sum(atoms.pbc) > 0 and sum(atoms.pbc) < 3:
-            for i in np.where(atoms.pbc==False):
-                ind = i[0]
-                cell_atoms.velocities[:,ind] = 0.
-                cell_atoms.velocities[ind,:] = 0.
+        cell_velocities[2,:] = 0.
+        cell_velocities[:,2] = 0.
 
 
     def isEqualTo(self, structure1: Minimum, structure2: Minimum):
