@@ -1,6 +1,5 @@
-
-Minima Hopping Tutorial
-+++++++++++++++++++++++
+Example: Clusters
+++++++++++++++++++++++++++++++++++++
 This tutorial gives a brief overview how to run the minima hopping algorithm. A sodium 13 cluster is examined using the
 `eam calculator <https://wiki.fysik.dtu.dk/ase/ase/calculators/eam.html#module-ase.calculators.eam>`_ implemented in
 ASE. To use this calculator a parameter file is needed. This file can be downloaded the following way:
@@ -131,6 +130,7 @@ The minima hopping algorithm cycles now through 100 escape loops.
 
 .. note::
     If a second calculator is desired this can easily be done by setting up a second md calculator and give it as an argument to the ```MinimaHopping``` class.
+    
     .. code-block:: python
 
         calculator = SOME_ASE_CALCULATOR
@@ -377,147 +377,4 @@ If minimahopping is finished the calculator and, hence, all MPI processes are en
         if rank != 0 and group_rank == 0:
             print("Closing calculator on rank", rank, flush=True)
             atoms.calc.close()
-
-
-Exercise 6: Periodic boundary conditions
-----------------------------------------
-In this example the global optimization of Si4 is performed. For this the `openKin calculator <https://wiki.fysik.dtu.dk/ase/ase/calculators/eam.html#module-ase.calculators.eam>`_ was used.
-In order to use this calculator the `KIM API <https://github.com/openkim/kim-api>`_ and `kimpy <https://github.com/openkim/kimpy>`_ have to be installed. Please follow the installation instructions
-provided in the links to install the calculator properly. In this example the Stillinger-Weber `SW_StillingerWeber_1985_Si__MO_405512056662_005` potential is used. After having installed the KIM API
-properly the potential can be installed with the following command:
-
-.. code-block:: bash
-
-    kim-api-collections-management install user SW_StillingerWeber_1985_Si__MO_405512056662_005
-
-.. note::
-    Basically any silicon potential which can be installed with openKim can be used. However, we have only tested this example by using the above described Stillinger-Weber potential.
-    In case you use another silicon potential the result can differ. 
-
-Before running the Minima Hopping algorithm it is cucial to determine the fingerprint distance of structures which can be considered the same and structures which are different.
-Sever MD trajectories are performed and relaxed back to the same local minimum. This can be done by using the preprocessing `adjust_fp` class. First all the modules used for the calculation are imported:
-
-.. code-block:: python
-
-    import logging
-    from minimahopping.adjust_fp import adjust_fp
-    from ase.lattice.cubic import FaceCenteredCubic
-    from ase.calculators.kim.kim import KIM
-
-Then the logging is set to input so that the MD trajectory is not written to files, the strucutre is created and the calculator is set up
-
-.. code-block:: python
-
-    logging.INFO
-    atoms = FaceCenteredCubic(symbol='Si', latticeconstant=4., size=(1,1,1))
-    calculator = KIM("SW_StillingerWeber_1985_Si__MO_405512056662_005")
-    atoms.calc = calculator
-
-Next the `adjust_fp` class is set up and run:
-
-.. code-block:: python
-
-    fnrm =  0.001
-    adjust = adjust_fp(initial_configuration=atoms, 
-                       iterations=10, 
-                       T0=100, 
-                       dt0=0.01,
-                       mdmin=1, 
-                       n_S_orbitals=1, 
-                       n_P_orbitals=1, 
-                       width_cutoff=4, 
-                       fmax=fnrm, 
-                       write_graph_output=False)
-
-    outdict = adjust.run()
-
-    fp_max = outdict['fp']['max']
-    fp_mean = outdict['fp']['mean']
-    fp_std = outdict['fp']['std']
-    
-    msg = "\n=======================FINGERPRINT================================\n"
-    msg += '\nMaximal fingerprint distance between the same local minima:\n' + str(fp_max)
-    msg += '\n Mean fingerprint distance between the same local minima:\n' + str(fp_mean)
-    msg += '\n Standard deviaton of the fingerprint distances:\n' + str(fp_std)
-    msg += '\n Suggested minimum threshold (mean + 3 * std):\n' + str(fp_mean + 3 * fp_std)
-    msg += "\n==================================================================\n"
-    print(msg)
-
-    e_max = outdict['energy']['max']
-    e_mean = outdict['energy']['mean']
-    e_std = outdict['energy']['std']
-    msg = "\n=========================ENERGIES=================================\n"
-    msg += '\nMaximal difference between the same local minima:\n' + str(e_max)
-    msg += '\n Mean energy difference between the same local minima:\n' + str(e_mean)
-    msg += '\n Standard deviaton of the energy differences:\n' + str(e_std)
-    msg += '\n Suggested energy threshold (mean + 3 * std):\n' + str(e_mean + 3 * e_std)
-    msg += "\n==================================================================\n"
-    print(msg)
-
-.. note::
-    This example is exactly the same as the non-periodic case. The only difference is that the atoms object contains now a lattice and the periodic boundary conditions are set to `True`. 
-    You can check this in the python code by printing `atoms.pbc` and the lattice vectors can be checked by `atoms.get_cell()`.
-
-After having performed the pre-processing we perform the Minima Hopping for the Si4 system. First we import all the nessecairy modules:
-
-.. code-block:: python
-
-    from ase.lattice.cubic import FaceCenteredCubic
-    from ase.calculators.kim.kim import KIM
-    from minimahopping.minhop import Minimahopping
-
-Then the initial strucutre is built and the calculator is set up:
-
-.. code-block:: python
-
-    initial_configuration = FaceCenteredCubic(symbol='Si', latticeconstant=5.25, size=(1,1,1))
-    calculator = KIM("SW_StillingerWeber_1985_Si__MO_405512056662_005")
-    initial_configuration.calc = calculator
-
-And eventually the Minima Hopping is performed:
-
-.. code-block:: python
-
-        with Minimahopping(initial_configuration, verbose_output=True, T0=2000, dt0=0.1, use_MPI=False) as mh:
-            mh(totalsteps=50)
-
-
-
-Exercise 7: MD calculator
--------------------------
-In some cases a numerically cheaper or modified calculator for the molecular dynamics part and a pre-optimization might be useful.
-In this example two calculators are initialized. One is attached to the atoms object and the other is given as an argument to the MinimaHopping class.
-The MD and the pre-optimization are performed by using latter while the geometry optimization and the data-base are built with the calculator attached to the atoms object. 
-In the example presented here the Lennard-Jones calculator is the MD calculator and the EAM calculator is attached to the atoms object. 
-First all the nessecairy modules are imported:
-
-.. code-block:: python
-
-    from ase.calculators.eam import EAM
-    from ase.calculators.lj import LennardJones
-    from minimahopping.minhop import Minimahopping
-    from ase.cluster.wulff import wulff_construction
-
-Then the initial configuration is built and the two calculator are set up:
-
-.. code-block:: python
-
-    calculator = EAM(potential="Na_v2.eam.fs")
-    md_calculator = LennardJones(sigma=3.5)
-    initial_configuration.calc = calculator
-
-The calculator which is used for the optimization and to built the database is attached to the atoms object. Finally the Minima Hopping is started and the MD calculator is given as an argument
-to the `MinimaHopping` class:
-
-.. code-block:: python
-
-        with Minimahopping(initial_configuration, md_calculator,verbose_output=True, mdmin=10,T0=2000, dt0=0.1, use_MPI=False) as mh:
-            mh(totalsteps=500)
-
-
-.. note::
-    Note that this is only an example to show how this code feature works. More realistic examples are a DFT calculator with looser settings or a machine learned potential to perform the MD and pre-optimization. 
-    Another example are also biased runs where the second calculator includes a bias whereas the geometry optimization occurs on the PES without bias.
-
-
 

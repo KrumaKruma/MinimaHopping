@@ -1,12 +1,12 @@
 import numpy as np
 import warnings
 from ase.io import write
-# import minimahopping.mh.lattice_operations as lat_opt
+import minimahopping.mh.lattice_operations as lattice_operations
 from sqnm.vcsqnm_for_ase import aseOptimizer
 import minimahopping.md.md
 
 
-def optimization(atoms, calculator, max_force_threshold, outpath, initial_step_size=None, nhist_max=10, lattice_weight=2, alpha_min=1e-3, eps_subsp=1e-3, verbose=True):
+def optimization(atoms, calculator, max_force_threshold, outpath, fixed_cell_simulation=False, initial_step_size=None, nhist_max=10, lattice_weight=2, alpha_min=1e-3, eps_subsp=1e-3, verbose=True):
     # copy the atoms object and attach calculator to it
     atoms = atoms.copy()
     atoms.calc = calculator
@@ -24,7 +24,8 @@ def optimization(atoms, calculator, max_force_threshold, outpath, initial_step_s
 
     try:
         # Run geometry optimization
-        trajectory, optimizer, number_of_steps, epot_max = geometry_optimization(atoms, 
+        trajectory, optimizer, number_of_steps, epot_max = geometry_optimization(atoms,
+                                                                    fixed_cell_simulation, 
                                                                     max_force_threshold, 
                                                                     initial_step_size, 
                                                                     nhist_max, 
@@ -42,12 +43,11 @@ def optimization(atoms, calculator, max_force_threshold, outpath, initial_step_s
         if verbose:
             optimization_trajectory_file.close()
             optimization_log_file.close()
-
     return positions_out, lattice_out, noise, trajectory, number_of_steps, epot_max
 
 
 
-def geometry_optimization(atoms, max_force_threshold,initial_step_size, nhist_max, lattice_weight, alpha_min, eps_subsp, verbose, optimization_trajectory_file, optimization_log_file):
+def geometry_optimization(atoms, fixed_cell_simulation,max_force_threshold,initial_step_size, nhist_max, lattice_weight, alpha_min, eps_subsp, verbose, optimization_trajectory_file, optimization_log_file):
     # check if periodic boundary condition and assert that either fully periodic or non-periodic
     '''
     geometry optimization
@@ -64,19 +64,20 @@ def geometry_optimization(atoms, max_force_threshold,initial_step_size, nhist_ma
     epot_max = -1e10
     
     # Assert that no mixed boundary conditions
-    _pbc = list(set(atoms.pbc))
-    assert len(_pbc) == 1, "mixed boundary conditions"
+    
+    #assert sum(atoms.pbc) == 0 or sum(atoms.pbc) == 3, "mixed boundary conditions"
 
     # Negative value to get automatic initialize step size
     if initial_step_size is None:
         initial_step_size = -0.001
     
     # Set if free relax or vcs relax
-    if True in _pbc:
+    periodic_type = lattice_operations.check_boundary_conditions(atoms)
+    if periodic_type != 0 and not fixed_cell_simulation:
         vc_relax = True
     else:
         vc_relax = False
-    
+
     # Initialize optimizer
     optimizer = aseOptimizer(initial_structure=atoms, 
                              vc_relax=vc_relax, 
@@ -92,7 +93,7 @@ def geometry_optimization(atoms, max_force_threshold,initial_step_size, nhist_ma
         
         optimizer.step(atoms)
         max_force_comp = optimizer._getDerivativeNorm()
-
+        
         i_step += 1
         
         energy = atoms.get_potential_energy()
@@ -132,7 +133,8 @@ def write_log(atoms, optimizer, i_step, max_force_comp, max_disp, optimization_t
                                                                                                             optimizer.optimizer.optimizer.alpha,
                                                                                                             optimizer.optimizer.optimizer.dim_subspace,
                                                                                                             max_disp)
-    
+     
+    forces = atoms.get_forces()
     optimization_log_file.write(opt_msg)
     optimization_log_file.flush()
     write(optimization_trajectory_file, atoms, parallel=False)

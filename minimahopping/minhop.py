@@ -26,6 +26,7 @@ import sys
 
 import minimahopping.logging.logger as logging
 
+
 """
 MH Software written by Marco Krummenacher (marco.krummenacher@unibas.ch), Moritz Gubler and Jonas Finkler
 Parts of the software were originally developped (some in Fortran) from other people:
@@ -56,14 +57,16 @@ class Minimahopping:
     logger = None
 
 
-    def __init__(self, initial_configuration : ase.atom.Atom, md_calculator : ase.calculators.calculator.Calculator = None,  **kwargs):
+    def __init__(self, initial_configuration : ase.atom.Atom, md_calculator : ase.calculators.calculator.Calculator = None, constraints: list = [],  **kwargs):
         """Initialize with an ASE atoms object and keyword arguments."""
 
         self.initial_configuration = initial_configuration
 
         structure_list, calculator = self._initialize_structures(initial_configuration)
         self.calculator = calculator
-        
+
+        self.constraints = constraints
+
         if md_calculator is not None:
             self.md_calculator = md_calculator
             self.preoptimizationNeeded = True
@@ -173,6 +176,7 @@ class Minimahopping:
         # Start up minimahopping 
         structure_list, calculator = self._initialize_structures(self.initial_configuration)
         current_minimum = self._startup(structure_list)  # gets an atoms object and a minimum object is returned.
+
 
         # Start hopping loop
         while (counter <= totalsteps):
@@ -328,6 +332,11 @@ class Minimahopping:
             self._run_time_sec = self._get_sec()
         self._time_in = time.time()
 
+        # print info that cell is not moved
+        if self.parameters.fixed_cell_simulation:
+            logging.logger.info("  Fixed cell simulation: Variable cell features are turned off!")
+
+
         # Check if this is a fresh start
         if not self.isRestart:
             logging.logger.info('  New MH run is started')
@@ -340,6 +349,8 @@ class Minimahopping:
                 _positions, _lattice = self._restart_opt(atom,)
                 atom.set_positions(_positions)
                 atom.set_cell(_lattice)
+                self.set_constraints(atom)
+                self.initialize_mixed_boundaries(atom)
                 struct = Minimum(atom,
                             s = self.parameters.n_S_orbitals,
                             p = self.parameters.n_P_orbitals, 
@@ -368,7 +379,8 @@ class Minimahopping:
             # Read current structure
             filename = self.restart_path + "poscur.extxyz"
             atoms = read(filename, parallel= False)
-            
+            self.set_constraints(atoms)
+            self.initialize_mixed_boundaries(atoms)
             struct_cur = Minimum(atoms,
                         s = self.parameters.n_S_orbitals,
                         p = self.parameters.n_P_orbitals, 
@@ -387,8 +399,33 @@ class Minimahopping:
 
         status = 'Initial'
         self._history_log(struct_cur, status)
-
         return struct_cur
+
+    def set_constraints(self, atoms):
+        # fix atomic postions of atoms if they are to be fixed
+        if len(self.constraints) != 0:
+            logging.logger.warn("  Constraints are applied to your system. In the periodic case this might not work with variable cell shape features.")
+            atoms.set_constraint(self.constraints)
+            if not self.parameters.fixed_cell_simulation:
+                logging.logger.warn("  you are fixing atoms and variable cell shape features. This can lead to problems with the variable cell shape optimization.")
+
+
+    def initialize_mixed_boundaries(self, atoms):
+        if  sum(atoms.pbc) == 2 and not self.parameters.fixed_cell_simulation:
+            logging.logger.info("slab boundary condition simulation")
+            if not self.parameters.fixed_cell_simulation:
+                index = np.where(atoms.pbc==False)[0]
+                sum_offset_zcell = np.sum(atoms.cell[2,:2] + atoms.cell[:2,2])
+                if index == 2 and sum_offset_zcell < 1e-10:
+                    logging.logger.info("Lattice is adjusted so that variable cell shape slab can be used.")
+                    logging.logger.warn("Plase make sure that the stress is returned for slab boundary conditions.")
+                    atoms.cell[2,2] = 1. 
+                elif index != 2:
+                    logging.logger.info("Abort simulation: For slab simulations z-dimension has to be non-periodic")
+                    quit()
+                else:
+                    logging.logger.info("Abort simulation: Cell is not in the shape [[a,b,0],[c,d,0],[0,0,1]]")
+                    quit()
 
 
     def _restart_opt(self, atoms,):
@@ -399,6 +436,7 @@ class Minimahopping:
                                                                         calculator=self.calculator, 
                                                                         max_force_threshold=self.parameters.fmax, 
                                                                         outpath=self._outpath,
+                                                                        fixed_cell_simulation=self.parameters.fixed_cell_simulation,
                                                                         initial_step_size=self.parameters.initial_step_size,
                                                                         nhist_max=self.parameters.nhist_max,
                                                                         lattice_weight=self.parameters.lattice_weight,
@@ -450,12 +488,9 @@ class Minimahopping:
 
             MaxwellBoltzmannDistribution(atoms, temperature_K=self.parameters._T, communicator='serial')
 
-            # check that periodic boundaries are the same in all directions (no mixed boundary conditions)
-            _pbc = list(set(atoms.pbc))
-            assert len(_pbc) == 1, "mixed boundary conditions"
-
             # if periodic boundary conditions create cell atom object
-            if True in _pbc:
+            periodicity_type = lattice_operations.check_boundary_conditions(atoms)
+            if periodicity_type != 0 and not self.parameters.fixed_cell_simulation:
                 logging.logger.info("    VARIABLE CELL SHAPE SOFTENING, MD AND OPTIMIZATION ARE PERFORMED")
                 # calculate mass for cell atoms
                 # Formula if for the MD real masses are used
@@ -482,14 +517,18 @@ class Minimahopping:
             atoms.set_velocities(velocities)
 
             # set cell velocities if pbc
-            if True in _pbc:
+            if periodicity_type != 0 and not self.parameters.fixed_cell_simulation:
+                if periodicity_type == 2:
+                    self.set_cell_velocity_mixed_boundary_conditions(cell_velocities)
                 cell_atoms.velocities = cell_velocities
+                #set the cell velocities to zero if for the turned off boundary conditions
    
             # Perfom MD run
             logging.logger.info("    MD Start")
             positions, lattice, self.parameters._dt, _md_trajectory, epot_max_md, number_of_md_steps = md.md(atoms = atoms, 
                                                                                                         calculator = self.md_calculator,
-                                                                                                        outpath = self._outpath, 
+                                                                                                        outpath = self._outpath,
+                                                                                                        fixed_cell_simulation = self.parameters.fixed_cell_simulation, 
                                                                                                         cell_atoms = cell_atoms,
                                                                                                         dt = self.parameters._dt, 
                                                                                                         n_max = self.parameters.mdmin,
@@ -499,18 +538,17 @@ class Minimahopping:
                                                                                                         md_max_steps=self.parameters.md_max_steps)
 
             log_msg = "    MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f}".format(number_of_md_steps, self.parameters.mdmin, self.parameters._dt)
-
+            
             logging.logger.info(log_msg)
             # Set new positions after the MD
             atoms.set_positions(positions)
             # If pbc set new lattice and reshape cell
-            if True in _pbc:
+            if True in atoms.pbc and not self.parameters.fixed_cell_simulation:
                 atoms.set_cell(lattice)
             try:
                 atoms.calc.recalculateBasis(atoms)
             except:
                 pass
-
 
             # If second calculator is present do a pre-optimization
             if self.preoptimizationNeeded:
@@ -520,6 +558,7 @@ class Minimahopping:
                                                                         max_force_threshold=self.parameters.fmax_pre_optimization, 
                                                                         outpath=self._outpath,
                                                                         initial_step_size=self.parameters.initial_step_size,
+                                                                        fixed_cell_simulation=self.parameters.fixed_cell_simulation,
                                                                         nhist_max=self.parameters.nhist_max,
                                                                         lattice_weight=self.parameters.lattice_weight,
                                                                         alpha_min=self.parameters.alpha_min,
@@ -529,7 +568,7 @@ class Minimahopping:
                 # Set pre-optimized positions
                 atoms.set_positions(positions)
                 # If Pbc set pre-optimized lattice 
-                if True in _pbc:
+                if sum(atoms.pbc) == 3 and not self.parameters.fixed_cell_simulation:
                     atoms.set_cell(lattice)
 
                 # Change calculator for geometry optimization
@@ -544,6 +583,7 @@ class Minimahopping:
                                                                     max_force_threshold=self.parameters.fmax, 
                                                                     outpath=self._outpath,
                                                                     initial_step_size=self.parameters.initial_step_size,
+                                                                    fixed_cell_simulation=self.parameters.fixed_cell_simulation,
                                                                     nhist_max=self.parameters.nhist_max,
                                                                     lattice_weight=self.parameters.lattice_weight,
                                                                     alpha_min=self.parameters.alpha_min,
@@ -559,10 +599,12 @@ class Minimahopping:
 
             # Set optimized positions
             atoms.set_positions(positions)
-            # If Pbc set optimized lattice 
-            if True in _pbc:
+            # If Pbc set optimized lattice
+            periodicity_type = lattice_operations.check_boundary_conditions(atoms)
+            if periodicity_type != 0 and not self.parameters.fixed_cell_simulation:
                 atoms.set_cell(lattice)
-                lattice_operations.reshape_cell(atoms, self.parameters.symprec)
+                if periodicity_type == 3:
+                    lattice_operations.reshape_cell(atoms, self.parameters.symprec)
             try:
                 atoms.calc.recalculateBasis(atoms)
             except:
@@ -592,13 +634,23 @@ class Minimahopping:
                 is_escape = False
             else:
                 self.parameters._n_same += 1
-
             self._write_parameters()
         return proposed_structure, _epot_max, _md_trajectory, _opt_trajectory
 
 
-    def isEqualTo(self, structure1: Minimum, structure2: Minimum):
 
+    def set_cell_velocity_mixed_boundary_conditions(self, cell_velocities):
+        '''
+        Function to set the cell velocities to zero if there is no periodic boundary condition
+        '''
+        cell_velocities[2,:] = 0.
+        cell_velocities[:,2] = 0.
+
+
+    def isEqualTo(self, structure1: Minimum, structure2: Minimum):
+        '''
+        Checking if two strucutres are different.
+        '''
         energy_difference = structure1.__compareto__(structure2)
         if energy_difference < self.parameters.energy_threshold:
             fingerprint_distance = structure1.fingerprint_distance(structure2)

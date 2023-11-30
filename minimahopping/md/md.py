@@ -7,7 +7,7 @@ import minimahopping.logging.logger as logging
 
 
 
-def md(atoms, calculator, outpath, cell_atoms = None, dt = 0.001, n_max = 3, verbose = True, collect_md_file = None, dt_min = 0.0001, md_max_steps=10000):
+def md(atoms, calculator, outpath, fixed_cell_simulation=False,cell_atoms = None, dt = 0.001, n_max = 3, verbose = True, collect_md_file = None, dt_min = 0.0001, md_max_steps=10000):
     """ 
     Performs an MD which is visiting n_max minima
     Input:
@@ -22,8 +22,7 @@ def md(atoms, calculator, outpath, cell_atoms = None, dt = 0.001, n_max = 3, ver
     # Make a copy of the atoms object and attach a calculator
     atoms = atoms.copy()
     atoms.calc = calculator
-
-    # If verbosity is true make the output files
+    
     if verbose:
         md_trajectory_file = open(outpath + "MD_trajectory.extxyz", "w")
 
@@ -40,7 +39,19 @@ def md(atoms, calculator, outpath, cell_atoms = None, dt = 0.001, n_max = 3, ver
         # Initialization of the MD. Get the energy and forces for the first MD step
         e_pot, forces, lattice_force = initialize(atoms, cell_atoms)
         # Run the MD until n_max minima have been visited
-        etot_max, etot_min, e_pot_max, e_pot_min, trajectory, i_steps = run(atoms, cell_atoms, dt, forces, lattice_force, e_pot, n_max, verbose, collect_md_file, md_trajectory_file, md_log_file, md_max_steps)
+        etot_max, etot_min, e_pot_max, e_pot_min, trajectory, i_steps = run(atoms, 
+                                                                            fixed_cell_simulation,
+                                                                            cell_atoms, 
+                                                                            dt, 
+                                                                            forces, 
+                                                                            lattice_force, 
+                                                                            e_pot, 
+                                                                            n_max, 
+                                                                            verbose, 
+                                                                            collect_md_file, 
+                                                                            md_trajectory_file, 
+                                                                            md_log_file, 
+                                                                            md_max_steps)
 
         # adjust the time step for the next MD
         new_dt = adjust_dt(etot_max, etot_min, e_pot_max, e_pot_min, dt, dt_min)
@@ -121,7 +132,7 @@ def get_cell_masses(cell_atoms):
     return cell_masses
 
 
-def run(atoms, cell_atoms, dt, forces, lattice_force, e_pot, n_max, verbose, collect_md_file, md_trajectory_file, md_log_file, md_max_steps):
+def run(atoms, fixed_cell_simulation, cell_atoms, dt, forces, lattice_force, e_pot, n_max, verbose, collect_md_file, md_trajectory_file, md_log_file, md_max_steps):
     '''
     Running the MD over n_max maxima. If this is not reached after 10'000 steps the MD stops
     '''
@@ -147,10 +158,10 @@ def run(atoms, cell_atoms, dt, forces, lattice_force, e_pot, n_max, verbose, col
     lattice_old = initial_lattice
 
     e_pot_old, e_kin_old, e_tot_old = calc_etot_and_ekin(atoms, cell_atoms)
-
+    
     while i_steps < md_max_steps:
         # perform velocity verlet step
-        forces_new, lattice_force_new = verlet_step(atoms, cell_atoms, dt, forces, lattice_force)
+        forces_new, lattice_force_new = verlet_step(atoms, fixed_cell_simulation,cell_atoms, dt, forces, lattice_force)
         i_steps += 1
         # update the trajectory
         positions_old, lattice_old, trajectory = update_trajectory(atoms, positions_old, lattice_old, trajectory, collect_md_file)
@@ -158,7 +169,7 @@ def run(atoms, cell_atoms, dt, forces, lattice_force, e_pot, n_max, verbose, col
         epot_min_new, epot_max_new = update_epot_minmax(atoms, epot_min, epot_max)
 
         # check if a new minimum was found
-        sign_new, n_change, i_max = check(atoms, cell_atoms, lattice_force_new, i_max, n_change, sign_old)
+        sign_new, n_change, i_max = check(atoms, fixed_cell_simulation,cell_atoms, lattice_force_new, i_max, n_change, sign_old)
         # calculate the kinetic and total energy
         e_pot, e_kin, e_tot = calc_etot_and_ekin(atoms, cell_atoms)
 
@@ -178,7 +189,7 @@ def run(atoms, cell_atoms, dt, forces, lattice_force, e_pot, n_max, verbose, col
         # update the maximal/minimal total energy
         e_tot_min_new, e_tot_max_new = update_etot_minmax(e_tot, etot_min, etot_max)
 
-        if cell_atoms is None:
+        if sum(atoms.pbc) == 0:
             if i_steps%5 == 0:
                 is_one_cluster = check_and_fix_fragmentation(atoms)
 
@@ -258,7 +269,7 @@ def update_trajectory(atoms, positions_old, lattice_old, trajectory, collect_md_
     return positions_current, lattice_current, trajectory
 
 
-def verlet_step(atoms, cell_atoms, dt, forces, lattice_force):
+def verlet_step(atoms, fixed_cell_simulation, cell_atoms, dt, forces, lattice_force):
     '''
     Performing one Verlet step
     '''
@@ -268,12 +279,13 @@ def verlet_step(atoms, cell_atoms, dt, forces, lattice_force):
     masses = get_masses(atoms)
     
     # if the system is periodic update the cell vectors
-    if cell_atoms is not None:
+    if True in atoms.pbc and not fixed_cell_simulation:
+        assert cell_atoms is not None, "Cell atom class not defined"
         # transform lattice force so that atoms are not moved
         lattice_force_transformed = transform_deralat(atoms, forces, lattice_force)
         # update the positions of the lattice
         update_lattice_positions(atoms, cell_atoms, lattice_force_transformed, dt)
-    
+
     # Update the positions
     atoms.set_positions(positions + dt * velocities + 0.5 * dt * dt * (forces / masses))
     
@@ -283,24 +295,27 @@ def verlet_step(atoms, cell_atoms, dt, forces, lattice_force):
     atoms.set_velocities(velocities + 0.5 * dt * ((forces + forces_new) / masses))
     
     # If system is periodic update the cell velocites
-    if cell_atoms is not None:
+    if True in atoms.pbc and not fixed_cell_simulation:
+        assert cell_atoms is not None, "Cell atom class not defined"
         stress_tensor = atoms.get_stress(voigt=False, apply_constraint=False)
         lattice_force_new = lat_opt.lattice_derivative(stress_tensor, cell_atoms.positions)
         lattice_force_new_transformed = transform_deralat(atoms, forces_new, lattice_force_new)
         update_lattice_velocities(cell_atoms, lattice_force_transformed, lattice_force_new_transformed, dt)
     else:
         lattice_force_new = None
+        
 
 
     return forces_new, lattice_force_new
 
 
 def transform_deralat(atoms, forces, deralat):
+    index = len(np.where(atoms.pbc==True)[0])
+    new_deralat = deralat.copy()
     reduced_positions = atoms.get_scaled_positions(wrap=False)
-    sumsum = np.zeros((3,3))
-    sumsum = np.dot(forces.T, reduced_positions)
-
-    new_deralat = deralat - sumsum.T
+    sumsum = np.zeros((index,index))
+    sumsum = np.dot(forces.T[:index,:], reduced_positions[:,:index])
+    new_deralat[:index,:index] = deralat[:index,:index] - sumsum.T
     return new_deralat
 
 
@@ -323,6 +338,7 @@ def update_lattice_velocities(cell_atoms, lattice_force, lattice_force_new, dt):
     cell_masses = get_cell_masses(cell_atoms)
     # update cell velocities
     cell_atoms.velocities = cell_atoms.velocities + 0.5 * dt * ((lattice_force + lattice_force_new) / cell_masses)
+
 
 
 def check_coordinate_shift(atoms, positions_old, lattice_old):
@@ -349,11 +365,11 @@ def check_coordinate_shift(atoms, positions_old, lattice_old):
     return positions_current, lattice_current, append_traj
 
 
-def check(atoms, cell_atoms, cell_forces, i_max, n_change, sign_old):
+def check(atoms, fixed_cell_simulation,cell_atoms, cell_forces, i_max, n_change, sign_old):
     '''
     Check if a new maximum is found
     '''
-    sign = calculate_sign(atoms, cell_atoms, cell_forces) 
+    sign = calculate_sign(atoms, fixed_cell_simulation,cell_atoms, cell_forces) 
     if sign_old != sign:
         sign_old = sign
         n_change += 1
@@ -362,11 +378,11 @@ def check(atoms, cell_atoms, cell_forces, i_max, n_change, sign_old):
     return sign_old, n_change, i_max
 
 
-def calculate_sign(atoms, cell_atoms, cell_forces):
+def calculate_sign(atoms, fixed_cell_simulation,cell_atoms, cell_forces):
     '''
     Calculation whether the energy goes up or down with dot product of forces and veliocities.
     '''
-    if True in atoms.pbc:
+    if True in atoms.pbc and not fixed_cell_simulation:
         f = np.concatenate([atoms.get_forces(),cell_forces]).flatten()
         v = np.concatenate([atoms.get_velocities(),cell_atoms.velocities]).flatten()
     else:

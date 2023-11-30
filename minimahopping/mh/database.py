@@ -194,10 +194,13 @@ class Database():
         i_poslow = 0
         for s in self.unique_minima_sorted:
             filename = 'min'+str(i_poslow).zfill(6)
-            if True in s.atoms.pbc:
-                filename += '.ascii'
-            else:
+            if sum(s.atoms.pbc) == 3:
+                filename += '.extxyz'
+            elif sum(s.atoms.pbc) == 0:
                 filename += '.xyz'
+            else:
+                filename += '.extxyz'
+
             filename = path + filename
             s.write(filename, append=False)
             i_poslow += 1
