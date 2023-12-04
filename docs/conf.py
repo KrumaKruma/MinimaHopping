@@ -29,8 +29,7 @@ author = 'Marco Krummenacher'
 # ones.
 extensions = [
     # ... other extensions
-    ''
-    'sphinx.ext.mathjax',
+    #'sphinx.ext.mathjax',
 ]
 
 
