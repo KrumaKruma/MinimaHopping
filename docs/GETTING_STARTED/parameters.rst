@@ -23,7 +23,7 @@ and a description of them.
     beta_increase, 1.1, Factor for increaseing the temperature
     alpha_accept, 0.95, factor for decreasing Ediff
     alpha_reject, 1.05, factor for increasing Ediff
-    fixed_cell_simulation, False, If True the simulation cell is fixed, no variable cell shape features are activated.
+    fixed_cell_simulation, False, If True the simulation cell is fixed; no variable cell shape features are activated.
     n_soft, 20, number of softening steps
     soften_positions, 1e-2, step size for softening the positions
     soften_lattice, 1e-3, step size for softening the lattice (only relevant for periodic boundary conditions)
