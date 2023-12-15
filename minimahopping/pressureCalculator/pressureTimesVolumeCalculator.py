@@ -9,7 +9,7 @@ class EnthalpyCalculator(Calculator):
     There, the calculator will always return zero.
     This calculator is meant to be used as part of the SumCalculator from ase. A normal calculator calulator 
     can be transformed into an enthalpy calculator the following way:
-    atoms.calc = ase.calculators.mixing.SumCalculator(normalCalculator, EnthalpyCalculator(pressure_giga_pascale = 5))
+    >>> atoms.calc = ase.calculators.mixing.SumCalculator([normalCalculator, EnthalpyCalculator(pressure_giga_pascale = 5)])
     The new calculator will now calculate H=E+pV and adjust the stress accordingly.
     """
     implemented_properties = ['energy', 'forces', 'stress']
