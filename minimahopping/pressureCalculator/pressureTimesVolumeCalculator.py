@@ -4,8 +4,7 @@ import numpy as np
 from ase import units
 
 class SIRIUS(Calculator):
-
-    implemented_properties = all_properties
+    implemented_properties = ['energy', 'forces', 'stress']
     default_parameters = {}
     nolabel = True
 
@@ -29,12 +28,18 @@ class SIRIUS(Calculator):
             print('External pressure can only be applied when atoms.pbc = [True, True, True.]')
             print('atoms.pbc currently holds: ', atoms.pbc)
 
+            if 'stress' in properties:
+                self.results['stress'] = np.zeros(6)
+            if 'energy' in properties:
+                self.results['energy'] = 0.0
+            if 'forces' in properties:
+                self.results['forces'] = np.zeros((len(atoms, 3)))
+
+
         elif not system_changes == []:
             if 'stress' in properties:
-                self.results['stress'] =  np.array([self.pressure, self.pressure, self.pressure, .0, .0, .0])
+                self.results['stress'] = np.array([self.pressure, self.pressure, self.pressure, .0, .0, .0])
             if 'energy' in properties:
                 self.results['energy'] = self.pressure * atoms.get_volume()
-            if 'energies' in properties:
-                self.results['energies'] = np.repeat(self.pressure * atoms.get_volume() / len(atoms), len(atoms))
-            # if 'forces' in properties:
-            #     self.results[]
+            if 'forces' in properties:
+                self.results['forces'] = np.zeros((len(atoms, 3)))
