@@ -35,8 +35,7 @@ class SIRIUS(Calculator):
             if 'forces' in properties:
                 self.results['forces'] = np.zeros((len(atoms, 3)))
 
-
-        elif not system_changes == []:
+        else:
             if 'stress' in properties:
                 self.results['stress'] = np.array([self.pressure, self.pressure, self.pressure, .0, .0, .0])
             if 'energy' in properties:
