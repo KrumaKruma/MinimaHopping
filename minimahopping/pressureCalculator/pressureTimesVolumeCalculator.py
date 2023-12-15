@@ -3,7 +3,7 @@ from ase import atoms
 import numpy as np
 from ase import units
 
-class SIRIUS(Calculator):
+class EnthalpyCalculator(Calculator):
     implemented_properties = ['energy', 'forces', 'stress']
     default_parameters = {}
     nolabel = True
@@ -33,7 +33,7 @@ class SIRIUS(Calculator):
             if 'energy' in properties:
                 self.results['energy'] = 0.0
             if 'forces' in properties:
-                self.results['forces'] = np.zeros((len(atoms, 3)))
+                self.results['forces'] = np.zeros((len(atoms), 3))
 
         else:
             if 'stress' in properties:
@@ -41,4 +41,4 @@ class SIRIUS(Calculator):
             if 'energy' in properties:
                 self.results['energy'] = self.pressure * atoms.get_volume()
             if 'forces' in properties:
-                self.results['forces'] = np.zeros((len(atoms, 3)))
+                self.results['forces'] = np.zeros((len(atoms), 3))
