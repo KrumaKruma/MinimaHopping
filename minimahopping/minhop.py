@@ -535,7 +535,8 @@ class Minimahopping:
                                                                                                         verbose = self.parameters.verbose_output,
                                                                                                         collect_md_file = self.collect_md_file,
                                                                                                         dt_min=self.parameters.dt_min,
-                                                                                                        md_max_steps=self.parameters.md_max_steps)
+                                                                                                        md_max_steps=self.parameters.md_max_steps,
+                                                                                                        margin=self.parameters.margin)
 
             log_msg = "    MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f}".format(number_of_md_steps, self.parameters.mdmin, self.parameters._dt)
             

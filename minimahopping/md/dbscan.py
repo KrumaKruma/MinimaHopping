@@ -2,7 +2,7 @@ from ase.io import read, write
 from sklearn.cluster import DBSCAN
 import minimahopping.mh.periodictable as periodictable
 import numpy as np
-
+from ase import units
 
 def get_com(positions, mass):
     total_mass = np.sum(mass)
@@ -21,18 +21,19 @@ def dbscan(eps, positions,):
     assert n_noise == 0, "Some atoms in DBSCAN were recognized as noise"
     return labels, n_clusters
 
-def get_eps(elements):
+def get_eps(elements, margin):
     rcovs = []
     for element in elements:
         rcovs.append(periodictable.getRcov_n(element))
     rcovs = np.array(rcovs)
-    rcov_mean = np.mean(rcovs)
-    eps = 2.*rcov_mean
+    rcov_max = np.max(rcovs)*units.Bohr
+    estimated_bondlength = 2. * rcov_max
+    eps = estimated_bondlength + margin*estimated_bondlength
     return eps
 
 
-def one_cluster(positions, elements):
-    eps = get_eps(elements)
+def one_cluster(positions, elements, margin):
+    eps = get_eps(elements, margin)
     labels, n_clusters = dbscan(eps, positions)
     if n_clusters > 1:
         is_one_cluster = False
@@ -42,9 +43,9 @@ def one_cluster(positions, elements):
 
     
 
-def adjust_velocities(positions, velocities,elements, masses):
+def adjust_velocities(positions, velocities,elements, masses, margin):
     com = get_com(positions, masses)
-    eps = get_eps(elements)
+    eps = get_eps(elements, margin)
     mass_3d = np.vstack([masses] * 3).T
     _e_kin = 0.5 * np.sum(mass_3d * velocities * velocities)
     _v_average = np.sqrt((2.*_e_kin)/(np.mean(masses) * velocities.shape[0]))

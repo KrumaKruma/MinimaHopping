@@ -7,7 +7,7 @@ import minimahopping.logging.logger as logging
 
 
 
-def md(atoms, calculator, outpath, fixed_cell_simulation=False,cell_atoms = None, dt = 0.001, n_max = 3, verbose = True, collect_md_file = None, dt_min = 0.0001, md_max_steps=10000):
+def md(atoms, calculator, outpath, fixed_cell_simulation=False,cell_atoms = None, dt = 0.001, n_max = 3, verbose = True, collect_md_file = None, dt_min = 0.0001, md_max_steps=10000, margin=0.3):
     """ 
     Performs an MD which is visiting n_max minima
     Input:
@@ -51,7 +51,8 @@ def md(atoms, calculator, outpath, fixed_cell_simulation=False,cell_atoms = None
                                                                             collect_md_file, 
                                                                             md_trajectory_file, 
                                                                             md_log_file, 
-                                                                            md_max_steps)
+                                                                            md_max_steps,
+                                                                            margin)
 
         # adjust the time step for the next MD
         new_dt = adjust_dt(etot_max, etot_min, e_pot_max, e_pot_min, dt, dt_min)
@@ -132,7 +133,7 @@ def get_cell_masses(cell_atoms):
     return cell_masses
 
 
-def run(atoms, fixed_cell_simulation, cell_atoms, dt, forces, lattice_force, e_pot, n_max, verbose, collect_md_file, md_trajectory_file, md_log_file, md_max_steps):
+def run(atoms, fixed_cell_simulation, cell_atoms, dt, forces, lattice_force, e_pot, n_max, verbose, collect_md_file, md_trajectory_file, md_log_file, md_max_steps, margin):
     '''
     Running the MD over n_max maxima. If this is not reached after 10'000 steps the MD stops
     '''
@@ -191,7 +192,7 @@ def run(atoms, fixed_cell_simulation, cell_atoms, dt, forces, lattice_force, e_p
 
         if sum(atoms.pbc) == 0:
             if i_steps%5 == 0:
-                is_one_cluster = check_and_fix_fragmentation(atoms)
+                is_one_cluster = check_and_fix_fragmentation(atoms, margin)
 
         # Write a log file if verbosity is True
         if verbose:
@@ -220,17 +221,17 @@ def run(atoms, fixed_cell_simulation, cell_atoms, dt, forces, lattice_force, e_p
     return etot_max, etot_min, epot_max, epot_min, trajectory, i_steps
 
 
-def check_and_fix_fragmentation(atoms):
+def check_and_fix_fragmentation(atoms, margin):
     # check if the cluster has not fragmented
     positions = atoms.get_positions()
     elements = atoms.get_atomic_numbers()
-    is_one_cluster = dbscan.one_cluster(positions, elements)
+    is_one_cluster = dbscan.one_cluster(positions, elements, margin)
     if not is_one_cluster:
         warning_msg = "Cluster fragmented: fixing fragmentation"
         logging.logger.warning(warning_msg)
         velocities = atoms.get_velocities()
         masses = atoms.get_masses()
-        velocities = dbscan.adjust_velocities(positions, velocities, elements, masses)
+        velocities = dbscan.adjust_velocities(positions, velocities, elements, masses, margin)
         atoms.set_velocities(velocities)
     return is_one_cluster
 
