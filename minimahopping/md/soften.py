@@ -2,18 +2,23 @@ import numpy as np
 import minimahopping.mh.lattice_operations as lat_opt
 import minimahopping.biomode.biomode as split_forces 
 import minimahopping.logging.logger as logging
+import ase.atom
+from minimahopping.mh.cell_atom import Cell_atom
 
 
-def soften(atoms, calculator, nsoft, alpha_pos = 1e-3, cell_atoms = None, alpha_lat = None):
+def soften(atoms: ase.atom.Atom, calculator: ase.calcators.calculator.Calculator, nsoft: int, alpha_pos: float = 1e-3, cell_atoms: Cell_atom = None, alpha_lat: float = None):
     atoms = atoms.copy()
     atoms.calc = calculator
     eps_dd = 1e-2
 
-    # initialization and normalization of velocities
-    positions_in, cell_positions_in, normed_velocities, normed_cell_velocities, e_pot_in, norm_const = initialize(atoms, cell_atoms, eps_dd)
 
-    # first softening step to get the initial residum
-    res_initial, curve, new_normed_velocities, new_normed_cell_velocities = update_velocities(atoms, 
+    # Check if softenig steps is larger than zero
+    if nsoft > 0:
+        # initialization and normalization of velocities
+        positions_in, cell_positions_in, normed_velocities, normed_cell_velocities, e_pot_in, norm_const = initialize(atoms, cell_atoms, eps_dd)
+
+        # first softening step to get the initial residum
+        res_initial, curve, new_normed_velocities, new_normed_cell_velocities = update_velocities(atoms, 
                                                                                         cell_atoms, 
                                                                                         positions_in, 
                                                                                         cell_positions_in, 
@@ -23,12 +28,12 @@ def soften(atoms, calculator, nsoft, alpha_pos = 1e-3, cell_atoms = None, alpha_
                                                                                         eps_dd, 
                                                                                         alpha_pos, 
                                                                                         alpha_lat)
-    normed_velocities = new_normed_velocities
-    normed_cell_velocities = new_normed_cell_velocities
+        normed_velocities = new_normed_velocities
+        normed_cell_velocities = new_normed_cell_velocities
 
-    # Soften loop
-    for i in range(nsoft):
-        res, curve, new_normed_velocities, new_normed_cell_velocities = update_velocities(atoms, 
+        # Soften loop
+        for i in range(nsoft):
+            res, curve, new_normed_velocities, new_normed_cell_velocities = update_velocities(atoms, 
                                                                                 cell_atoms, 
                                                                                 positions_in, 
                                                                                 cell_positions_in, 
@@ -38,27 +43,37 @@ def soften(atoms, calculator, nsoft, alpha_pos = 1e-3, cell_atoms = None, alpha_
                                                                                 eps_dd, 
                                                                                 alpha_pos, 
                                                                                 alpha_lat)
-        # Criterion for early stopping of softening
-        if res < (curve * eps_dd * 0.5):
-            break
+            # Criterion for early stopping of softening
+            if res < (curve * eps_dd * 0.5):
+                break
         
-        # Update velocities
-        normed_velocities = new_normed_velocities
-        normed_cell_velocities = new_normed_cell_velocities
+            # Update velocities
+            normed_velocities = new_normed_velocities
+            normed_cell_velocities = new_normed_cell_velocities
 
-    # Warning if softening has diverged and not converged
-    if res_initial < res:
-        warning_msg = "Softening diverged"
-        logging.logger.warning(warning_msg)
+        # Warning if softening has diverged and not converged
+        if res_initial < res:
+            warning_msg = "Softening diverged"
+            logging.logger.warning(warning_msg)
 
-    # Renormalize velocities
-    velocities = normed_velocities / norm_const
+        # Renormalize velocities
+        velocities = normed_velocities / norm_const
 
-    # Return output
-    if cell_atoms is not None:
-        cell_velocities = normed_cell_velocities / norm_const
+        # Return output
+        if cell_atoms is not None:
+            cell_velocities = normed_cell_velocities / norm_const
+        else:
+            cell_velocities = None
     else:
-        cell_velocities = None
+        # if there is no softening remove momentum and torque
+        velocities = elim_moment(velocities=atoms.get_velocities())
+        velocities = elim_torque(velocities=velocities, positions=atoms.get_positions(), masses=atoms.get_masses())
+        if cell_atoms is not None:
+            cell_velocities = elim_moment(cell_atoms.velocities)
+            cell_velocities = elim_torque(cell_velocities, cell_atoms.positions, cell_atoms.masses)
+        else:
+            cell_velocities = None 
+    
     return velocities, cell_velocities
 
 
