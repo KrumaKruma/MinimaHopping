@@ -427,7 +427,7 @@ def verlet_step(atoms: ase.atom.Atom, fixed_cell_simulation: bool, cell_atoms: C
     if True in atoms.pbc and not fixed_cell_simulation:
         assert cell_atoms is not None, "Cell atom class not defined"
         # transform lattice force so that atoms are not moved
-        lattice_force_transformed = transform_deralat(atoms = atoms, forces = forces, lattice_force = lattice_force)
+        lattice_force_transformed = transform_deralat(atoms = atoms, forces = forces, deralat = lattice_force)
         # update the positions of the lattice
         update_lattice_positions(atoms = atoms, cell_atoms = cell_atoms, lattice_force = lattice_force_transformed, dt = dt)
     
