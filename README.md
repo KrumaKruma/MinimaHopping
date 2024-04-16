@@ -48,7 +48,7 @@ In the example folder are also examples including periodic boundary calculations
 
 
 ## References & Citing
-1. Reference for this code: https://arxiv.org/abs/2309.08418
+1. Reference for this code: https://doi.org/10.1016/j.softx.2024.101632
 2. Reference to the original implementation: https://doi.org/10.1063/1.1724816
 3. Reference for the local geometry optimizer: https://doi.org/10.1016/j.jcpx.2023.100131
 4. Reference for the Overlap Matrix Fingerprint: https://doi.org/10.1063/1.4940026 and https://doi.org/10.1063/1.4828704
