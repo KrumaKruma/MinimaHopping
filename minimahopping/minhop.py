@@ -136,7 +136,7 @@ class Minimahopping:
             self.collect_md_file = None
         # open history file
         self.history_file = open(self._outpath + 'history.dat', 'a')
-        self.history_file.write("Energy[eV], number of visits, label, temperature [K], delta acceptance, ratio of accepted minima, ratio of rejected minima, ratio of unsucessful escapes (Same), status")
+        self.history_file.write("Energy[eV], number of visits, label, temperature [K], delta acceptance, ratio of accepted minima, ratio of rejected minima, ratio of unsucessful escapes (Same), status \n")
         return self
 
 
