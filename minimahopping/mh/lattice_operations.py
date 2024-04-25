@@ -41,6 +41,8 @@ def reshape_cell(atoms: Atoms, symprec: float):
         if nat_in == nat_out:
             atoms.set_cell(lattice)
             atoms.set_scaled_positions(scaled_positions)
+        else:
+            logging.logger.warn("standardize_cell operation did not work use lower symprec value")
 
 
 def check_boundary_conditions(atoms):
