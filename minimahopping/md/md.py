@@ -51,7 +51,7 @@ def md(atoms: ase.atom.Atom,
         # if verbosity is True open the log and trajectory file
         # this file is overwritten if a new MD is started
         md_trajectory_file = open(outpath + "MD_trajectory.extxyz", "w")
-        write(filename = md_trajectory_file, images = atoms, parallel=False)
+        write(md_trajectory_file,atoms, parallel=False)
         md_log_file = open(outpath + "MD_log.dat", "w")
         msg = 'STEP      EPOT          EKIN          ETOT               DT\n'
         md_log_file.write(msg)
