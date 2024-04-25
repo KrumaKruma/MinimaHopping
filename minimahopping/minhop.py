@@ -136,7 +136,7 @@ class Minimahopping:
             self.collect_md_file = None
         # open history file
         self.history_file = open(self._outpath + 'history.dat', 'a')
-        self.history_file.write("Energy[eV], number of visits, label, temperature [K], delta acceptance, ratio of accepted minima, ratio of rejected minima, ratio of unsucessful escapes (Same), status")
+        self.history_file.write("Energy[eV], number of visits, label, temperature [K], delta acceptance, ratio of accepted minima, ratio of rejected minima, ratio of unsucessful escapes (Same), status\n")
         return self
 
 
@@ -746,6 +746,7 @@ class Minimahopping:
         # _notunique_frac = float(self._n_notunique) / float(self._n_min)
         # _same_frac = float(self._n_same) / float(self._n_min)
         # _unique_frac = 1.0 - (_notunique_frac+_same_frac)
+        periodicity_type = lattice_operations.check_boundary_conditions(struct.atoms)
 
         totalMinima = self.parameters._n_accepted + self.parameters._n_rejected + self.parameters._n_same
         accept_ratio = self.parameters._n_accepted / totalMinima
@@ -760,7 +761,24 @@ class Minimahopping:
         if label is None:
             label = 'None'
 
-        history_msg = "%15.8f %s %s %.2f %8.4f %.2f %.2f %.2f %s \n"%(
+        if periodicity_type != 0:
+            symmetry_group = struct.get_symmetry_group(self.parameters.symprec)
+
+            history_msg = "%15.8f %s %s %.2f %8.4f %.2f %.2f %.2f %s %s\n"%(
+                                            struct.e_pot,
+                                            n_visits,
+                                            label,
+                                            self.parameters._T,
+                                            self.parameters._eDiff,
+                                            accept_ratio,
+                                            rejected_ratio,
+                                            same_ratio,
+                                            symmetry_group,
+                                            status
+            )
+
+        else:
+            history_msg = "%15.8f %s %s %.2f %8.4f %.2f %.2f %.2f %s \n"%(
                                             struct.e_pot,
                                             n_visits,
                                             label,
@@ -770,7 +788,8 @@ class Minimahopping:
                                             rejected_ratio,
                                             same_ratio,
                                             status
-        )
+            )
+
 
         # history_file = open(self._outpath + 'history.dat', 'a')
         self.history_file.write(history_msg)
