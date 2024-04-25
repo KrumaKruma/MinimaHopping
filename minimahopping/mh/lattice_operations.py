@@ -2,6 +2,7 @@ import numpy as np
 import spglib
 import minimahopping.logging.logger as logging
 from ase.atoms import Atoms
+from ase.io import read, write
 
 def lattice_derivative(stress_tensor: np.array, cell: np.array):
     """
@@ -25,13 +26,21 @@ def lattice_derivative(stress_tensor: np.array, cell: np.array):
 
 
 def reshape_cell(atoms: Atoms, symprec: float):
-    lattice, scaled_positions, numbers = spglib.standardize_cell(atoms, to_primitive=False, no_idealize=False, symprec=symprec, angle_tolerance=-1.0)
+    nat_in = len(atoms)
+    cell = atoms.get_cell(complete=True)
+    numbers = atoms.get_atomic_numbers()
+    positions = atoms.get_scaled_positions()
+    
+    spglib_cell = (cell, positions, numbers)
+    lattice, scaled_positions, numbers = spglib.standardize_cell(spglib_cell, to_primitive=False, no_idealize=True, symprec=symprec, angle_tolerance=-1.0)
     if lattice is None:
         msg = "cell reshape did not work"
         logging.logger.warning(msg)
     else:
-        atoms.set_cell(lattice)
-        atoms.set_scaled_positions(scaled_positions)
+        nat_out = scaled_positions.shape[0]
+        if nat_in == nat_out:
+            atoms.set_cell(lattice)
+            atoms.set_scaled_positions(scaled_positions)
 
 
 def check_boundary_conditions(atoms):
