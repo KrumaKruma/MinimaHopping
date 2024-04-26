@@ -605,16 +605,6 @@ class Minimahopping:
 
             # Set optimized positions
             atoms.set_positions(positions)
-            # If Pbc set optimized lattice
-            periodicity_type = lattice_operations.check_boundary_conditions(atoms)
-            if periodicity_type != 0 and not self.parameters.fixed_cell_simulation:
-                atoms.set_cell(lattice)
-                if periodicity_type == 3:
-                    lattice_operations.reshape_cell(atoms, self.parameters.symprec)
-            try:
-                atoms.calc.recalculateBasis(atoms)
-            except:
-                pass
 
             log_msg = "    OPT finished after {:d} steps.".format(number_of_opt_steps)
             logging.logger.info(log_msg)
@@ -630,6 +620,17 @@ class Minimahopping:
                         T=self.parameters._T,
                         ediff=self.parameters._eDiff,
                         exclude= self.parameters.exclude)
+
+            # If Pbc set optimized lattice
+            periodicity_type = lattice_operations.check_boundary_conditions(atoms)
+            if periodicity_type != 0 and not self.parameters.fixed_cell_simulation:
+                atoms.set_cell(lattice)
+                if periodicity_type == 3:
+                    lattice_operations.reshape_cell(atoms, self.parameters.symprec)
+            try:
+                atoms.calc.recalculateBasis(atoms)
+            except:
+                pass
 
             _i_steps += 1
             self._n_min += 1
