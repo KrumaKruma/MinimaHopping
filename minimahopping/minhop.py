@@ -136,7 +136,6 @@ class Minimahopping:
             self.collect_md_file = None
         # open history file
         self.history_file = open(self._outpath + 'history.dat', 'a')
-        self.history_file.write("Energy[eV], number of visits, label, temperature [K], delta acceptance, ratio of accepted minima, ratio of rejected minima, ratio of unsucessful escapes (Same), status\n")
         return self
 
 
@@ -396,6 +395,12 @@ class Minimahopping:
                 quit()
             struct_cur = self.data.get_element(database_index)
             struct_cur.atoms = atoms
+        
+        periodicity_type = lattice_operations.check_boundary_conditions(struct_cur.atoms)
+        if periodicity_type != 0 and not self.parameters.fixed_cell_simulation:
+            self.history_file.write("Energy[eV], number of visits, label, temperature [K], delta acceptance, ratio of accepted minima, ratio of rejected minima, ratio of unsucessful escapes (Same), Symmetry group,status\n")
+        else:
+            self.history_file.write("Energy[eV], number of visits, label, temperature [K], delta acceptance, ratio of accepted minima, ratio of rejected minima, ratio of unsucessful escapes (Same), status\n")
 
         status = 'Initial'
         self._history_log(struct_cur, status)
