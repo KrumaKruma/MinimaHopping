@@ -6,39 +6,32 @@ import ase.atom
 from minimahopping.mh.cell_atom import Cell_atom
 
 
-def soften(atoms: ase.atom.Atom, calculator: ase.calculators.calculator.Calculator, nsoft: int, alpha_pos: float = 1e-3, cell_atoms: Cell_atom = None, alpha_lat: float = None):
+def soften(atoms: ase.atom.Atom, calculator: ase.calculators.calculator.Calculator, cell_atoms: Cell_atom, nsoft: int, alpha_pos: float = 1e-3, alpha_lat: float = None):
     atoms = atoms.copy()
     atoms.calc = calculator
-    eps_dd = 1e-2
+    eps_dd = 1e-1
 
 
     # Check if softenig steps is larger than zero
     if nsoft > 0:
         # initialization and normalization of velocities
-        positions_in, cell_positions_in, normed_velocities, normed_cell_velocities, e_pot_in, norm_const = initialize(atoms = atoms, cell_atoms = cell_atoms, eps_dd = eps_dd)
+        positions_in, normed_velocities, e_pot_in, norm_const = initialize(atoms = atoms, eps_dd = eps_dd)
 
         # first softening step to get the initial residum
-        res_initial, curve, new_normed_velocities, new_normed_cell_velocities = update_velocities(atoms = atoms, 
-                                                                                                  cell_atoms = cell_atoms, 
+        res_initial, curve, new_normed_velocities, = update_velocities(atoms = atoms, 
                                                                                                   positions_in = positions_in, 
-                                                                                                  cell_positions_in = cell_positions_in, 
                                                                                                   normed_velocities = normed_velocities, 
-                                                                                                  normed_cell_velocities = normed_cell_velocities, 
                                                                                                   e_pot_in = e_pot_in, 
                                                                                                   eps_dd = eps_dd, 
                                                                                                   alpha_pos = alpha_pos, 
                                                                                                   alpha_lat = alpha_lat)
         normed_velocities = new_normed_velocities
-        normed_cell_velocities = new_normed_cell_velocities
 
         # Soften loop
         for i in range(nsoft):
-            res, curve, new_normed_velocities, new_normed_cell_velocities = update_velocities(atoms = atoms, 
-                                                                                cell_atoms = cell_atoms, 
+            res, curve, new_normed_velocities = update_velocities(atoms = atoms, 
                                                                                 positions_in = positions_in, 
-                                                                                cell_positions_in = cell_positions_in, 
                                                                                 normed_velocities = normed_velocities, 
-                                                                                normed_cell_velocities = normed_cell_velocities, 
                                                                                 e_pot_in = e_pot_in, 
                                                                                 eps_dd = eps_dd, 
                                                                                 alpha_pos = alpha_pos, 
@@ -49,7 +42,6 @@ def soften(atoms: ase.atom.Atom, calculator: ase.calculators.calculator.Calculat
         
             # Update velocities
             normed_velocities = new_normed_velocities
-            normed_cell_velocities = new_normed_cell_velocities
 
         # Warning if softening has diverged and not converged
         if res_initial < res:
@@ -60,26 +52,22 @@ def soften(atoms: ase.atom.Atom, calculator: ase.calculators.calculator.Calculat
         velocities = normed_velocities / norm_const
 
         # Return output
-        if cell_atoms is not None:
-            cell_velocities = normed_cell_velocities / norm_const
-        else:
-            cell_velocities = None
     else:
         # if there is no softening remove momentum and torque
         velocities = elim_moment(velocities=atoms.get_velocities())
         velocities = elim_torque(velocities=velocities, positions=atoms.get_positions(), masses=atoms.get_masses())
-        if cell_atoms is not None:
-            cell_velocities = elim_moment(velocities = cell_atoms.velocities)
-            cell_velocities = elim_torque(velocities = cell_velocities,positions = cell_atoms.positions,masses = cell_atoms.masses)
-        else:
-            cell_velocities = None 
     
+    if cell_atoms is not None:
+        cell_velocities = elim_moment(velocities = cell_atoms.velocities)
+        cell_velocities = elim_torque(velocities = cell_velocities,positions = cell_atoms.positions,masses = cell_atoms.masses)
+    else:
+        cell_velocities = None 
     return velocities, cell_velocities
 
 
     
 
-def initialize(atoms: ase.atom.Atom, cell_atoms: Cell_atom, eps_dd: float):
+def initialize(atoms: ase.atom.Atom, eps_dd: float):
     '''
     Initialization before the iterative part of the softening
     '''
@@ -89,44 +77,27 @@ def initialize(atoms: ase.atom.Atom, cell_atoms: Cell_atom, eps_dd: float):
     e_pot_in = atoms.get_potential_energy()
     velocities = atoms.get_velocities()
 
-    # If periodic then also get initial cell positions
-    if cell_atoms is not None:
-        cell_positions_in = cell_atoms.positions
-        cell_velocities = cell_atoms.velocities
-    else:
-        cell_positions_in = None
-        cell_velocities = None
-
     # Get the normalization constant
-    norm_const = get_norm_constant(velocities, cell_velocities, eps_dd)
-    if cell_atoms is not None:
-        normed_velocities = velocities * norm_const
-        normed_cell_velocities = cell_velocities * norm_const
-    else:
-        normed_velocities = velocities * norm_const
-        normed_cell_velocities = None
+    norm_const = get_norm_constant(velocities, eps_dd)
+    normed_velocities = velocities * norm_const
+    normed_velocities = elim_moment(velocities = normed_velocities)
+    normed_velocities = elim_torque(velocities = normed_velocities, positions = positions_in,masses = atoms.get_masses())
 
-    return positions_in, cell_positions_in, normed_velocities, normed_cell_velocities, e_pot_in, norm_const
+    return positions_in, normed_velocities, e_pot_in, norm_const
 
 
-def get_norm_constant(velocities, cell_velocities, eps_dd):
+def get_norm_constant(velocities, eps_dd):
     '''
     get the normalization constant for the velocities
     '''
-    if cell_velocities is None:
-        norm_const = eps_dd / np.sqrt(np.sum(velocities ** 2))
-    else:
-        norm_const = eps_dd / np.sqrt(np.sum(velocities ** 2) + np.sum(cell_velocities ** 2))
+    norm_const = eps_dd / np.sqrt(np.sum(velocities ** 2))
 
     return norm_const
 
 
 def update_velocities(atoms: ase.atom.Atom, 
-                      cell_atoms: Cell_atom, 
                       positions_in: np.ndarray, 
-                      cell_positions_in: np.ndarray, 
                       normed_velocities: np.ndarray, 
-                      normed_cell_velocities: np.ndarray, 
                       e_pot_in: float, 
                       eps_dd: float, 
                       alpha_pos: float, 
@@ -134,18 +105,11 @@ def update_velocities(atoms: ase.atom.Atom,
     '''
     Performing one softening steps of the velocities
     '''
-    positions = positions_in + normed_velocities
+    positions = positions_in.copy() + normed_velocities
     atoms.set_positions(positions)
-
-    if cell_atoms is not None:
-        cell_positions = cell_positions_in + normed_cell_velocities
-        atoms.set_cell(cell_positions, scale_atoms=True, apply_constraint=False)
-        atoms.set_positions(positions)
-
 
     e_pot = atoms.get_potential_energy()
     forces = atoms.get_forces()
-
     # Only a parameter for check
     fd2 = 2* (e_pot - e_pot_in) / eps_dd ** 2
 
@@ -155,25 +119,12 @@ def update_velocities(atoms: ase.atom.Atom,
     sdf = np.sum(normed_velocities * forces)
     sdd = np.sum(normed_velocities * normed_velocities)
 
-    if cell_atoms is not None:
-        stress_tensor = atoms.get_stress(voigt=False,apply_constraint=False)
-        cell = atoms.get_cell()
-        deralat = lat_opt.lattice_derivative(stress_tensor = stress_tensor, cell = cell)
-        sdf += np.sum(normed_cell_velocities * deralat)
-        sdd += np.sum(normed_cell_velocities * normed_cell_velocities)
-
-
     curve = -sdf/sdd
 
     tt = np.sum(forces * forces) # only for debugging reasons
-    forces += curve * normed_velocities
+    forces = forces + curve * normed_velocities
     res = np.sum(forces * forces)
 
-
-    if cell_atoms is not None:
-        tt += np.sum(deralat*deralat)
-        deralat = deralat + curve * normed_cell_velocities
-        res = res + np.sum(deralat*deralat)
 
     tt = np.sqrt(tt)
     res = np.sqrt(res)
@@ -181,34 +132,20 @@ def update_velocities(atoms: ase.atom.Atom,
     debug_msg = "SOFTEN:   {:1.5f}    {:1.5f}    {:1.5f}    {:1.5f}    {:1.5f}".format(tt, res, curve , fd2, e_pot - e_pot_in)
     logging.logger.debug(debug_msg)
 
+    print(debug_msg)
+
     positions = positions + alpha_pos * forces
     normed_velocities = positions - positions_in
 
-    if cell_atoms is not None:
-        #self._cell_positions = self._cell_positions + self._alpha_lat*_deralat
-        cell_positions[0, 0] = cell_positions[0, 0] + alpha_lat * deralat[0, 0]
-        cell_positions[0, 1] = cell_positions[0, 1] + alpha_lat * deralat[0, 1]
-        cell_positions[0, 2] = cell_positions[0, 2] + alpha_lat * deralat[0, 2]
-        cell_positions[1, 0] = cell_positions[1, 0] + alpha_lat * deralat[1, 0]
-        cell_positions[1, 1] = cell_positions[1, 1] + alpha_lat * deralat[1, 1]
-        cell_positions[2, 0] = cell_positions[2, 0] + alpha_lat * deralat[2, 0]
-
-        normed_cell_velocities = cell_positions - cell_positions_in
-        normed_velocities = elim_moment(velocities = normed_velocities)
-        normed_cell_velocities = elim_torque(velocities = normed_cell_velocities, positions = cell_positions, masses = cell_atoms.masses)
-        divisor = np.sqrt(np.sum(normed_velocities ** 2) + np.sum(normed_cell_velocities ** 2))
-    else:
-        normed_velocities = elim_moment(velocities = normed_velocities)
-        normed_velocities = elim_torque(velocities = normed_velocities, positions = positions,masses = atoms.get_masses())
-        divisor = np.sqrt(np.sum(normed_velocities ** 2))
+    normed_velocities = elim_moment(velocities = normed_velocities)
+    normed_velocities = elim_torque(velocities = normed_velocities, positions = positions,masses = atoms.get_masses())
+    divisor = np.sqrt(np.sum(normed_velocities ** 2))
 
     sdd = eps_dd / divisor
 
     normed_velocities = normed_velocities * sdd
-    if cell_atoms is not None:
-        normed_cell_velocities = normed_cell_velocities * sdd    
 
-    return res, curve, normed_velocities, normed_cell_velocities
+    return res, curve, normed_velocities
 
 
 def elim_moment(velocities: np.ndarray):
@@ -293,3 +230,90 @@ def normalize(v: np.ndarray):
     if norm == 0:
         return v
     return v / norm
+
+
+
+#         subroutine soften(nsoft,nat,rxyz,dd,curv0,curv,res,it,padd,pweight, &
+#                           count_soft)
+#         implicit real*8 (a-h,o-z)
+#         dimension rxyz(3*nat),dd(3*nat)
+#         real*8 , allocatable :: wpos(:),fxyz(:)
+#         logical padd
+
+#         eps_dd=1.d-2
+# !        alpha=4.d-2   ! Au gold
+# !        alpha=0.8d-3  ! step size for LJ systems
+# !        alpha=3.d-2  ! step size for 
+#          ! alpha=40.d0   !  Carbon in eV/A**2
+#           alpha=0.5d0   !  Carbon in atomic units
+
+#         allocate(wpos(3*nat),fxyz(3*nat))
+
+#         call  energyandforces(nat,rxyz,fxyz,etot0,padd,pweight,count_soft)
+
+
+
+# ! normalize initial guess
+#         sdd=0.d0
+#         do i=1,3*nat
+#         sdd=sdd+dd(i)**2
+#         enddo
+#         sdd=eps_dd/sqrt(sdd)
+#         do i=1,3*nat
+#         dd(i)=sdd*dd(i)
+#         enddo
+
+
+#     do it=1,nsoft
+
+#         do i=1,3*nat
+#         wpos(i)=rxyz(i)+dd(i)
+#         enddo
+#         call  energyandforces(nat,wpos,fxyz,etot,padd,pweight,count_soft)
+
+#         fd2=2.d0*(etot-etot0)/eps_dd**2
+
+#         sdf=0.d0
+#         sdd=0.d0
+#         do i=1,3*nat
+#         sdf=sdf+dd(i)*fxyz(i)
+#         sdd=sdd+dd(i)*dd(i)
+#         enddo
+
+#         curv=-sdf/sdd
+#         if (it.eq.1) curv0=curv
+#         res=0.d0
+#         tt=0.d0
+#         do i=1,3*nat
+#             tt=tt+fxyz(i)**2
+#             fxyz(i)=fxyz(i)+curv*dd(i)
+#             res=res+fxyz(i)**2
+#         enddo
+#         res=sqrt(res)
+#         tt=sqrt(tt)
+#         write(100,'(a,i5,4(e13.5),e18.10)') 'it,fnrm,res,curv,fd2,etot ',it,tt,res,curv,fd2,etot-etot0
+
+#         do i=1,3*nat
+#             wpos(i)=wpos(i)+alpha*fxyz(i)
+#         enddo
+#         do i=1,3*nat
+#             dd(i)=wpos(i)-rxyz(i)
+#         enddo
+#         call  elim_moment(nat,dd)
+#         call  elim_torque(nat,rxyz,dd)
+#         sdd=0.d0
+#         do i=1,3*nat
+#         sdd=sdd+dd(i)*dd(i)
+#         enddo
+#         if (res.le.curv*eps_dd*5.d-1) goto 1000
+#         sdd=eps_dd/sqrt(sdd)
+#         do i=1,3*nat
+#         dd(i)=dd(i)*sdd
+#         enddo
+
+    #   enddo
+
+
+
+
+
