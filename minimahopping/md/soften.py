@@ -9,7 +9,7 @@ from minimahopping.mh.cell_atom import Cell_atom
 def soften(atoms: ase.atom.Atom, calculator: ase.calculators.calculator.Calculator, cell_atoms: Cell_atom, nsoft: int, alpha_pos: float = 1e-3, alpha_lat: float = None):
     atoms = atoms.copy()
     atoms.calc = calculator
-    eps_dd = 1e-1
+    eps_dd = 1e-2
 
 
     # Check if softenig steps is larger than zero
@@ -78,10 +78,10 @@ def initialize(atoms: ase.atom.Atom, eps_dd: float):
     velocities = atoms.get_velocities()
 
     # Get the normalization constant
+    normed_velocities = elim_moment(velocities = velocities)
+    normed_velocities = elim_torque(velocities = velocities, positions = positions_in,masses = atoms.get_masses())
     norm_const = get_norm_constant(velocities, eps_dd)
     normed_velocities = velocities * norm_const
-    normed_velocities = elim_moment(velocities = normed_velocities)
-    normed_velocities = elim_torque(velocities = normed_velocities, positions = positions_in,masses = atoms.get_masses())
 
     return positions_in, normed_velocities, e_pot_in, norm_const
 
