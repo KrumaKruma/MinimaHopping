@@ -9,6 +9,7 @@ import minimahopping.md.md as md
 import minimahopping.opt.optim as opt
 from minimahopping.mh.minimum import Minimum
 from minimahopping.mh.cell_atom import Cell_atom
+from minimahopping.mh.is_molecule import check_molecular_crystal
 import time
 import json
 import minimahopping.mh.file_handling as file_handling 
@@ -468,7 +469,7 @@ class Minimahopping:
         """
         self._n_same = 0
         _i_steps = 0
-
+        increase_temperature = True
         is_escape = True
 
         while is_escape:
@@ -483,13 +484,14 @@ class Minimahopping:
             except:
                 pass
             # if the loop not escaped (no new minimum found) rise temperature
-            if _i_steps > 0:
+            if _i_steps > 0 and increase_temperature:
                 self._n_same += 1
                 status = 'Same'
                 self._history_log(struct, status)
                 self.parameters._T *= self.parameters.beta_increase
                 log_msg = "    Same minimum found {:d} time(s). Increase temperature to {:1.5f}".format(self._n_same, self.parameters._T)
                 logging.logger.info(log_msg)
+            increase_temperature = True
 
             MaxwellBoltzmannDistribution(atoms, temperature_K=self.parameters._T, communicator='serial')
 
@@ -634,6 +636,13 @@ class Minimahopping:
 
             _i_steps += 1
             self._n_min += 1
+
+            number_of_molecules, molecule_sizes = check_molecular_crystal(atoms)
+                
+            if molecule_sizes != 1:
+                if number_of_md_steps != 4:
+                    is_escape = False
+                    increase_temperature = False   
 
             # check if proposed structure is the same to the initial structure
             is_different = self.isEqualTo(struct, proposed_structure)
