@@ -614,7 +614,14 @@ class Minimahopping:
             # check if the energy threshold is below the optimization noise
             self._check_energy_threshold()
 
-            proposed_structure = Minimum(atoms,
+            number_of_molecules, molecule_sizes = check_molecular_crystal(atoms)
+
+            if molecule_sizes != 1:
+                if number_of_molecules != 4:
+                    is_escape = False
+                    increase_temperature = False
+            else:
+                proposed_structure = Minimum(atoms,
                         s = self.parameters.n_S_orbitals,
                         p = self.parameters.n_P_orbitals, 
                         width_cutoff = self.parameters.width_cutoff,
@@ -637,12 +644,6 @@ class Minimahopping:
             _i_steps += 1
             self._n_min += 1
 
-            number_of_molecules, molecule_sizes = check_molecular_crystal(atoms)
-                
-            if molecule_sizes != 1:
-                if number_of_md_steps != 4:
-                    is_escape = False
-                    increase_temperature = False   
 
             # check if proposed structure is the same to the initial structure
             is_different = self.isEqualTo(struct, proposed_structure)
