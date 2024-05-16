@@ -12,6 +12,16 @@ def soften(atoms: ase.atom.Atom, calculator: ase.calculators.calculator.Calculat
     eps_dd = 1e-2
 
 
+    # if there is no softening remove momentum and torque
+    if cell_atoms is not None:
+        velocities = elim_moment(velocities=atoms.get_velocities())
+        cell_velocities = elim_torque(velocities = cell_atoms.velocities,positions = cell_atoms.positions,masses = cell_atoms.masses)
+    else:
+        velocities = elim_moment(velocities=atoms.get_velocities())
+        velocities = elim_torque(velocities=velocities, positions=atoms.get_positions(), masses=atoms.get_masses())
+        cell_velocities = None 
+    
+    
     # Check if softenig steps is larger than zero
     if nsoft > 0:
         # initialization and normalization of velocities
@@ -64,15 +74,6 @@ def soften(atoms: ase.atom.Atom, calculator: ase.calculators.calculator.Calculat
             cell_velocities = normed_cell_velocities / norm_const
         else:
             cell_velocities = None
-    else:
-        # if there is no softening remove momentum and torque
-        velocities = elim_moment(velocities=atoms.get_velocities())
-        velocities = elim_torque(velocities=velocities, positions=atoms.get_positions(), masses=atoms.get_masses())
-        if cell_atoms is not None:
-            cell_velocities = elim_moment(velocities = cell_atoms.velocities)
-            cell_velocities = elim_torque(velocities = cell_velocities,positions = cell_atoms.positions,masses = cell_atoms.masses)
-        else:
-            cell_velocities = None 
     
     return velocities, cell_velocities
 
@@ -159,6 +160,7 @@ def update_velocities(atoms: ase.atom.Atom,
         stress_tensor = atoms.get_stress(voigt=False,apply_constraint=False)
         cell = atoms.get_cell()
         deralat = lat_opt.lattice_derivative(stress_tensor = stress_tensor, cell = cell)
+        deralat = lat_opt.transform_deralat(atoms = atoms, forces = forces, deralat=deralat)
         sdf += np.sum(normed_cell_velocities * deralat)
         sdd += np.sum(normed_cell_velocities * normed_cell_velocities)
 
@@ -180,7 +182,7 @@ def update_velocities(atoms: ase.atom.Atom,
 
     debug_msg = "SOFTEN:   {:1.5f}    {:1.5f}    {:1.5f}    {:1.5f}    {:1.5f}".format(tt, res, curve , fd2, e_pot - e_pot_in)
     logging.logger.debug(debug_msg)
-
+    # print(debug_msg)
     positions = positions + alpha_pos * forces
     normed_velocities = positions - positions_in
 

@@ -3,6 +3,7 @@ import spglib
 import minimahopping.logging.logger as logging
 from ase.atoms import Atoms
 from ase.io import read, write
+import ase.atom
 
 def lattice_derivative(stress_tensor: np.array, cell: np.array):
     """
@@ -32,7 +33,7 @@ def reshape_cell(atoms: Atoms, symprec: float):
     positions = atoms.get_scaled_positions()
     
     spglib_cell = (cell, positions, numbers)
-    lattice, scaled_positions, numbers = spglib.standardize_cell(spglib_cell, to_primitive=False, no_idealize=True, symprec=symprec, angle_tolerance=-1.0)
+    lattice, scaled_positions, numbers = spglib.standardize_cell(spglib_cell, to_primitive=False, no_idealize=False, symprec=symprec, angle_tolerance=-1.0)
     if lattice is None:
         msg = "cell reshape did not work"
         logging.logger.warning(msg)
@@ -43,6 +44,26 @@ def reshape_cell(atoms: Atoms, symprec: float):
             atoms.set_scaled_positions(scaled_positions)
         else:
             logging.logger.warn("standardize_cell operation did not work use lower symprec value")
+
+
+def transform_deralat(atoms: ase.atom.Atom, forces: np.ndarray, deralat: np.ndarray):
+    """
+    Transformation of the lattice derivative (see Gubler et al., J.Chem.Phys X, 17, 2023)
+    Input:
+        atoms: ASE atoms object
+        forces: forces of the atoms
+        deralat: lattice/cell derivative
+    Output:
+        new_deralat: transformed lattice derivative
+    """
+    index = len(np.where(atoms.pbc==True)[0])
+    new_deralat = deralat.copy()
+    reduced_positions = atoms.get_scaled_positions(wrap=False)
+    sumsum = np.zeros((index,index))
+    sumsum = np.dot(forces.T[:index,:], reduced_positions[:,:index])
+    new_deralat[:index,:index] = deralat[:index,:index] - sumsum.T
+    return new_deralat
+
 
 
 def check_boundary_conditions(atoms):
