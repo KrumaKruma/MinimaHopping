@@ -620,8 +620,8 @@ class Minimahopping:
                 if number_of_molecules != 4:
                     is_escape = False
                     increase_temperature = False
-            else:
-                proposed_structure = Minimum(atoms,
+            
+            proposed_structure = Minimum(atoms,
                         s = self.parameters.n_S_orbitals,
                         p = self.parameters.n_P_orbitals, 
                         width_cutoff = self.parameters.width_cutoff,
