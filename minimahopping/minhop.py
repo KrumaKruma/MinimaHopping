@@ -587,7 +587,7 @@ class Minimahopping:
             is_crashed = get_mindist(atoms, self.parameters.threshold_distance)
 
             if is_crashed:
-                is_escape = False
+                is_escape = True
                 increase_temperature = False
                 status = "Failed crashing"
                 proposed_structure = Minimum(atoms,
@@ -635,7 +635,7 @@ class Minimahopping:
 
                 if molecule_sizes != 1:
                     if number_of_molecules != 4:
-                        is_escape = False
+                        is_escape = True
                         increase_temperature = False
                         status = "Failed molecules fragmented"
                         proposed_structure = Minimum(atoms,
@@ -650,7 +650,7 @@ class Minimahopping:
             
                 is_crashed = get_mindist(atoms, self.parameters.threshold_distance)
                 if is_crashed:
-                    is_escape = False
+                    is_escape = True
                     increase_temperature = False
                     status = "Failed crashing "
                     proposed_structure = Minimum(atoms,
