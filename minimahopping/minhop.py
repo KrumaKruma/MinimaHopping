@@ -589,7 +589,7 @@ class Minimahopping:
             if is_crashed:
                 is_escape = False
                 increase_temperature = False
-                status = "Failed"
+                status = "Failed crashing"
                 proposed_structure = Minimum(atoms,
                     s = self.parameters.n_S_orbitals,
                     p = self.parameters.n_P_orbitals, 
@@ -637,7 +637,7 @@ class Minimahopping:
                     if number_of_molecules != 4:
                         is_escape = False
                         increase_temperature = False
-                        status = "Failed"
+                        status = "Failed molecules fragmented"
                         proposed_structure = Minimum(atoms,
                             s = self.parameters.n_S_orbitals,
                             p = self.parameters.n_P_orbitals, 
@@ -652,7 +652,7 @@ class Minimahopping:
                 if is_crashed:
                     is_escape = False
                     increase_temperature = False
-                    status = "Failed"
+                    status = "Failed crashing "
                     proposed_structure = Minimum(atoms,
                         s = self.parameters.n_S_orbitals,
                         p = self.parameters.n_P_orbitals, 

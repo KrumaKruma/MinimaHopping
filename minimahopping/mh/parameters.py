@@ -98,7 +98,8 @@ class minimaHoppingParameters:
     maxNumberOfMinima: int = 0
     """maxNumberOfMinima (int): Maximal number of minima that will be stored in database. Only the maxNumberOfMinima lowest energy structures will be stored. If a structure is higher in energy than the 
     maxNumberOfMinima it will considered as a new structure. If the number is 0 or negative, it will be considered as infinite."""
-
+    threshold_distance: float = 0.9
+    """if a bondlength is below this threshold the ml potential is crashed"""
 
     def getFixedParameterList(self):
         return ['n_S_orbitals', 'n_P_orbitals', 'width_cutoff', 'exclude', 'fingerprint_threshold', 'use_MPI']
