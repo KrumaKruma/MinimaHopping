@@ -612,14 +612,6 @@ class Minimahopping:
             # check if the energy threshold is below the optimization noise
             self._check_energy_threshold()
 
-            proposed_structure = Minimum(atoms,
-                        s = self.parameters.n_S_orbitals,
-                        p = self.parameters.n_P_orbitals, 
-                        width_cutoff = self.parameters.width_cutoff,
-                        epot = atoms.get_potential_energy(),
-                        T=self.parameters._T,
-                        ediff=self.parameters._eDiff,
-                        exclude= self.parameters.exclude)
 
             # If Pbc set optimized lattice
             periodicity_type = lattice_operations.check_boundary_conditions(atoms)
@@ -631,6 +623,15 @@ class Minimahopping:
                 atoms.calc.recalculateBasis(atoms)
             except:
                 pass
+            
+            proposed_structure = Minimum(atoms,
+                        s = self.parameters.n_S_orbitals,
+                        p = self.parameters.n_P_orbitals, 
+                        width_cutoff = self.parameters.width_cutoff,
+                        epot = atoms.get_potential_energy(),
+                        T=self.parameters._T,
+                        ediff=self.parameters._eDiff,
+                        exclude= self.parameters.exclude)
 
             _i_steps += 1
             self._n_min += 1
