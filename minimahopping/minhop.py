@@ -665,6 +665,9 @@ class Minimahopping:
                 else:
                     self.parameters._n_same += 1
                 self._write_parameters()
+
+            log_msg = "MC is escaped {0}".format(is_escape)    
+            logging.logger.info(log_msg)
         return proposed_structure, _epot_max, _md_trajectory, _opt_trajectory
 
 
