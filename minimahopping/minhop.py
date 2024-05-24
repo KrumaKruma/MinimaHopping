@@ -559,100 +559,49 @@ class Minimahopping:
             except:
                 pass
 
-            # If second calculator is present do a pre-optimization
-            logging.logger.info("    PRE-OPT start")
-            positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps, epot_max_geopt = opt.optimization(atoms=atoms, 
-                                                                        calculator=self.md_calculator, 
-                                                                        max_force_threshold=self.parameters.fmax_pre_optimization, 
-                                                                        outpath=self._outpath,
-                                                                        initial_step_size=self.parameters.initial_step_size,
-                                                                        fixed_cell_simulation=self.parameters.fixed_cell_simulation,
-                                                                        nhist_max=self.parameters.nhist_max,
-                                                                        lattice_weight=self.parameters.lattice_weight,
-                                                                        alpha_min=self.parameters.alpha_min,
-                                                                        eps_subsp=self.parameters.eps_subsp, 
-                                                                        verbose=self.parameters.verbose_output)
-                
-            # Set pre-optimized positions
-            atoms.set_positions(positions)
-            # If Pbc set pre-optimized lattice 
-            if sum(atoms.pbc) == 3 and not self.parameters.fixed_cell_simulation:
-                atoms.set_cell(lattice)
-
             # Change calculator for geometry optimization
             atoms.calc = self.calculator
-            log_msg = "    PRE-OPT finished after {:d} steps.".format(number_of_opt_steps)
-            logging.logger.info(log_msg)
 
-            is_crashed = get_mindist(atoms, self.parameters.threshold_distance)
+            logging.logger.info("    OPT start")
+            positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps, epot_max_geopt = opt.optimization(atoms=atoms, 
+                                                                calculator=self.calculator, 
+                                                                max_force_threshold=self.parameters.fmax, 
+                                                                outpath=self._outpath,
+                                                                initial_step_size=self.parameters.initial_step_size,
+                                                                fixed_cell_simulation=self.parameters.fixed_cell_simulation,
+                                                                nhist_max=self.parameters.nhist_max,
+                                                                lattice_weight=self.parameters.lattice_weight,
+                                                                alpha_min=self.parameters.alpha_min,
+                                                                eps_subsp=self.parameters.eps_subsp, 
+                                                                verbose=self.parameters.verbose_output)
 
-            if is_crashed:
-                is_escape = True
-                increase_temperature = False
-                status = "Failed crashing"
-                proposed_structure = Minimum(atoms,
-                    s = self.parameters.n_S_orbitals,
-                    p = self.parameters.n_P_orbitals, 
-                    width_cutoff = self.parameters.width_cutoff,
-                    epot = atoms.get_potential_energy(),
-                    T=self.parameters._T,
-                    ediff=self.parameters._eDiff,
-                    exclude= self.parameters.exclude)
-                self._history_log(proposed_structure, status)
-                _i_steps += 1
-                self._n_min += 1
+            if epot_max_geopt > epot_max_md:
+                _epot_max = epot_max_geopt
+                msg = "maximal potential energy of escape loop in geometry optimization"
+                logging.logger.warning(msg)
             else:
-                logging.logger.info("    OPT start")
-                positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps, epot_max_geopt = opt.optimization(atoms=atoms, 
-                                                                    calculator=self.calculator, 
-                                                                    max_force_threshold=self.parameters.fmax, 
-                                                                    outpath=self._outpath,
-                                                                    initial_step_size=self.parameters.initial_step_size,
-                                                                    fixed_cell_simulation=self.parameters.fixed_cell_simulation,
-                                                                    nhist_max=self.parameters.nhist_max,
-                                                                    lattice_weight=self.parameters.lattice_weight,
-                                                                    alpha_min=self.parameters.alpha_min,
-                                                                    eps_subsp=self.parameters.eps_subsp, 
-                                                                    verbose=self.parameters.verbose_output)
+                _epot_max = epot_max_md
 
-                if epot_max_geopt > epot_max_md:
-                    _epot_max = epot_max_geopt
-                    msg = "maximal potential energy of escape loop in geometry optimization"
-                    logging.logger.warning(msg)
-                else:
-                    _epot_max = epot_max_md
+            # Set optimized positions
+            atoms.set_positions(positions)
+            if True in atoms.pbc and not self.parameters.fixed_cell_simulation:
+                atoms.set_cell(lattice)
 
-                # Set optimized positions
-                atoms.set_positions(positions)
+            log_msg = "    OPT finished after {:d} steps.".format(number_of_opt_steps)
+            logging.logger.info(log_msg)
+            atoms.calc = self.calculator
+            # check if the energy threshold is below the optimization noise
+            self._check_energy_threshold()
 
-                log_msg = "    OPT finished after {:d} steps.".format(number_of_opt_steps)
-                logging.logger.info(log_msg)
-                atoms.calc = self.calculator
-                # check if the energy threshold is below the optimization noise
-                self._check_energy_threshold()
-
-                number_of_molecules, molecule_sizes = check_molecular_crystal(atoms)
-
-                if molecule_sizes != 1:
-                    if number_of_molecules != 4:
-                        is_escape = True
-                        increase_temperature = False
-                        status = "Failed molecules fragmented"
-                        proposed_structure = Minimum(atoms,
-                            s = self.parameters.n_S_orbitals,
-                            p = self.parameters.n_P_orbitals, 
-                            width_cutoff = self.parameters.width_cutoff,
-                            epot = atoms.get_potential_energy(),
-                            T=self.parameters._T,
-                            ediff=self.parameters._eDiff,
-                            exclude= self.parameters.exclude)
-                        self._history_log(proposed_structure, status)
-            
-                is_crashed = get_mindist(atoms, self.parameters.threshold_distance)
-                if is_crashed:
-                    is_escape = True
+            number_of_molecules, molecule_sizes = check_molecular_crystal(atoms)
+            log_msg = "    MC consists of {:d} molecules: {:d}".format(number_of_molecules, molecule_sizes)
+            logging.logger.info(log_msg)
+            if molecule_sizes != 1:
+                is_failed = True
+                if number_of_molecules != 4:
+                    is_failed = True
                     increase_temperature = False
-                    status = "Failed crashing "
+                    status = "Failed molecules fragmented"
                     proposed_structure = Minimum(atoms,
                         s = self.parameters.n_S_orbitals,
                         p = self.parameters.n_P_orbitals, 
@@ -662,32 +611,54 @@ class Minimahopping:
                         ediff=self.parameters._eDiff,
                         exclude= self.parameters.exclude)
                     self._history_log(proposed_structure, status)
-            
+                else:
+                    is_failed = False
+            else:
+                is_failed = False
+
+            is_crashed = get_mindist(atoms, self.parameters.threshold_distance)
+            if is_crashed:
+                is_failed = True
+                increase_temperature = False
+                status = "Failed crashing "
                 proposed_structure = Minimum(atoms,
-                            s = self.parameters.n_S_orbitals,
-                            p = self.parameters.n_P_orbitals, 
-                            width_cutoff = self.parameters.width_cutoff,
-                            epot = atoms.get_potential_energy(),
-                            T=self.parameters._T,
-                            ediff=self.parameters._eDiff,
-                            exclude= self.parameters.exclude)
+                    s = self.parameters.n_S_orbitals,
+                    p = self.parameters.n_P_orbitals, 
+                    width_cutoff = self.parameters.width_cutoff,
+                    epot = atoms.get_potential_energy(),
+                    T=self.parameters._T,
+                    ediff=self.parameters._eDiff,
+                    exclude= self.parameters.exclude)
+                self._history_log(proposed_structure, status)
+            else:
+                is_failed = False
 
-                # If Pbc set optimized lattice
-                periodicity_type = lattice_operations.check_boundary_conditions(atoms)
-                if periodicity_type != 0 and not self.parameters.fixed_cell_simulation:
-                    atoms.set_cell(lattice)
-                    if periodicity_type == 3:
-                        lattice_operations.reshape_cell(atoms, self.parameters.symprec)
-                try:
-                    atoms.calc.recalculateBasis(atoms)
-                except:
-                    pass
+            proposed_structure = Minimum(atoms,
+                        s = self.parameters.n_S_orbitals,
+                        p = self.parameters.n_P_orbitals, 
+                        width_cutoff = self.parameters.width_cutoff,
+                        epot = atoms.get_potential_energy(),
+                        T=self.parameters._T,
+                        ediff=self.parameters._eDiff,
+                        exclude= self.parameters.exclude)
 
-                _i_steps += 1
-                self._n_min += 1
+            # If Pbc set optimized lattice
+            periodicity_type = lattice_operations.check_boundary_conditions(atoms)
+            if periodicity_type != 0 and not self.parameters.fixed_cell_simulation:
+                atoms.set_cell(lattice)
+                if periodicity_type == 3:
+                    lattice_operations.reshape_cell(atoms, self.parameters.symprec)
+            try:
+                atoms.calc.recalculateBasis(atoms)
+            except:
+                pass
+
+            _i_steps += 1
+            self._n_min += 1
 
 
-                # check if proposed structure is the same to the initial structure
+            # check if proposed structure is the same to the initial structure
+            if not is_failed:
                 is_different = self.isEqualTo(struct, proposed_structure)
                 if is_different:
                     is_escape = False
