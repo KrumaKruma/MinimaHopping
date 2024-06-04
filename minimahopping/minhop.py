@@ -339,6 +339,7 @@ class Minimahopping:
         # Check if this is a fresh start
         if not self.isRestart:
             logging.logger.info('  New MH run is started')
+            struct_cur = None
             for atom in atoms:
                 try:
                     self.calc.recalculateBasis(atom)
@@ -358,6 +359,8 @@ class Minimahopping:
                             T=self.parameters._T,
                             ediff=self.parameters._eDiff,
                             exclude= self.parameters.exclude)
+                if struct_cur is None or struct.e_pot < struct_cur.e_pot:
+                    struct_cur = struct
                 logging.logger.debug("Before initial database request in startup")
                 n_visit, label, continueSimulation = self.data.addElement(struct)
                 self.parameters._n_accepted += 1
@@ -366,7 +369,6 @@ class Minimahopping:
                     logging.logger.info("received shutdown signal after adding first element.")
                     quit()
             # add input structure to database after optimization
-            struct_cur = self.data.get_element(0)
             self._write_restart(struct_cur, struct_cur, True)
             try:
                 self.calc.recalculateBasis(struct_cur.atoms)
