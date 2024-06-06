@@ -397,7 +397,8 @@ def update_trajectory(atoms: ase.atom.Atom, positions_old: np.ndarray, lattice_o
         trajectory[-1].info.pop('label', None)
         if collect_md_file is not None:
             atoms.info['energy'] = atoms.get_potential_energy()
-            atoms.info['stress'] = atoms.get_stress()
+            if True in atoms.pbc:
+                atoms.info['stress'] = atoms.get_stress()
             write(filename = collect_md_file, images = atoms, parallel=False)
             collect_md_file.flush()
 
