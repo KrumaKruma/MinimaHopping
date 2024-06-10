@@ -342,7 +342,7 @@ class Minimahopping:
             struct_cur = None
             for atom in atoms:
                 try:
-                    self.calc.recalculateBasis(atom)
+                    self.calculator.recalculateBasis(atom)
                 except:
                     pass
                 atom.calc = self.calculator
@@ -371,7 +371,7 @@ class Minimahopping:
             # add input structure to database after optimization
             self._write_restart(struct_cur, struct_cur, True)
             try:
-                self.calc.recalculateBasis(struct_cur.atoms)
+                self.calculator.recalculateBasis(struct_cur.atoms)
             except:
                 pass
         else:
