@@ -21,7 +21,7 @@ setup(
         'sqnm @ git+https://github.com/moritzgubler/vc-sqnm#egg=sqnm&subdirectory=src/python/',
         'dataclasses-json',
         'numba',
-        'spglib<=2.0.2'
+        'spglib==2.4.0'
     ],
     entry_points={
       'console_scripts': [

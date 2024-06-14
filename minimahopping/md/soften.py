@@ -2,69 +2,85 @@ import numpy as np
 import minimahopping.mh.lattice_operations as lat_opt
 import minimahopping.biomode.biomode as split_forces 
 import minimahopping.logging.logger as logging
+import ase.atom
+from minimahopping.mh.cell_atom import Cell_atom
 
 
-def soften(atoms, calculator, nsoft, alpha_pos = 1e-3, cell_atoms = None, alpha_lat = None):
+def soften(atoms: ase.atom.Atom, calculator: ase.calculators.calculator.Calculator, nsoft: int, alpha_pos: float = 1e-3, cell_atoms: Cell_atom = None, alpha_lat: float = None):
     atoms = atoms.copy()
     atoms.calc = calculator
     eps_dd = 1e-2
 
-    # initialization and normalization of velocities
-    positions_in, cell_positions_in, normed_velocities, normed_cell_velocities, e_pot_in, norm_const = initialize(atoms, cell_atoms, eps_dd)
 
-    # first softening step to get the initial residum
-    res_initial, curve, new_normed_velocities, new_normed_cell_velocities = update_velocities(atoms, 
-                                                                                        cell_atoms, 
-                                                                                        positions_in, 
-                                                                                        cell_positions_in, 
-                                                                                        normed_velocities, 
-                                                                                        normed_cell_velocities, 
-                                                                                        e_pot_in, 
-                                                                                        eps_dd, 
-                                                                                        alpha_pos, 
-                                                                                        alpha_lat)
-    normed_velocities = new_normed_velocities
-    normed_cell_velocities = new_normed_cell_velocities
+    # if there is no softening remove momentum and torque
+    if cell_atoms is not None:
+        velocities = elim_moment(velocities=atoms.get_velocities())
+        cell_velocities = elim_torque(velocities = cell_atoms.velocities,positions = cell_atoms.positions,masses = cell_atoms.masses)
+    else:
+        velocities = elim_moment(velocities=atoms.get_velocities())
+        velocities = elim_torque(velocities=velocities, positions=atoms.get_positions(), masses=atoms.get_masses())
+        cell_velocities = None 
+    
+    
+    # Check if softenig steps is larger than zero
+    if nsoft > 0:
+        # initialization and normalization of velocities
+        positions_in, cell_positions_in, normed_velocities, normed_cell_velocities, e_pot_in, norm_const = initialize(atoms = atoms, cell_atoms = cell_atoms, eps_dd = eps_dd)
 
-    # Soften loop
-    for i in range(nsoft):
-        res, curve, new_normed_velocities, new_normed_cell_velocities = update_velocities(atoms, 
-                                                                                cell_atoms, 
-                                                                                positions_in, 
-                                                                                cell_positions_in, 
-                                                                                normed_velocities, 
-                                                                                normed_cell_velocities, 
-                                                                                e_pot_in, 
-                                                                                eps_dd, 
-                                                                                alpha_pos, 
-                                                                                alpha_lat)
-        # Criterion for early stopping of softening
-        if res < (curve * eps_dd * 0.5):
-            break
-        
-        # Update velocities
+        # first softening step to get the initial residum
+        res_initial, curve, new_normed_velocities, new_normed_cell_velocities = update_velocities(atoms = atoms, 
+                                                                                                  cell_atoms = cell_atoms, 
+                                                                                                  positions_in = positions_in, 
+                                                                                                  cell_positions_in = cell_positions_in, 
+                                                                                                  normed_velocities = normed_velocities, 
+                                                                                                  normed_cell_velocities = normed_cell_velocities, 
+                                                                                                  e_pot_in = e_pot_in, 
+                                                                                                  eps_dd = eps_dd, 
+                                                                                                  alpha_pos = alpha_pos, 
+                                                                                                  alpha_lat = alpha_lat)
         normed_velocities = new_normed_velocities
         normed_cell_velocities = new_normed_cell_velocities
 
-    # Warning if softening has diverged and not converged
-    if res_initial < res:
-        warning_msg = "Softening diverged"
-        logging.logger.warning(warning_msg)
+        # Soften loop
+        for i in range(nsoft):
+            res, curve, new_normed_velocities, new_normed_cell_velocities = update_velocities(atoms = atoms, 
+                                                                                cell_atoms = cell_atoms, 
+                                                                                positions_in = positions_in, 
+                                                                                cell_positions_in = cell_positions_in, 
+                                                                                normed_velocities = normed_velocities, 
+                                                                                normed_cell_velocities = normed_cell_velocities, 
+                                                                                e_pot_in = e_pot_in, 
+                                                                                eps_dd = eps_dd, 
+                                                                                alpha_pos = alpha_pos, 
+                                                                                alpha_lat = alpha_lat)
+            # Criterion for early stopping of softening
+            if res < (curve * eps_dd * 0.5):
+                break
+        
+            # Update velocities
+            normed_velocities = new_normed_velocities
+            normed_cell_velocities = new_normed_cell_velocities
 
-    # Renormalize velocities
-    velocities = normed_velocities / norm_const
+        # Warning if softening has diverged and not converged
+        if res_initial < res:
+            warning_msg = "Softening diverged"
+            logging.logger.warning(warning_msg)
 
-    # Return output
-    if cell_atoms is not None:
-        cell_velocities = normed_cell_velocities / norm_const
-    else:
-        cell_velocities = None
+        # Renormalize velocities
+        velocities = normed_velocities / norm_const
+
+        # Return output
+        if cell_atoms is not None:
+            cell_velocities = normed_cell_velocities / norm_const
+        else:
+            cell_velocities = None
+    
     return velocities, cell_velocities
 
 
     
 
-def initialize(atoms, cell_atoms, eps_dd):
+def initialize(atoms: ase.atom.Atom, cell_atoms: Cell_atom, eps_dd: float):
     '''
     Initialization before the iterative part of the softening
     '''
@@ -106,7 +122,16 @@ def get_norm_constant(velocities, cell_velocities, eps_dd):
     return norm_const
 
 
-def update_velocities(atoms, cell_atoms, positions_in, cell_positions_in, normed_velocities, normed_cell_velocities, e_pot_in, eps_dd, alpha_pos, alpha_lat):
+def update_velocities(atoms: ase.atom.Atom, 
+                      cell_atoms: Cell_atom, 
+                      positions_in: np.ndarray, 
+                      cell_positions_in: np.ndarray, 
+                      normed_velocities: np.ndarray, 
+                      normed_cell_velocities: np.ndarray, 
+                      e_pot_in: float, 
+                      eps_dd: float, 
+                      alpha_pos: float, 
+                      alpha_lat: float):
     '''
     Performing one softening steps of the velocities
     '''
@@ -134,7 +159,8 @@ def update_velocities(atoms, cell_atoms, positions_in, cell_positions_in, normed
     if cell_atoms is not None:
         stress_tensor = atoms.get_stress(voigt=False,apply_constraint=False)
         cell = atoms.get_cell()
-        deralat = lat_opt.lattice_derivative(stress_tensor, cell)
+        deralat = lat_opt.lattice_derivative(stress_tensor = stress_tensor, cell = cell)
+        deralat = lat_opt.transform_deralat(atoms = atoms, forces = forces, deralat=deralat)
         sdf += np.sum(normed_cell_velocities * deralat)
         sdd += np.sum(normed_cell_velocities * normed_cell_velocities)
 
@@ -156,7 +182,7 @@ def update_velocities(atoms, cell_atoms, positions_in, cell_positions_in, normed
 
     debug_msg = "SOFTEN:   {:1.5f}    {:1.5f}    {:1.5f}    {:1.5f}    {:1.5f}".format(tt, res, curve , fd2, e_pot - e_pot_in)
     logging.logger.debug(debug_msg)
-
+    # print(debug_msg)
     positions = positions + alpha_pos * forces
     normed_velocities = positions - positions_in
 
@@ -170,12 +196,12 @@ def update_velocities(atoms, cell_atoms, positions_in, cell_positions_in, normed
         cell_positions[2, 0] = cell_positions[2, 0] + alpha_lat * deralat[2, 0]
 
         normed_cell_velocities = cell_positions - cell_positions_in
-        normed_velocities = elim_moment(normed_velocities)
-        normed_cell_velocities = elim_torque(normed_cell_velocities, cell_positions, cell_atoms.masses)
+        normed_velocities = elim_moment(velocities = normed_velocities)
+        normed_cell_velocities = elim_torque(velocities = normed_cell_velocities, positions = cell_positions, masses = cell_atoms.masses)
         divisor = np.sqrt(np.sum(normed_velocities ** 2) + np.sum(normed_cell_velocities ** 2))
     else:
-        normed_velocities = elim_moment(normed_velocities)
-        normed_velocities = elim_torque(normed_velocities, positions, atoms.get_masses())
+        normed_velocities = elim_moment(velocities = normed_velocities)
+        normed_velocities = elim_torque(velocities = normed_velocities, positions = positions,masses = atoms.get_masses())
         divisor = np.sqrt(np.sum(normed_velocities ** 2))
 
     sdd = eps_dd / divisor
@@ -187,7 +213,7 @@ def update_velocities(atoms, cell_atoms, positions_in, cell_positions_in, normed
     return res, curve, normed_velocities, normed_cell_velocities
 
 
-def elim_moment(velocities):
+def elim_moment(velocities: np.ndarray):
     """
     Elimination of the momentum in the velocities
     """
@@ -197,7 +223,7 @@ def elim_moment(velocities):
     return no_moment_velocities
 
 
-def elim_torque(velocities, positions, masses):
+def elim_torque(velocities: np.ndarray, positions: np.ndarray, masses: np.ndarray):
     """
     Elimination of the torque in the velocites
     """
@@ -211,7 +237,7 @@ def elim_torque(velocities, positions, masses):
     weighted_positions -= cm
 
     # Calculate moments of inertia with both functions
-    evaleria, teneria = moment_of_inertia(positions, masses)
+    evaleria, teneria = moment_of_inertia(positions = positions,masses = masses)
 
     # New vrot calculation: Vectorized operation replacing the loop
     teneria_reshaped = teneria.T.reshape(3, 1, 3)
@@ -223,7 +249,7 @@ def elim_torque(velocities, positions, masses):
 
     # normalize vrot using a loop
     for i, vec in enumerate(vrot.T):
-        vrot[:, i] = normalize(vec)
+        vrot[:, i] = normalize(v = vec)
         weighted_positions += cm
 
     # New Implementation: Vectorized operation replacing the above for loop
@@ -240,7 +266,7 @@ def elim_torque(velocities, positions, masses):
 
     return velocities
 
-def moment_of_inertia(positions, masses):
+def moment_of_inertia(positions: np.ndarray, masses: np.ndarray):
     '''
     Calcualtion of the eigenvalues and eigenvectors of the inertia tensor
     '''
@@ -261,7 +287,7 @@ def moment_of_inertia(positions, masses):
     return eigenvalues, eigenvectors
 
 
-def normalize(v):
+def normalize(v: np.ndarray):
     """
     Function that normalized a vector of arbitrary length
     """

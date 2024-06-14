@@ -49,6 +49,8 @@ class minimaHoppingParameters:
     """md_max_steps (int): Maximum number of MD steps. If reached MH continous"""
     collect_md_data: bool = False
     """collect_md_data (bool): flag to collect MD data which later could be used e.g. in machine learning"""
+    margin: float = 0.3
+    """margin for fixing of fragmentation, if particle closer than (2*max_rcov + 2*margin*max_rcov)"""
     symprec: float = 1e-5
     """symprec (float): Distance tolerance in Cartesian coordinates to find crystal symmetry for reshape cell operation (see spglib documentation for more info)"""
     fmax_pre_optimization : float = 0.1
