@@ -136,6 +136,7 @@ class Minimahopping:
             self.collect_md_file = None
         # open history file
         self.history_file = open(self._outpath + 'history.dat', 'a')
+        self.history_file.write("Energy[eV], number of visits, label, temperature [K], delta acceptance, ratio of accepted minima, ratio of rejected minima, ratio of unsucessful escapes (Same), status")
         return self
 
 
@@ -339,10 +340,9 @@ class Minimahopping:
         # Check if this is a fresh start
         if not self.isRestart:
             logging.logger.info('  New MH run is started')
-            struct_cur = None
             for atom in atoms:
                 try:
-                    self.calculator.recalculateBasis(atom)
+                    self.calc.recalculateBasis(atom)
                 except:
                     pass
                 atom.calc = self.calculator
@@ -359,8 +359,6 @@ class Minimahopping:
                             T=self.parameters._T,
                             ediff=self.parameters._eDiff,
                             exclude= self.parameters.exclude)
-                if struct_cur is None or struct.e_pot < struct_cur.e_pot:
-                    struct_cur = struct
                 logging.logger.debug("Before initial database request in startup")
                 n_visit, label, continueSimulation = self.data.addElement(struct)
                 self.parameters._n_accepted += 1
@@ -369,9 +367,10 @@ class Minimahopping:
                     logging.logger.info("received shutdown signal after adding first element.")
                     quit()
             # add input structure to database after optimization
+            struct_cur = self.data.get_element(0)
             self._write_restart(struct_cur, struct_cur, True)
             try:
-                self.calculator.recalculateBasis(struct_cur.atoms)
+                self.calc.recalculateBasis(struct_cur.atoms)
             except:
                 pass
         else:
@@ -397,12 +396,6 @@ class Minimahopping:
                 quit()
             struct_cur = self.data.get_element(database_index)
             struct_cur.atoms = atoms
-        
-        periodicity_type = lattice_operations.check_boundary_conditions(struct_cur.atoms)
-        if periodicity_type != 0 and not self.parameters.fixed_cell_simulation:
-            self.history_file.write("Energy[eV], number of visits, label, temperature [K], delta acceptance, ratio of accepted minima, ratio of rejected minima, ratio of unsucessful escapes (Same), Symmetry group,status\n")
-        else:
-            self.history_file.write("Energy[eV], number of visits, label, temperature [K], delta acceptance, ratio of accepted minima, ratio of rejected minima, ratio of unsucessful escapes (Same), status\n")
 
         status = 'Initial'
         self._history_log(struct_cur, status)
@@ -481,7 +474,7 @@ class Minimahopping:
                 logging.logger.info("    Switched Calculator for MD and Pre-Optimization")
             
             try:
-                self.md_calculator.recalculateBasis(atoms)
+                atoms.calc.recalculateBasis(atoms)
             except:
                 pass
             # if the loop not escaped (no new minimum found) rise temperature
@@ -542,8 +535,7 @@ class Minimahopping:
                                                                                                         verbose = self.parameters.verbose_output,
                                                                                                         collect_md_file = self.collect_md_file,
                                                                                                         dt_min=self.parameters.dt_min,
-                                                                                                        md_max_steps=self.parameters.md_max_steps,
-                                                                                                        margin=self.parameters.margin)
+                                                                                                        md_max_steps=self.parameters.md_max_steps)
 
             log_msg = "    MD finished after {:d} steps visiting {:d} maxima. New dt is {:1.5f}".format(number_of_md_steps, self.parameters.mdmin, self.parameters._dt)
             
@@ -553,14 +545,14 @@ class Minimahopping:
             # If pbc set new lattice and reshape cell
             if True in atoms.pbc and not self.parameters.fixed_cell_simulation:
                 atoms.set_cell(lattice)
+            try:
+                atoms.calc.recalculateBasis(atoms)
+            except:
+                pass
 
             # If second calculator is present do a pre-optimization
             if self.preoptimizationNeeded:
                 logging.logger.info("    PRE-OPT start")
-                try:
-                    self.md_calculator.recalculateBasis(atoms)
-                except:
-                    pass
                 positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps, epot_max_geopt = opt.optimization(atoms=atoms, 
                                                                         calculator=self.md_calculator, 
                                                                         max_force_threshold=self.parameters.fmax_pre_optimization, 
@@ -579,17 +571,11 @@ class Minimahopping:
                 if sum(atoms.pbc) == 3 and not self.parameters.fixed_cell_simulation:
                     atoms.set_cell(lattice)
 
+                # Change calculator for geometry optimization
+                atoms.calc = self.calculator
+
                 log_msg = "    PRE-OPT finished after {:d} steps.".format(number_of_opt_steps)
                 logging.logger.info(log_msg)
-
-            if True in atoms.pbc and not self.parameters.fixed_cell_simulation:
-                atoms.set_cell(lattice)
-            try:
-                logging.logger.debug("Recalculating basis")
-                self.calculator.recalculateBasis(atoms)
-                logging.logger.debug("Recalculated basis before optimization")
-            except:
-                pass
 
             logging.logger.info("    OPT start")
             positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps, epot_max_geopt = opt.optimization(atoms=atoms, 
@@ -613,13 +599,6 @@ class Minimahopping:
 
             # Set optimized positions
             atoms.set_positions(positions)
-
-            log_msg = "    OPT finished after {:d} steps.".format(number_of_opt_steps)
-            logging.logger.info(log_msg)
-            # check if the energy threshold is below the optimization noise
-            self._check_energy_threshold()
-
-
             # If Pbc set optimized lattice
             periodicity_type = lattice_operations.check_boundary_conditions(atoms)
             if periodicity_type != 0 and not self.parameters.fixed_cell_simulation:
@@ -627,10 +606,16 @@ class Minimahopping:
                 if periodicity_type == 3:
                     lattice_operations.reshape_cell(atoms, self.parameters.symprec)
             try:
-                self.calculator.recalculateBasis(atoms)
+                atoms.calc.recalculateBasis(atoms)
             except:
                 pass
+
+            log_msg = "    OPT finished after {:d} steps.".format(number_of_opt_steps)
+            logging.logger.info(log_msg)
             atoms.calc = self.calculator
+            # check if the energy threshold is below the optimization noise
+            self._check_energy_threshold()
+
             proposed_structure = Minimum(atoms,
                         s = self.parameters.n_S_orbitals,
                         p = self.parameters.n_P_orbitals, 
@@ -760,7 +745,6 @@ class Minimahopping:
         # _notunique_frac = float(self._n_notunique) / float(self._n_min)
         # _same_frac = float(self._n_same) / float(self._n_min)
         # _unique_frac = 1.0 - (_notunique_frac+_same_frac)
-        periodicity_type = lattice_operations.check_boundary_conditions(struct.atoms)
 
         totalMinima = self.parameters._n_accepted + self.parameters._n_rejected + self.parameters._n_same
         accept_ratio = self.parameters._n_accepted / totalMinima
@@ -775,24 +759,7 @@ class Minimahopping:
         if label is None:
             label = 'None'
 
-        if periodicity_type != 0:
-            symmetry_group = struct.get_symmetry_group(self.parameters.symprec)
-
-            history_msg = "%15.8f %s %s %.2f %8.4f %.2f %.2f %.2f %s %s\n"%(
-                                            struct.e_pot,
-                                            n_visits,
-                                            label,
-                                            self.parameters._T,
-                                            self.parameters._eDiff,
-                                            accept_ratio,
-                                            rejected_ratio,
-                                            same_ratio,
-                                            symmetry_group,
-                                            status
-            )
-
-        else:
-            history_msg = "%15.8f %s %s %.2f %8.4f %.2f %.2f %.2f %s \n"%(
+        history_msg = "%15.8f %s %s %.2f %8.4f %.2f %.2f %.2f %s \n"%(
                                             struct.e_pot,
                                             n_visits,
                                             label,
@@ -802,8 +769,7 @@ class Minimahopping:
                                             rejected_ratio,
                                             same_ratio,
                                             status
-            )
-
+        )
 
         # history_file = open(self._outpath + 'history.dat', 'a')
         self.history_file.write(history_msg)
