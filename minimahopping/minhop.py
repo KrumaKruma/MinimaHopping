@@ -339,9 +339,10 @@ class Minimahopping:
         # Check if this is a fresh start
         if not self.isRestart:
             logging.logger.info('  New MH run is started')
+            struct_cur = None
             for atom in atoms:
                 try:
-                    self.calc.recalculateBasis(atom)
+                    self.calculator.recalculateBasis(atom)
                 except:
                     pass
                 atom.calc = self.calculator
@@ -358,6 +359,8 @@ class Minimahopping:
                             T=self.parameters._T,
                             ediff=self.parameters._eDiff,
                             exclude= self.parameters.exclude)
+                if struct_cur is None or struct.e_pot < struct_cur.e_pot:
+                    struct_cur = struct
                 logging.logger.debug("Before initial database request in startup")
                 n_visit, label, continueSimulation = self.data.addElement(struct)
                 self.parameters._n_accepted += 1
@@ -366,10 +369,9 @@ class Minimahopping:
                     logging.logger.info("received shutdown signal after adding first element.")
                     quit()
             # add input structure to database after optimization
-            struct_cur = self.data.get_element(0)
             self._write_restart(struct_cur, struct_cur, True)
             try:
-                self.calc.recalculateBasis(struct_cur.atoms)
+                self.calculator.recalculateBasis(struct_cur.atoms)
             except:
                 pass
         else:
@@ -479,7 +481,7 @@ class Minimahopping:
                 logging.logger.info("    Switched Calculator for MD and Pre-Optimization")
             
             try:
-                atoms.calc.recalculateBasis(atoms)
+                self.md_calculator.recalculateBasis(atoms)
             except:
                 pass
             # if the loop not escaped (no new minimum found) rise temperature
@@ -551,14 +553,14 @@ class Minimahopping:
             # If pbc set new lattice and reshape cell
             if True in atoms.pbc and not self.parameters.fixed_cell_simulation:
                 atoms.set_cell(lattice)
-            try:
-                atoms.calc.recalculateBasis(atoms)
-            except:
-                pass
 
             # If second calculator is present do a pre-optimization
             if self.preoptimizationNeeded:
                 logging.logger.info("    PRE-OPT start")
+                try:
+                    self.md_calculator.recalculateBasis(atoms)
+                except:
+                    pass
                 positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps, epot_max_geopt = opt.optimization(atoms=atoms, 
                                                                         calculator=self.md_calculator, 
                                                                         max_force_threshold=self.parameters.fmax_pre_optimization, 
@@ -577,11 +579,17 @@ class Minimahopping:
                 if sum(atoms.pbc) == 3 and not self.parameters.fixed_cell_simulation:
                     atoms.set_cell(lattice)
 
-                # Change calculator for geometry optimization
-                atoms.calc = self.calculator
-
                 log_msg = "    PRE-OPT finished after {:d} steps.".format(number_of_opt_steps)
                 logging.logger.info(log_msg)
+
+            if True in atoms.pbc and not self.parameters.fixed_cell_simulation:
+                atoms.set_cell(lattice)
+            try:
+                logging.logger.debug("Recalculating basis")
+                self.calculator.recalculateBasis(atoms)
+                logging.logger.debug("Recalculated basis before optimization")
+            except:
+                pass
 
             logging.logger.info("    OPT start")
             positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps, epot_max_geopt = opt.optimization(atoms=atoms, 
@@ -608,7 +616,6 @@ class Minimahopping:
 
             log_msg = "    OPT finished after {:d} steps.".format(number_of_opt_steps)
             logging.logger.info(log_msg)
-            atoms.calc = self.calculator
             # check if the energy threshold is below the optimization noise
             self._check_energy_threshold()
 
@@ -620,10 +627,10 @@ class Minimahopping:
                 if periodicity_type == 3:
                     lattice_operations.reshape_cell(atoms, self.parameters.symprec)
             try:
-                atoms.calc.recalculateBasis(atoms)
+                self.calculator.recalculateBasis(atoms)
             except:
                 pass
-            
+            atoms.calc = self.calculator
             proposed_structure = Minimum(atoms,
                         s = self.parameters.n_S_orbitals,
                         p = self.parameters.n_P_orbitals, 
