@@ -85,7 +85,7 @@ def main():
         if len(args.edges) < 2:
             print("At least two nodes required to make the trajectory. Aborting")
             quit()
-        trajectory_list, path = g.getTrajectoryListFromPath(args.edges)
+        trajectory_list = g.getTrajectoryListFromPath(args.edges)
         listString = ''
         for i in args.edges:
             listString += "_%i"%(i)
@@ -101,10 +101,9 @@ def main():
         
 
 def shortestPath(g: mh_graph.MinimaHoppingGraph, n1: int, n2: int):
-    trajectory_list, path = g.getTrajectoryList(n1, n2)
+    trajectory_list = g.getTrajectoryList(n1, n2)
     print("The connection from %i to %i that minimizes the sum of transition energies is:"%(n1, n2))
-    for l in path:
-        print(l)
+    print(trajectory_list)
     filename = "connection_%i_%i.extxyz"%(n1, n2)
     if os.path.exists(filename):
         os.remove(filename)

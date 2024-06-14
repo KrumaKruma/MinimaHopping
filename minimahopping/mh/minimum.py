@@ -5,8 +5,6 @@ from minimahopping.omfp.OverlapMatrixFingerprint import OverlapMatrixFingerprint
 from ase.io import write
 from ase.atoms import Atoms
 from scipy.spatial import distance_matrix
-import ase.atom
-import spglib
 import minimahopping.mh.lattice_operations as lattice_operations
 try:
     from numba import njit
@@ -96,8 +94,8 @@ class Minimum():
         costmat = distance_matrix(fp1, fp2)
         ans_pos = optimize.linear_sum_assignment(costmat)
         # use this formula for euclidian fingerprint distance
-        fp_dist = np.linalg.norm( fp1[ans_pos[0], :] - fp2[ans_pos[1], :]) / len(self.atoms)
-        #fp_dist = np.max( np.abs(fp1[ans_pos[0], :] - fp2[ans_pos[1], :]) )
+        # fp_dist = np.linalg.norm( self.fp[ans_pos[0], :] - other.fp[ans_pos[1], :]) / len(self.atoms)
+        fp_dist = np.max( np.abs(fp1[ans_pos[0], :] - fp2[ans_pos[1], :]) )
 
         return fp_dist
 
@@ -176,20 +174,4 @@ class Minimum():
             else:
                 omfp = omfpCalculator.fingerprint(selected_positions, selected_elem)
             return omfp
-
-
-    def get_symmetry_group(self,symprec=1.E-4):
-        # Get the cell parameters and atomic positions
-        cell = self.atoms.get_cell(complete=True)
-        numbers = self.atoms.get_atomic_numbers()
-        positions = self.atoms.get_scaled_positions()
-        #fractional_positions = np.linalg.solve(cell.T, positions.T).T
-    
-        # Create a spglib cell object
-        spglib_cell = (cell, positions, numbers)
-    
-        # Get symmetry information using spglib
-        symmetry = spglib.get_spacegroup(cell=spglib_cell, symprec=symprec)
-        return symmetry
-
 
