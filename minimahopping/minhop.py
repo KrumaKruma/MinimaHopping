@@ -124,6 +124,7 @@ class Minimahopping:
             return self
 
         if not self.parameters.use_MPI:
+            import minimahopping.mh.database
             self.data = minimahopping.mh.database.Database(self.parameters.energy_threshold, self.parameters.fingerprint_threshold\
                     , self.parameters.output_n_lowest_minima, self.isRestart, self.restart_path, self._minima_path\
                     , self.parameters.write_graph_output, maxNumberOfMinima=self.parameters.maxNumberOfMinima)
