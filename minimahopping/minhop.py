@@ -12,9 +12,7 @@ from minimahopping.mh.cell_atom import Cell_atom
 import time
 import json
 import minimahopping.mh.file_handling as file_handling 
-import minimahopping.MPI_database.mpi_database_master as MPI_server
 import os
-from mpi4py import MPI
 from minimahopping.MPI_database import mpi_messages
 from ase import Atoms
 import minimahopping.mh.parameters
@@ -49,8 +47,8 @@ class Minimahopping:
     """
 
     data = None
-    mpiRank = MPI.COMM_WORLD.Get_rank()
-    mpiSize = MPI.COMM_WORLD.Get_size()
+    mpiRank = 0
+    mpiSize = 0
     _minima_path = 'minima/'
     isMaster = None
     isWorker = None
@@ -75,6 +73,13 @@ class Minimahopping:
             self.preoptimizationNeeded = False
 
         initalParameters = minimahopping.mh.parameters.minimaHoppingParameters(**kwargs)
+
+        if initalParameters.use_MPI:
+            from mpi4py import MPI
+            self.communicator = MPI.COMM_WORLD
+            self.mpiRank = self.communicator.Get_rank()
+            self.mpiSize = self.communicator.Get_size()
+            
 
         self.createPathsAndSetMPIVariables(initalParameters.use_MPI, initalParameters.logLevel)
 
@@ -145,7 +150,8 @@ class Minimahopping:
             return
         self.data.__exit__(exc_type, exc_value, exc_traceback)
         if self.isWorker: # slave threads must send exit signals to master.
-            MPI.COMM_WORLD.send((mpi_messages.clientWorkDone, None), 0)
+            from mpi4py import MPI
+            self.communicator.send((mpi_messages.clientWorkDone, None), 0)
             logging.logger.info('client set work done signal to server')
         # close MD collection file if MD is collected for ML
         if self.parameters.collect_md_data:
@@ -159,6 +165,7 @@ class Minimahopping:
 
         if self.isMaster:
             logging.logger.info('starting mpi server on rank %i'%self.mpiRank)
+            import minimahopping.MPI_database.mpi_database_master as MPI_server
             MPI_server.MPI_database_server_loop(self.parameters.energy_threshold, self.parameters.fingerprint_threshold
                 , self.parameters.output_n_lowest_minima, self.isRestart, self.restart_path, self._minima_path
                 , self.parameters.write_graph_output, maxTimeHours=self._get_sec() / 3600, maxNumberOfMinima = self.parameters.maxNumberOfMinima)
@@ -876,6 +883,7 @@ class Minimahopping:
                         quit()
 
             if self.mpiRank > 0:
+                from mpi4py import MPI
                 self.isMaster = False
                 self.isWorker = True
                 self._outpath = 'output/worker_' + str(self.mpiRank) + '/' 
@@ -884,7 +892,7 @@ class Minimahopping:
                     os.mkdir(self._outpath)
                 if not os.path.exists(self.restart_path):
                     os.mkdir(self.restart_path)
-                MPI.COMM_WORLD.send((mpi_messages.loginRequestFromClient, 1), dest=0)
+                self.communicator.send((mpi_messages.loginRequestFromClient, 1), dest=0)
             
             logging.setupLogger(logLevel=logLevel, file=self._outpath + 'minimahopping.log')
 
@@ -894,8 +902,6 @@ class Minimahopping:
             logging.logger.info("Received sigterm on master. Closing files and send mpi abort to comm_world")
         else:
             logging.logger.info("Received sigterm. I will close files and exit.")
-        # if self.isMaster:
-        #     MPI.COMM_WORLD.Abort()
         sys.exit()
 
     def print_elapsed_time(self, totalsteps):
