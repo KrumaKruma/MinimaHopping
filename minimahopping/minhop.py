@@ -18,7 +18,6 @@ from ase import Atoms
 import minimahopping.mh.parameters
 
 import minimahopping.mh.database
-import minimahopping.MPI_database.mpi_database_worker
 import signal
 import sys
 
@@ -129,6 +128,7 @@ class Minimahopping:
                     , self.parameters.output_n_lowest_minima, self.isRestart, self.restart_path, self._minima_path\
                     , self.parameters.write_graph_output, maxNumberOfMinima=self.parameters.maxNumberOfMinima)
         elif self.isWorker:
+            import minimahopping.MPI_database.mpi_database_worker
             self.data = minimahopping.MPI_database.mpi_database_worker.Database(self.parameters.energy_threshold, self.parameters.fingerprint_threshold\
                     , self.parameters.output_n_lowest_minima, self.isRestart, self.restart_path, self._minima_path\
                     , self.parameters.write_graph_output)
