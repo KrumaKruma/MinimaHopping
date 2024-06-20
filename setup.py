@@ -12,7 +12,7 @@ setup(
     python_requires='>=3.7, <4',
     packages=find_packages(include=['minimahopping', 'minimahopping.*']),
     install_requires=[
-        'numpy',
+        'numpy<2.0',
         'ase',
         'scipy',
         'scikit-learn',
