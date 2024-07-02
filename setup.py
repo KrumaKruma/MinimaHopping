@@ -32,6 +32,7 @@ setup(
         'splitFile=minimahopping.commandLineInterface.splitFile:main',
         'scaleAtoms=minimahopping.commandLineInterface.scaleStructure:main',
         'graphParser=minimahopping.commandLineInterface.graphParser:main'
+        'siriusMH=minimahopping.commandLineInterface.siriusMH:main',
       ]
     }
 )
