@@ -3,6 +3,7 @@ from ase.io import read, write
 import spglib
 from ase.symbols import Symbols
 from ase.atoms import Atoms
+import numpy as np
 
 def main():
 
@@ -29,8 +30,11 @@ def main():
 
     atoms.pbc = [True, True, True]
 
-
-    lattice, scaled_positions, numbers = spglib.standardize_cell(atoms, to_primitive=findPrimitive, no_idealize=False, symprec=args.spglib_tol, angle_tolerance=-1.0)
+    cell = atoms.get_cell(complete=True)
+    numbers = atoms.get_atomic_numbers()
+    positions = atoms.get_scaled_positions()
+    spglib_cell = (cell, positions, numbers)
+    lattice, scaled_positions, numbers = spglib.standardize_cell(spglib_cell, to_primitive=findPrimitive, no_idealize=False, symprec=args.spglib_tol, angle_tolerance=-1.0)
 
 
     if findPrimitive:
