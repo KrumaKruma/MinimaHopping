@@ -525,7 +525,7 @@ def check_coordinate_shift(atoms: ase.atom.Atom, positions_old: np.ndarray, latt
         lat_diff = np.max(np.abs(atoms.get_cell() - lattice_old))
     max_diff = max(pos_diff, lat_diff)
     # if maximal shift is larger than 0.1 -> write to trajectory and update current position
-    if max_diff > 0.1:
+    if max_diff > 0.01:
         append_traj = True
         positions_current = positions_cur
         lattice_current = lattice_cur
