@@ -13,7 +13,7 @@ setup(
     packages=find_packages(include=['minimahopping', 'minimahopping.*']),
     install_requires=[
         'numpy<2.0',
-        'ase',
+        'ase<3.23',
         'scipy',
         'scikit-learn',
         'networkx',
