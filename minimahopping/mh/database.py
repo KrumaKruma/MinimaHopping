@@ -93,6 +93,7 @@ class Database():
             index = bisect.bisect_left(self.unique_minima_sorted, struct1)
             self.unique_minima_sorted.insert(index, struct1)
             struct.write(self.noDublicatesFile, append=True)
+            self.noDublicatesFile.flush()
 
             if index < self.output_n_lowest_minima:
                 self._write_poslow(self.output_n_lowest_minima, self.minima_path)
@@ -101,6 +102,7 @@ class Database():
         
 
         struct.write(self.allMinimaFile, append=True)
+        self.allMinimaFile.flush()
         t1 = time.time()
         db_time = t1 - t2
         if already_found:
