@@ -18,14 +18,17 @@ def main():
     parser.add_argument('-i', '--inputfile1', dest ='file',
                 action ='store', help ='input filename of file.', required=True)
     # parse indeices
-    parser.add_argument('--index', dest='index', action='store', type=int,
+    parser.add_argument('--index', dest='index', action='store', type=str,
         help='index of first structure in input file', default=0, required= False)
+    
+    parser.add_argument('-o --output', dest='output', action='store', type=str,
+        help='output directory', default='./', required= False)
 
     # parse additional OMFP parameters
     parser.add_argument('--n_S_orbitals', dest='n_S_orbitals', action='store', type=int,
-        help='number of s orbitals for constructing the OMFP', default=defaultParams.n_S_orbitals, required= False)
+        help='number of s orbitals for constructing the OMFP', default=1, required= False)
     parser.add_argument('--n_P_orbitals', dest='n_P_orbitals', action='store', type=int,
-        help='number of p orbitals for constructing the OMFP', default=defaultParams.n_P_orbitals, required= False)
+        help='number of p orbitals for constructing the OMFP', default=1, required= False)
     parser.add_argument('--width_cutoff', dest='width_cutoff', action='store', type=float,
         help='cutoff for the OMFP', default=defaultParams.width_cutoff, required= False)
     parser.add_argument(
@@ -52,9 +55,11 @@ def main():
     i = 0
 
     fname_in = args.file
-    basename = os.path.splitext(fname_in)[0]
+    basename = os.path.basename(fname_in)
+    basename = os.path.splitext(basename)[0]
 
-
+    if not os.path.exists(args.output):
+        os.makedirs(args.output)
 
     for at in atoms:
         m1 = minimum.Minimum(at, 0.0, args.n_S_orbitals, args.n_P_orbitals, args.width_cutoff,
@@ -63,13 +68,14 @@ def main():
         maxNatInEnv = m1.maxNatInEnv
 
         fp =np.zeros((len(at), maxNatInEnv))
-        for i in range(len(at)):
-            fp[i, :len(m1.fp[i])] = m1.fp[i]
+        for j in range(len(at)):
+            fp[j, :len(m1.fp[j])] = m1.fp[j]
 
-        with open(basename + '_omfp_' + str(i) + '.txt', 'w') as f:
+        with open(args.output + '/' + basename + '_omfp_' + str(i) + '.txt', 'w') as f:
             f.write("# fingerprint indes, atom1, atom2, ... \n")
-            for i in range(maxNatInEnv):
-                f.write(str(i) + ' ' + ' '.join([str(fp[j, i]) for j in range(len(at))]) + '\n')     
+            for ii in range(maxNatInEnv):
+                f.write(str(ii) + ' ' + ' '.join([str(fp[j, ii]) for j in range(len(at))]) + '\n')
+        i += 1
 
 
 if __name__ =='__main__':
