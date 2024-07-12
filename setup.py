@@ -27,6 +27,7 @@ setup(
       'console_scripts': [
         'sortByEnergy=minimahopping.commandLineInterface.sortAtoms:main',
         'omfpdistance=minimahopping.commandLineInterface.omfpdistance:main',
+        'calcomfp=minimahopping.commandLineInterface.calcomfp:main',
         'makemolecule=minimahopping.commandLineInterface.makemolecule:main',
         'standardizeLattice=minimahopping.commandLineInterface.standardizeLattice:main',
         'splitFile=minimahopping.commandLineInterface.splitFile:main',
