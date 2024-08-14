@@ -10,7 +10,7 @@ import ase.atom
 
 
 class adjust_fp():
-    def __init__(self,initial_configuration : ase.atom.Atom, iterations : int,**kwargs):
+    def __init__(self,initial_configuration : ase.atom.Atom, iterations : int = 10,**kwargs):
 
         self.initial_configuration = initial_configuration
 
