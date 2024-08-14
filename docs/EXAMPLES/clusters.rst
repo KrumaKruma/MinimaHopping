@@ -7,6 +7,8 @@ ASE. To use this calculator a parameter file is needed. This file can be downloa
 
     wget https://www.ctcms.nist.gov/potentials/Download/2016--Nichol-A-Ackland-G-J--Na/3/Na_v2.eam.fs
 
+.. _clusters adjust_fp: 
+
 Exercice 1: Distinguishing minima
 ---------------------------------
 The aim of this tutorial is to determine the fingerprint distance of structures which can be considered to be the same

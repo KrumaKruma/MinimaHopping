@@ -10,6 +10,8 @@ After having installed the KIM API properly the potential can be installed via t
     kim-api-collections-management install user SW_StillingerWeber_1985_Si__MO_405512056662_005
 
 
+.. _bulk adjust_fp: 
+
 Exercice 1: Distinguishing minima
 ---------------------------------
 The aim of this tutorial is to determine the fingerprint distance of structures which can be considered to be the same

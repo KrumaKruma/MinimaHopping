@@ -15,52 +15,52 @@ and a description of them.
    :header: Parameter, Default, Description
    :widths: 15 10 60
 
-T0, 1000, Initial temperature to start MH
-_T, -1.0, Temperature for restart (if -1 then last temperature is read)
-Ediff0, 0.1, Initial energy difference for accepting minima
-_eDiff, -1.0, Energy difference for accepting minima after restarts.
-beta_decrease, 1./1.05, Factor for decreasing the temperature
-beta_increase, 1.05, Factor for increasing the temperature
-alpha_accept, 1./1.05, Factor for decreasing Ediff
-alpha_reject, 1.05, Factor for increasing Ediff
-fixed_cell_simulation, False, If True the simulation cell is fixed and no variable cell shape MD and optimization are performed.
-n_soft, 20, Number of softening steps
-soften_positions, 1e-3, Step size for softening the positions
-soften_lattice, 1e-3, Step size for softening the lattice (only relevant for periodic boundary conditions)
-n_S_orbitals, 1, Number of s orbitals for constructing the OMFP
-n_P_orbitals, 0, Number of p orbitals for constructing the OMFP
-width_cutoff, 4.0, Cutoff for the OMFP
-exclude, [], List of elements to exclude in the OMFP
-dt0, 0.08, Initial time step for the MD
-_dt, -1.0, Time step of the MD for restart.
-dt_min, 0.0001, Minimal time step of the MD.
-mdmin, 2, Number of minima visited before stopping the MD.
-md_max_steps, 10000, Maximum number of MD steps. If reached MH continuous
-collect_md_data, False, Flag to collect MD data which later could be used e.g. in machine learning
-margin, 0.3, Margin for fixing of fragmentation, if particle closer than (2*max_rcov + 2*margin*max_rcov)
-symprec, 1e-05, Distance tolerance in Cartesian coordinates to find crystal symmetry for reshape cell operation (see spglib documentation for more info).
-fmax_pre_optimization, 0.1, Maximal force component. Used as stopping criterion for pre geometry optimization (only used if second calculator is available).
-fmax, 0.01, Maximal force component. Used as a stopping criterion for the geometry optimization.
-initial_step_size, None, Initial step size of the geometry optimizer. If None the initial step size is estimated.
-nhist_max, 10, Maximal length of history list in sqnm geometry optimizer
-lattice_weight, 2.0, Weight / size of the supercell that is used to transform lattice derivatives. Use a value between 1 and 2. Default is 2.
-alpha_min, 1e-3, Lower limit on the step size.
-eps_subsp, 1e-3, Lower limit on linear dependencies of basis vectors in history list.
-enhanced_feedback, False, Enhanced feedback (rise temperature according to T = T * beta_increase * (1. + 1. * ln(n_visits))).
-energy_threshold, 0.001, If the energy difference of two structures is below the fingerprint is compared
-output_n_lowest_minima, 20, Outputs the n lowest minima
-fingerprint_threshold, 5e-2, OMFP distance threshold for distinguishing minima
-verbose_output, False, If True MD and OPT logs are written.
-new_start, False, Start from scratch even if restart files are present (deprecated).
-run_time, infinite, Runtime in the format (d-hh:mm:ss) or infinite for infinite runtime.
-use_intermediate_mechanism, False, Sets if intermediate minimas will be stored and accepted if necessary.
-write_graph_output, True, Determines wether graph is calculated and written to file. Creates rather large files when hundred of thousands structures are found.
-use_MPI, False, Sets if MPI with a master client model should be used.
-logLevel, logging.INFO, Sets the logging level.
-_n_accepted, 0, Private counting variable for number of accepted minima.
-_n_rejected, 0, Private counting variable for number of rejected minima.
-_n_same, 0, Private counting variable for number of unsuccessful escape attempts.
-maxNumberOfMinima, 0, Maximal number of minima that will be stored in database. Only the maxNumberOfMinima lowest energy structures will be stored. If a structure is higher in energy than the maxNumberOfMinima it will considered as a new structure. If the number is 0 or negative, it will be considered as infinite.
+   T0, 1000, Initial temperature to start MH
+   _T, -1.0, Temperature for restart (if -1 then last temperature is read)
+   Ediff0, 0.1, Initial energy difference for accepting minima
+   _eDiff, -1.0, Energy difference for accepting minima after restarts.
+   beta_decrease, 1./1.05, Factor for decreasing the temperature
+   beta_increase, 1.05, Factor for increasing the temperature
+   alpha_accept, 1./1.05, Factor for decreasing Ediff
+   alpha_reject, 1.05, Factor for increasing Ediff
+   fixed_cell_simulation, False, If True the simulation cell is fixed and no variable cell shape MD and optimization are performed.
+   n_soft, 20, Number of softening steps
+   soften_positions, 1e-3, Step size for softening the positions
+   soften_lattice, 1e-3, Step size for softening the lattice (only relevant for periodic boundary conditions)
+   n_S_orbitals, 1, Number of s orbitals for constructing the OMFP
+   n_P_orbitals, 0, Number of p orbitals for constructing the OMFP
+   width_cutoff, 4.0, Cutoff for the OMFP
+   exclude, [], List of elements to exclude in the OMFP
+   dt0, 0.08, Initial time step for the MD
+   _dt, -1.0, Time step of the MD for restart.
+   dt_min, 0.0001, Minimal time step of the MD.
+   mdmin, 2, Number of minima visited before stopping the MD.
+   md_max_steps, 10000, Maximum number of MD steps. If reached MH continuous
+   collect_md_data, False, Flag to collect MD data which later could be used e.g. in machine learning
+   margin, 0.3, "Margin for fixing of fragmentation, if particle closer than (2*max_rcov + 2*margin*max_rcov)"
+   symprec, 1e-05, Distance tolerance in Cartesian coordinates to find crystal symmetry for reshape cell operation (see spglib documentation for more info).
+   fmax_pre_optimization, 0.1, Maximal force component. Used as stopping criterion for pre geometry optimization (only used if second calculator is available).
+   fmax, 0.01, Maximal force component. Used as a stopping criterion for the geometry optimization.
+   initial_step_size, None, Initial step size of the geometry optimizer. If None the initial step size is estimated.
+   nhist_max, 10, Maximal length of history list in sqnm geometry optimizer
+   lattice_weight, 2.0, Weight / size of the supercell that is used to transform lattice derivatives. Use a value between 1 and 2. Default is 2.
+   alpha_min, 1e-3, Lower limit on the step size.
+   eps_subsp, 1e-3, Lower limit on linear dependencies of basis vectors in history list.
+   enhanced_feedback, False, Enhanced feedback (rise temperature according to T = T * beta_increase * (1. + 1. * ln(n_visits))).
+   energy_threshold, 0.001, If the energy difference of two structures is below the fingerprint is compared
+   output_n_lowest_minima, 20, Outputs the n lowest minima
+   fingerprint_threshold, 5e-2, OMFP distance threshold for distinguishing minima
+   verbose_output, False, If True MD and OPT logs are written.
+   new_start, False, Start from scratch even if restart files are present (deprecated).
+   run_time, infinite, Runtime in the format (d-hh:mm:ss) or infinite for infinite runtime.
+   use_intermediate_mechanism, False, Sets if intermediate minimas will be stored and accepted if necessary.
+   write_graph_output, True, Determines wether graph is calculated and written to file. Creates rather large files when hundred of thousands structures are found.
+   use_MPI, False, Sets if MPI with a master client model should be used.
+   logLevel, logging.INFO, Sets the logging level.
+   _n_accepted, 0, Private counting variable for number of accepted minima.
+   _n_rejected, 0, Private counting variable for number of rejected minima.
+   _n_same, 0, Private counting variable for number of unsuccessful escape attempts.
+   maxNumberOfMinima, 0, "Maximal number of minima that will be stored in database. Only the maxNumberOfMinima lowest energy structures will be stored. If a structure is higher in energy than the maxNumberOfMinima it will considered as a new structure. If the number is 0 or negative, it will be considered as infinite."
     
 
 
@@ -89,9 +89,9 @@ Critical Parameters
 ~~~~~~~~~~~~~~~~~~~
 
 .. caution::
-   The parameter ``fingerprint_threshold`` and the ``fmax`` as well as all the fingerprint parameters are crucial for
-   distinguishing different minima. A tutorial how to adjust the ``fingerprint_threshold``  parameter can be adjusted to ``fmax``
-   can be found here (LINK TO THE TUTORIAL)
+   The parameters ``fmax``, ``fingerprint_threshold`` as well as all other fingerprint parameters are crucial for
+   distinguishing different minima. A tutorial how to adjust the ``fingerprint_threshold`` parameter 
+   for clusters can be found here :ref:`here <clusters adjust_fp>` and for bulk systems here :ref:`here <bulk adjust_fp>`. 
 
 
 Fingerprint Adjustment
