@@ -6,7 +6,7 @@
 Minima Hopping: a python implementation compatible with the atomic simulation environment!
 ===========================================================================================
 The minimahopping method efficiently finds the global minimum of complex condensed matter systems.
-This version of the code is based on the `atomic simulation envrionment (ASE) <https://wiki.fysik.dtu.dk/ase/>`_ library.
+This version of the code is based on the `atomic simulation environment (ASE) <https://wiki.fysik.dtu.dk/ase/>`_ library.
 Any calculator implemented in there can be used for the calculation of the energy and forces.
 
 Code development
