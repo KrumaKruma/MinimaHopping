@@ -72,7 +72,7 @@ This is particularly useful for finding the global minimum of systems with a mul
 However, while the global minimum is found faster it can happen that one funnel is explored less because the algorithm is pushing 
 the system faster towards other funnels.
 
-:math:`E_{diff}`
+Ediff
 ~~~~~
 If a minimum is rejected :math:`E_{diff}` is increased by a factor :math:`\alpha_{rejected}`. Also here the enhanced feedback is applied if it is for the temperature.
 Instead of adjusting :math:`E_{diff}` according to 
