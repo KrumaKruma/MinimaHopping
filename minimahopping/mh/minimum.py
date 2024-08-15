@@ -1,36 +1,12 @@
 import numpy as np
 from scipy import optimize
-from copy import deepcopy
 from minimahopping.omfp.OverlapMatrixFingerprint import OverlapMatrixFingerprint as OMFP
 from ase.io import write
 from ase.atoms import Atoms
 from scipy.spatial import distance_matrix
-import ase.atom
 import spglib
 import minimahopping.mh.lattice_operations as lattice_operations
-try:
-    from numba import njit
-except ImportError:
-    # todo: raise warning
-    def njit(f):
-        return f
 
-# @njit
-def _costmatrix(desc1, desc2):
-    """
-    Cost matrix of the local fingerprints for the hungarian algorithm
-    """
-
-    raise Exception('do not use _costmatrix. Use scipy.spatial.distance_matrix instead.')
-    assert desc1.shape[0] == desc2.shape[0], "descriptor has not the same length"
-
-    costmat = np.zeros((desc1.shape[0], desc2.shape[0]))
-
-    for i, vec1 in enumerate(desc1):
-        for j, vec2 in enumerate(desc2):
-            costmat[i, j] = np.linalg.norm(vec1 - vec2)
-
-    return costmat
 
 class Minimum():
     """ 
@@ -60,20 +36,20 @@ class Minimum():
     def set_label(self, label: int):
         self.label = label
 
-    def __lt__(self, other: Atoms):
+    def __lt__(self, other: 'Minimum'):
         return self.e_pot < other.e_pot
 
-    def __gt__(self, other: Atoms):
+    def __gt__(self, other: 'Minimum'):
         return self.e_pot > other.e_pot
 
     def __copy__(self):
         return Minimum(self.atoms.copy(), self.e_pot, self.s, self.p, self.width_cutoff,
             self.temperature, self.ediff, self.n_visit, self.label, self.exclude, fingerprint= self.fp)
 
-    def __compareto__(self, other: Atoms):
+    def __compareto__(self, other: 'Minimum'):
         return abs(self.e_pot - other.e_pot)
 
-    def fingerprint_distance(self, other: Atoms):
+    def fingerprint_distance(self, other: 'Minimum'):
         """
          Calcualtes the fingerprint distance of 2 structures with local environment descriptors using the hungarian algorithm
          if a local environment descriptor is used. Else the distance is calculated using l2-norm.
