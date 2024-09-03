@@ -8,7 +8,7 @@ Minima Hopping can be installed directly with pip by:
 
     pip install  "git+https://gitlab.com/goedeckergroup/ase_mh.git"
 
-Alternatively minima hopping can be installed by cloning the Github repository:
+Alternatively minima hopping can be installed by cloning the GitLab repository:
 
 .. code-block::
 
