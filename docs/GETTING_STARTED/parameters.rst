@@ -1,4 +1,3 @@
-
 Parameters
 ++++++++++
 
@@ -100,7 +99,7 @@ Critical Parameters
 .. caution::
    The parameters ``fmax``, ``fingerprint_threshold`` as well as all other fingerprint parameters are crucial for
    distinguishing different minima. A tutorial how to adjust the ``fingerprint_threshold`` parameter 
-   for clusters can be found here :ref:`here <clusters adjust_fp>` and for bulk systems here :ref:`here <bulk adjust_fp>`. 
+   for clusters can be found :ref:`here <clusters adjust_fp>` and for bulk systems :ref:`here <bulk adjust_fp>`. 
 
 
 Fingerprint Adjustment
