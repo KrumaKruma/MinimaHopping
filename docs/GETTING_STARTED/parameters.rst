@@ -84,6 +84,15 @@ increase ``Ediff``:
 .. math::
    E_{diff} = E_{diff} * \alpha_{rejected} * (0.2 + ln(n_{visits}))
 
+Intermediate Mechanism
+~~~~~~~~~~~~~~~~~~~~~~
+First note, that in this implementation a minima hopping step is considered
+done once a minimum is accepted. If a minima hopping step takes more than one
+escape step and the intermediate mechanism is used, the minimum of lowest
+potential energy of all escape steps is compared to the current minium and
+accepted once it is smaller than ``Ediff``. If no intermediate mechanism is
+used, the minimum of the last escape step is compared to the current minimum
+and accepted once smaller as ``Ediff``. 
 
 Critical Parameters
 ~~~~~~~~~~~~~~~~~~~
