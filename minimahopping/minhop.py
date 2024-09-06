@@ -76,7 +76,7 @@ class Minimahopping:
 
         initalParameters = minimahopping.mh.parameters.minimaHoppingParameters(**kwargs)
 
-        self.createPathsAndSetMPIVariables(initalParameters.use_MPI, initalParameters.logLevel)
+        self.createPathsAndSetMPIVariables(initalParameters.use_MPI, initalParameters.logLevel, initalParameters.logToStdOut)
 
         self.isRestart = self.checkIfRestart(initalParameters.new_start)
 
@@ -827,11 +827,11 @@ class Minimahopping:
         return isRestart
 
 
-    def createPathsAndSetMPIVariables(self, use_MPI, logLevel):
+    def createPathsAndSetMPIVariables(self, use_MPI, logLevel, logToStdOut):
         if self.mpiSize > 1 and not use_MPI:
             print("Detected multiple MPI Processes but use_MPI parameter was set to false. Is this on purpose?")
         if self.mpiSize == 1 or not use_MPI: # no mpi should be used
-            if self.parameters.logToStdOut:
+            if logToStdOut:
                 logging.setupLogger(logLevel=logLevel)
             else:
                 logging.setupLogger(logLevel=logLevel, file=self._outpath + 'minimahopping.log')
