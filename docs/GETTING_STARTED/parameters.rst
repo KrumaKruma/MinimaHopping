@@ -60,6 +60,7 @@ and a description of them.
    _n_rejected, 0, Private counting variable for number of rejected minima.
    _n_same, 0, Private counting variable for number of unsuccessful escape attempts.
    maxNumberOfMinima, 0, "Maximal number of minima that will be stored in database. Only the maxNumberOfMinima lowest energy structures will be stored. If a structure is higher in energy than the maxNumberOfMinima it will considered as a new structure. If the number is 0 or negative, it will be considered as infinite."
+   logToStdOut, True, "logToStdOut (bool): If True log messages are written to stdout. If False log messages are written to a file. When MPI is used the log messages are always written to a file."
     
 
 
