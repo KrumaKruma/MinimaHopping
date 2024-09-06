@@ -831,7 +831,10 @@ class Minimahopping:
         if self.mpiSize > 1 and not use_MPI:
             print("Detected multiple MPI Processes but use_MPI parameter was set to false. Is this on purpose?")
         if self.mpiSize == 1 or not use_MPI: # no mpi should be used
-            logging.setupLogger(logLevel=logLevel, file=self._outpath + 'minimahopping.log')
+            if self.parameters.logToStdOut:
+                logging.setupLogger(logLevel=logLevel)
+            else:
+                logging.setupLogger(logLevel=logLevel, file=self._outpath + 'minimahopping.log')
             self.isMaster = False
             self.isWorker = False
             self._outpath = 'output/'
