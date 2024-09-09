@@ -831,19 +831,20 @@ class Minimahopping:
         if self.mpiSize > 1 and not use_MPI:
             print("Detected multiple MPI Processes but use_MPI parameter was set to false. Is this on purpose?")
         if self.mpiSize == 1 or not use_MPI: # no mpi should be used
-            if logToStdOut:
-                logging.setupLogger(logLevel=logLevel)
-            else:
-                logging.setupLogger(logLevel=logLevel, file=self._outpath + 'minimahopping.log')
+            self._outpath = 'output/'
             self.isMaster = False
             self.isWorker = False
-            self._outpath = 'output/'
             self.restart_path = self._outpath + "restart/"
-            if not os.path.exists('output'):
+            if not os.path.exists(self._outpath):
                 os.mkdir(self._outpath)
                 os.mkdir(self.restart_path)
             if not os.path.exists(self._minima_path):
                 os.mkdir(self._minima_path)
+            # set up logger
+            if logToStdOut:
+                logging.setupLogger(logLevel=logLevel)
+            else:
+                logging.setupLogger(logLevel=logLevel, file=self._outpath + 'minimahopping.log')
             if use_MPI:
                 logging.logger.error('UseMPI is true but only one rank is present. simulation will be stopped.')
                 quit()
