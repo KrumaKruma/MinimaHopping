@@ -62,7 +62,7 @@ class minimaHoppingParameters:
     nhist_max: int = 10
     """maximal length of history list in sqnm geometry optimizer"""
     opt_max_steps: int = 10000
-    """opt_max_steps (int):  Maximum number ob optimization steps"""
+    """opt_max_steps (int):  Maximum number of optimization steps"""
     lattice_weight: float = 2.
     """weight / size of the supercell that is used to transform lattice derivatives. Use a value between 1 and 2. Default is 2."""
     alpha_min: float = 1e-3
