@@ -19,6 +19,7 @@ def main():
                         Each slave will get a different structure to start with.
                         """, action="store_true")
     parser.add_argument("--totalSteps", help="total number of steps", type=int, default=-1, required=False)
+    parser.add_argument("--pressureGPa", help="pressure in GPa", type=float, default=0.0, required=False)
     args = parser.parse_args()
 
     numberOfSlaves = args.numberOfSlaves
@@ -95,7 +96,7 @@ def main():
     try:
         if not isMaster: # If not master rank give group comunicator to sirius calculator
             print("Creating calculator on rank", rank, flush=True)
-            atoms.calc = sirius_ase.siriusCalculator.SIRIUS(atoms, pp_files, functionals, kpoints, kshift, pw_cutoff, gk_cutoff, jsonparams, communicator=group_communicator)
+            atoms.calc = sirius_ase.siriusCalculator.SIRIUS(atoms, pp_files, functionals, kpoints, kshift, pw_cutoff, gk_cutoff, jsonparams, communicator=group_communicator, pressure_giga_pascale=args.pressureGPa)
             print("Calculator created on rank", rank, flush=True)
 
         with Minimahopping(atoms, **mhJson) as mh:
