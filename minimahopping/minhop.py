@@ -346,10 +346,10 @@ class Minimahopping:
                 except:
                     pass
                 atom.calc = self.calculator
+                self.set_constraints(atom)
                 _positions, _lattice = self._restart_opt(atom,)
                 atom.set_positions(_positions)
                 atom.set_cell(_lattice)
-                self.set_constraints(atom)
                 self.initialize_mixed_boundaries(atom)
                 struct = Minimum(atom,
                             s = self.parameters.n_S_orbitals,
