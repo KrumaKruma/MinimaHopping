@@ -3,9 +3,17 @@ from ase.io import read, write
 from ase.data import covalent_radii, atomic_numbers
 from ase.atoms import Atoms
 from ase.atom import Atom
-from ase.neighborlist import NeighborList, build_neighbor_list
+# from ase.neighborlist import NeighborList, build_neighbor_list, NewPrimitiveNeighborList
+try:
+    from numba import njit
+except ImportError:
+    # todo: raise warning
+    print("numba not installed")
+    def njit(f):
+        return f
 
 import sys
+import time
 
 def fix_frag_free(initial_structure: Atoms, debug = False, threshold = 1.3):
 
@@ -14,26 +22,17 @@ def fix_frag_free(initial_structure: Atoms, debug = False, threshold = 1.3):
     i = 0
     for atom in initial_structure:
         rcovs[i] = covalent_radii[atomic_numbers[atom.symbol]]
-        print(i, atom.symbol, rcovs[i])
+        # print(i, atom.symbol, rcovs[i])
         i+=1
-
-    # define cutoff radii for construction of neighbourlist:
-    # cutoffs = rcovs * threshold
-
-    # nl = build_neighbor_list(initial_structure, ffs)
-
 
     nat = len(initial_structure)
     rxyz = initial_structure.positions
-
-    icount = 0
-
+    t1 = time .time()
     fix_frag_numba(nat, rxyz, rcovs, threshold)
+    t2 = time.time()
+    print(t2 - t1)
 
-    # belong = np.empty(nat, dtype= np.bool)
-
-    # row = False
-
+@njit()
 def fix_frag_numba(nat, rxyz, rcovs, threshold = 1.3):
     cutoffs = threshold * rcovs
     belong = np.empty(nat, dtype=np.bool)
@@ -42,14 +41,15 @@ def fix_frag_numba(nat, rxyz, rcovs, threshold = 1.3):
     vec= np.empty(3)
 
     icount = 0
+    scale = 0.0
 
     belong[:] = False
     belong[0] = True
     while(True):
-        print(icount, '\n')
-        icount += 1
-        if icount > 10:
-            return
+        # print(icount, '\n')
+        # icount += 1
+        # if icount > 10:
+        #     return
         loggrow =False
         for iiat in range(nat):
             if belong[iiat]:
@@ -66,11 +66,11 @@ def fix_frag_numba(nat, rxyz, rcovs, threshold = 1.3):
                             loggrow = True
                         belong[iat] = True
 
-        print("loggrow", loggrow)
-        print("updatebel", belong)
+        # print("loggrow", loggrow)
+        # print("updatebel", belong)
         if loggrow:
             continue
-        print("belong", belong)
+        # print("belong", belong)
 
         logexit = True
         for iat in range(nat):
@@ -93,11 +93,11 @@ def fix_frag_numba(nat, rxyz, rcovs, threshold = 1.3):
                             iiat = iat
                             jjat =jat
 
-        print("dmin", np.sqrt(dmin))
+        # print("dmin", np.sqrt(dmin))
         
         vec = rxyz[iiat, : ] - rxyz[jjat, :]
         veclength = np.linalg.norm(vec)
-        scale = np.linalg.norm(veclength - rcovs[iiat] - rcovs[jjat]) / veclength
+        scale = (veclength - rcovs[iiat] - rcovs[jjat]) / veclength
         vec = vec * scale
         for iat in range(nat):
             if not belong[iat]:
@@ -108,9 +108,9 @@ def fix_frag_numba(nat, rxyz, rcovs, threshold = 1.3):
 
  
 def main():
+    import time
 
     filename = sys.argv[1]
-    print(filename) 
 
     initial_structure = read(filename)
 
@@ -119,7 +119,18 @@ def main():
         quit()
 
 
+    t1 = time.time()
     fix_frag_free(initial_structure)
+    t2 = time.time()
+    print("ela", t2 - t1)
+
+
+    initial_structure = read(filename)
+    t1 = time.time()
+    fix_frag_free(initial_structure)
+    t2 = time.time()
+    print("ela (compiled)", t2 - t1)
+
 
     write('fixed.xyz', initial_structure)
 
