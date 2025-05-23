@@ -29,8 +29,7 @@ def fix_frag_free(initial_structure: Atoms, threshold = 1.3):
     rxyz = initial_structure.positions
     did_fix = fix_frag_free_numba(nat, rxyz, rcovs, threshold)
 
-    if did_fix:
-        logging.warning("Fragmentation fixed after MD. Ideally, this should not happen and no fragments should be present after the md simulation.")
+    return did_fix
 
 @njit()
 def fix_frag_free_numba(nat, rxyz, rcovs, threshold = 1.3):

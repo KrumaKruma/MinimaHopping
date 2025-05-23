@@ -91,7 +91,12 @@ def md(atoms: ase.atom.Atom,
     
     # check for fragmented system
     if not True in atoms.pbc: # cluster
-        fragmentation.fix_frag_free(atoms, threshold=margin)
+        old_atoms = atoms.copy()
+        did_fix = fragmentation.fix_frag_free(atoms, threshold=margin)
+        if did_fix:
+            logging.warning("Fragmentation fixed after MD. Ideally, this should not happen and no fragments should be present after the md simulation.")
+            write(outpath + "fixed_frag_after_md.xyz", atoms)
+            write(outpath + "fragmented_after_md.xyz", old_atoms)
     elif atoms.pbc[0] and atoms.pbc[1] and not atoms.pbc[2]: # 2D slab
         ...
 
