@@ -15,7 +15,7 @@ except ImportError:
 import sys
 import time
 
-def fix_frag_free(initial_structure: Atoms, debug = False, threshold = 1.3):
+def fix_frag_slab(initial_structure: Atoms, debug = False, threshold = 1.3):
 
     # get all covalent radii from ASE
     rcovs = np.empty(len(initial_structure))
@@ -33,7 +33,7 @@ def fix_frag_free(initial_structure: Atoms, debug = False, threshold = 1.3):
     print(t2 - t1)
 
 
-def fix_frag_numba(nat: int, rxyz: np.ndarray, rcovs: np.array, threshold=1.3, constrains_freeze = []):
+def fix_frag_numba(nat, rxyz, rcovs, threshold=1.3, constrains_freeze = []):
     """
     Fix fragmented slabs by translating fragments in z-direction to bring them closer together.
 
@@ -81,16 +81,20 @@ def fix_frag_numba(nat: int, rxyz: np.ndarray, rcovs: np.array, threshold=1.3, c
     for i_constr in constrains_freeze:
         frozen_frags.append(fragments[sorted_indices[i_constr]])
 
-    # covert frozen_frags to set
-    frozen_frags = set(frozen_frags)
-    # if more than one fragment frozen, abort.
-    if len(frozen_frags) > 1:
-        print("More than one fragment frozen. Aborting.")
-        quit()
 
-    if frozen_frags[0] != 0:
-        print("When using slabs, particles with the lowest z values can be frozen.")
-        quit()
+    # if frozen_frags is not empty
+    if len(frozen_frags) > 0:
+        first_frag = frozen_frags[0]
+        # covert frozen_frags to set
+        frozen_frags = set(frozen_frags)
+        # if more than one fragment frozen, abort.
+        if len(frozen_frags) > 1:
+            print("More than one fragment frozen. Aborting.")
+            quit()
+
+        if first_frag != 0:
+            print("When using slabs, particles with the lowest z values can be frozen.")
+            quit()
 
     # Move fragments above the first to close gaps
     for frag_id in range(1, current_frag + 1):
@@ -107,11 +111,6 @@ def fix_frag_numba(nat: int, rxyz: np.ndarray, rcovs: np.array, threshold=1.3, c
         rxyz[frag_mask, 2] += dz
         
 
-    
-
-
-
- 
 def main():
     import time
 
@@ -132,14 +131,14 @@ def main():
 
 
     t1 = time.time()
-    fix_frag_free(initial_structure)
+    fix_frag_slab(initial_structure)
     t2 = time.time()
     print("ela", t2 - t1)
 
 
     initial_structure = read(filename)
     t1 = time.time()
-    fix_frag_free(initial_structure)
+    fix_frag_slab(initial_structure)
     t2 = time.time()
     print("ela (compiled)", t2 - t1)
 
