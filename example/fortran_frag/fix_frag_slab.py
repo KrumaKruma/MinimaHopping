@@ -33,7 +33,7 @@ def fix_frag_free(initial_structure: Atoms, debug = False, threshold = 1.3):
     print(t2 - t1)
 
 
-def fix_frag_numba(nat, rxyz, rcovs, threshold=1.3, constrains_freeze = []):
+def fix_frag_numba(nat: int, rxyz: np.ndarray, rcovs: np.array, threshold=1.3, constrains_freeze = []):
     """
     Fix fragmented slabs by translating fragments in z-direction to bring them closer together.
 
