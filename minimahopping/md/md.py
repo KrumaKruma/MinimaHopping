@@ -98,9 +98,12 @@ def md(atoms: ase.atom.Atom,
             write(outpath + "fixed_frag_after_md.xyz", atoms)
             write(outpath + "fragmented_after_md.xyz", old_atoms)
     elif atoms.pbc[0] and atoms.pbc[1] and not atoms.pbc[2]: # 2D slab
-        ...
-
-
+        old_atoms = atoms.copy()
+        did_fix = fragmentation.fix_frag_slab(atoms, threshold=margin)
+        if did_fix:
+            logging.warning("Fragmentation fixed after MD.")
+            write(outpath + "fixed_frag_after_md.xyz", atoms)
+            write(outpath + "fragmented_after_md.xyz", old_atoms)
 
     return atoms.get_positions(), atoms.get_cell(), new_dt, trajectory, e_pot_max, i_steps
 
