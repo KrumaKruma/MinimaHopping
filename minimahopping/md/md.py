@@ -7,6 +7,7 @@ import minimahopping.logging.logger as logging
 from minimahopping.mh.cell_atom import Cell_atom
 import typing
 import ase.atom
+import minimahopping.md.fix_fragmentation as fragmentation
 
 
 
@@ -87,6 +88,15 @@ def md(atoms: ase.atom.Atom,
         if verbose:
             md_trajectory_file.close()
             md_log_file.close()
+    
+    # check for fragmented system
+    if not True in atoms.pbc: # cluster
+        fragmentation.fix_frag_free(atoms, threshold=margin)
+    elif atoms.pbc[0] and atoms.pbc[1] and not atoms.pbc[2]: # 2D slab
+        ...
+
+
+
     return atoms.get_positions(), atoms.get_cell(), new_dt, trajectory, e_pot_max, i_steps
 
 
