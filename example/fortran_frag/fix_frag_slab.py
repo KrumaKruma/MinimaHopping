@@ -32,23 +32,6 @@ def fix_frag_free(initial_structure: Atoms, debug = False, threshold = 1.3):
     t2 = time.time()
     print(t2 - t1)
 
-# @njit()
-# def fix_frag_numba(nat, rxyz, rcovs, threshold = 1.3):
-#     cutoffs = threshold * rcovs
-
-#     max_cut = np.max(cutoffs)
-#     min_cut = np.min(cutoffs)
-
-#     zvalues = rxyz[:, 2]
-#     # sort zvalues in place:
-#     zvalues.sort()
-
-#     # check if steps between z values are all smaller than max_cut
-#     zdiff = np.diff(zvalues)
-#     if np.any(zdiff > max_cut): # cluster is fragmented, fix fragmentation
-#         ...
-#     else:
-#         return
 
 def fix_frag_numba(nat, rxyz, rcovs, threshold=1.3, constrains_freeze = []):
     """
@@ -104,12 +87,10 @@ def fix_frag_numba(nat, rxyz, rcovs, threshold=1.3, constrains_freeze = []):
     if len(frozen_frags) > 1:
         print("More than one fragment frozen. Aborting.")
         quit()
-    
 
-    # print(frozen_frags)
-    # print(fragments)
-    
-    
+    if frozen_frags[0] != 0:
+        print("When using slabs, particles with the lowest z values can be frozen.")
+        quit()
 
     # Move fragments above the first to close gaps
     for frag_id in range(1, current_frag + 1):
