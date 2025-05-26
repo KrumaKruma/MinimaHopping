@@ -50,8 +50,9 @@ def fix_frag_free_numba(nat, rxyz, rcovs, threshold = 1.3):
         # print(icount, '\n')
         icount += 1
         if icount > 100:
-            print("This should really not happen in fix fragmentation free. aborting")
-            quit()
+            print("Too many iterations. This should really not happen in fix fragmentation free")
+            return True
+            # quit() # quitting doesnt work in numba accelerated code.
         loggrow =False
         for iiat in range(nat):
             if belong[iiat]:
