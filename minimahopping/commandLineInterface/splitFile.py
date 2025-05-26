@@ -7,7 +7,7 @@ def main():
     parser.add_argument('-i', '--inputfile', dest ='inputFilename',
                 action ='store', help ='input filename.', required=True)
     parser.add_argument('-m', '--max', dest='max', action='store', help='Maximal number of files',
-        required=False, type=int, default=np.inf)
+        required=False, type=int, default=-1)
     parser.add_argument('-f', '--format', dest='format', action='store', help='Output file format',
         required=False, default='.extxyz')
     
@@ -22,8 +22,14 @@ def main():
 
 
     atomList = read(args.inputFilename, index = ':')
+
+    mymax = args.max
+    if mymax < 0:
+        mymax = len(atomList)
+    else:
+        mymax = min(mymax, len(atomList))
    
-    for i in range(min(args.max, len(atomList))):
+    for i in range(mymax):
         fname = f"{i:07d}.{file_format}"
         write(fname, atomList[i])
 

@@ -123,10 +123,10 @@ def run(atoms, cell_atoms, dt, forces, lattice_force, e_pot, n_steps, n_write,md
     trajectory = [atoms.copy()]
     trajectory[0].info['energy'] = e_pot_old
     trajectory[0].info.pop('label', None)
-    epot_max = np.NINF
-    epot_min = np.Inf
-    etot_max = np.NINF
-    etot_min = np.Inf
+    epot_max = - np.inf
+    epot_min = np.inf
+    etot_max = - np.inf
+    etot_min = np.inf
 
     initial_positions = atoms.get_positions()
     initial_lattice = atoms.get_cell()
