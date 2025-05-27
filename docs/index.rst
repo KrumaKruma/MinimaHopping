@@ -48,13 +48,15 @@ This implementation
 
    M. Krummenacher, M. Gubler, J. A. Finkler, H. Huber, M. Sommer-Jörgensen, S.Goedecker, `Performing highly efficient Minima Hopping strucutre predictions using the Atomic Simulation Environment <https://doi.org/10.1016/j.softx.2024.101632>`_, SoftwareX Volume 25, February 2024, 101632
 
-Original Paper
-
-   S. Goedecker, `Minima hopping: An efficient search method for the global minimum of the potential energy surface of complex molecular systems <https://aip.scitation.org/doi/10.1063/1.1724816>`_,The Journal of chemical physics 120 (21) (2004) 9911-9917
 
 Geometry Optimizer:
 
    M. Gubler, M. Krummenacher, H. Huber, S. Goedecker, `Efficient variable cell shape geometry optimization <https://doi.org/10.1016/j.jcpx.2023.100131>`_, Journal of Computational Physics: X Volume 17, November 2023, 100131
+
+
+Minima Hopping method:
+
+   S. Goedecker, `Minima hopping: An efficient search method for the global minimum of the potential energy surface of complex molecular systems <https://aip.scitation.org/doi/10.1063/1.1724816>`_,The Journal of chemical physics 120 (21) (2004) 9911-9917
 
 Fingerprint:
 
