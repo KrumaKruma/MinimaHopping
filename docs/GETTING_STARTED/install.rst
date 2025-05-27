@@ -2,13 +2,13 @@
 Installing Minima Hopping
 +++++++++++++++++++++++++
 
-Minima Hopping can be installed directly with pip by
+Minima Hopping can be installed directly with pip by:
 
 .. code-block::
 
     pip install  "git+https://gitlab.com/goedeckergroup/ase_mh.git"
 
-Alternatively minima hopping can be installed by cloning the Github repositiory:
+Alternatively minima hopping can be installed by cloning the GitLab repository:
 
 .. code-block::
 
@@ -16,7 +16,7 @@ Alternatively minima hopping can be installed by cloning the Github repositiory:
     cd minimahopping 
     pip install .
 
-Furthermore also a developping version can be installed:
+Furthermore also a developing version can be installed:
 
 .. code-block::
 

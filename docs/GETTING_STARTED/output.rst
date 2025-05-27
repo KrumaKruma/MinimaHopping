@@ -1,6 +1,6 @@
 Output
 ++++++
-Minima hopping produces several output file. 
+Minima hopping produces several output files. 
 Depending on the parameters set the output can vary.
 This section is explaining how the output of Minima Hopping is structured and which output files are generated.
 Minima Hopping is generating two output folders one is called ``minima`` and the other one ``output``.
@@ -17,7 +17,7 @@ As the filenames indicate contains former all minima found by Minima Hopping and
 Output folder
 -------------
 
-Standart output
+Standard output
 ~~~~~~~~~~~~~~~
 The minimal output in the ``output`` folder contains the following files:
 
@@ -52,18 +52,18 @@ Hence, the following files are written:
 .. caution::
     Be aware that in each MD-geometry optimization cycle these files are overwritten in order to keep the output minimal.
 
-If it is desired to collect the strucutres generated during each MD e.g. for the construction of machine learing potentials the parameter ``collect_md_data`` can be set to true.
-This generates a file named ``MD_collection.extxyz`` where the strucutre is added if two strucutres in the MD differ on average by 0.2 Angstroem.
+If it is desired to collect the structures generated during each MD e.g. for the construction of machine learning potentials the parameter ``collect_md_data`` can be set to true.
+This generates a file named ``MD_collection.extxyz`` where the structure is added if two structures in the MD differ on average by 0.2 Angstroem.
 This file is not overwritten during a restart and can get very large during a Minima Hopping run.
 
 The ``output`` folder also contains a ``restart`` subfolder containing all the restart files required for restarting Minima Hopping.
-It contains the ``params.json`` file where all the current parameters are stored and the ``poscur.extxyz`` file which is the last acceped minimum.
-In the ``minima.pickle.shelve.dat`` the database is stored including also fingerprints as well as the strucutres.
+It contains the ``params.json`` file where all the current parameters are stored and the ``poscur.extxyz`` file which is the last accepted minimum.
+In the ``minima.pickle.shelve.dat`` the database is stored including also fingerprints as well as the structures.
 If the parameter ``write_graph_output`` is set to True a ``trajectory.dat`` and ``graph.dat`` file is written containing information about the paths the algorithm is taking.
 
 .. caution::
    Changing files in the ``restart`` folder can lead to corrupted restarts or even makes restarts of the Minima Hopping impossible. 
-   Therefore, no changes in the files of the restart foles should be made.  
+   Therefore, no changes in the files of the restart files should be made.  
 
 
 MPI parallelization

@@ -10,13 +10,13 @@ class minimaHoppingParameters:
     _T: float = -1.0
     """"_T (float): Temperature for restart (if -1 then last temperature is read)"""
     Ediff0: float = .1
-    """"Ediff0 (float): Initital energy difference for accepting minima"""
+    """"Ediff0 (float): Initial energy difference for accepting minima"""
     _eDiff: float = -1.0
     """"_eDiff, Private (float): Energy difference for accepting minima after restarts."""
     beta_decrease: float = 1./1.05
-    """beta_decrease (float): Factor for decreaseing the temperature"""
+    """beta_decrease (float): Factor for decreasing the temperature"""
     beta_increase: float = 1.05
-    """beta_increase (float): Factor for increaseing the temperature"""
+    """beta_increase (float): Factor for increasing the temperature"""
     alpha_accept: float = 1/1.05
     """alpha_accept (float): Factor for decreasing Ediff"""
     alpha_reject: float = 1.05
@@ -46,7 +46,7 @@ class minimaHoppingParameters:
     mdmin: int = 2
     """mdmin (int): Number of minima visited before stopping the MD"""
     md_max_steps: int = 10000
-    """md_max_steps (int): Maximum number of MD steps. If reached MH continous"""
+    """md_max_steps (int): Maximum number of MD steps. If reached MH continuous"""
     collect_md_data: bool = False
     """collect_md_data (bool): flag to collect MD data which later could be used e.g. in machine learning"""
     margin: float = 0.3
@@ -54,7 +54,7 @@ class minimaHoppingParameters:
     symprec: float = 1e-5
     """symprec (float): Distance tolerance in Cartesian coordinates to find crystal symmetry for reshape cell operation (see spglib documentation for more info)"""
     fmax_pre_optimization : float = 0.1
-    """fmax_pre_optimization: Maximal force component. Used as stopping criterion for pre geometry optimization (only used if second calculator is aviable)"""
+    """fmax_pre_optimization: Maximal force component. Used as stopping criterion for pre geometry optimization (only used if second calculator is available)"""
     fmax: float = 0.005
     """fmax (float): Maximal force component. Used as a stopping criterion for the geometry optimization."""
     initial_step_size: float = None
@@ -70,7 +70,7 @@ class minimaHoppingParameters:
     eps_subsp: float = 1e-3
     """Lower limit on linear dependencies of basis vectors in history list."""
     enhanced_feedback:bool = False
-    """enhanced_feedback (bool):Enhanced feedback (rise temperature according to T = T * beta_increase * (1. + 1. * ln(n_visits)))."""
+    """enhanced_feedback (bool): Enhanced feedback (rise temperature according to T = T * beta_increase * (1. + 1. * ln(n_visits)))."""
     energy_threshold: float = 0.001
     """energy_threshold (float): if the energy difference of two structures is below the fingerprint is compared"""
     output_n_lowest_minima: int = 20
@@ -80,9 +80,9 @@ class minimaHoppingParameters:
     verbose_output: bool = False
     """verbose_output (bool): If True MD and OPT logs are written."""
     new_start: bool = False
-    """new_start (bool): Start from scratch even if restart files are present (deporecated)"""
+    """new_start (bool): Start from scratch even if restart files are present (deprecated)"""
     run_time: str = "infinite"
-    """run-time (str): Runtime in the format (d-hh:mm:ss) or inifinite for infinite runtime."""
+    """run-time (str): Runtime in the format (d-hh:mm:ss) or infinite for infinite runtime."""
     use_intermediate_mechanism: bool = False
     """use_intermediate_mechanism (bool): Sets if intermediate minimas will be stored and accepted if necessary."""
     write_graph_output: bool = True
@@ -96,7 +96,7 @@ class minimaHoppingParameters:
     _n_rejected: int = 0
     """_n_rejected (int): Private counting variable for number of rejected minima."""
     _n_same: int = 0
-    """_n_same (int): Private conting variable for number of unsuccessful escape attempts."""
+    """_n_same (int): Private counting variable for number of unsuccessful escape attempts."""
     maxNumberOfMinima: int = 0
     """maxNumberOfMinima (int): Maximal number of minima that will be stored in database. Only the maxNumberOfMinima lowest energy structures will be stored. If a structure is higher in energy than the 
     maxNumberOfMinima it will considered as a new structure. If the number is 0 or negative, it will be considered as infinite."""
