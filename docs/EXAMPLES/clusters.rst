@@ -7,6 +7,8 @@ ASE. To use this calculator a parameter file is needed. This file can be downloa
 
     wget https://www.ctcms.nist.gov/potentials/Download/2016--Nichol-A-Ackland-G-J--Na/3/Na_v2.eam.fs
 
+.. _clusters adjust_fp: 
+
 Exercice 1: Distinguishing minima
 ---------------------------------
 The aim of this tutorial is to determine the fingerprint distance of structures which can be considered to be the same
@@ -85,7 +87,7 @@ Exercise 2: Starting Minimahopping
 ----------------------------------
 
 The aim of this tutorial is to start the minima hopping algorithm with the given default settings. If you want to use
-different parameters you can find a detailed description of them :doc:`here <parameters>`. First all the required
+different parameters you can find a detailed description of them :doc:`here <../GETTING_STARTED/parameters>`. First all the required
 classes are imported:
 
 .. code-block:: python

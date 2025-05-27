@@ -3,7 +3,7 @@ Theory
 
 Introduction
 ------------
-The minima hopping algorithm makes use of the Bell–Evans–Polanyi principle for global strucutre optimization. The
+The minima hopping algorithm makes use of the Bell-Evans-Polanyi principle for global structure optimization. The
 algorithm is exploring the configurational space as fast as possible and is avoiding revisiting already known parts of
 the space. A flowchart of the minima hopping algorithm can be found below:
 
@@ -33,7 +33,7 @@ Fragmented Clusters
 ~~~~~~~~~~~~~~~~~~~
 Doing MD with clusters at high temperature can lead to its fragmentation. This is not desired in global optimization since the global optimum is not fragmented.
 Therefore we implemented DBSCAN which is checking if a cluster is fragmented during the MD. If this is the case the velocities are aligned for each cluster towards
-the center of mass. This enables to fix the cluster fragmentation during the MD. Furthermore, it is enjured that the MD is not stopped with a fragmented cluster.
+the center of mass. This enables to fix the cluster fragmentation during the MD. Furthermore, it is ensured that the MD is not stopped with a fragmented cluster.
 
 
 Distinguishing Structures
@@ -56,7 +56,7 @@ If the energy conservation is not deviating by more than 2% the time step is inc
 
 Temperature
 ~~~~~~~~~~~
-If a minimum has been found more than once the temperature is increased by betaincrease. There a so called 
+If a minimum has been found more than once the temperature is increased by :math:`\beta_{increase}`. There a so called 
 enhanced feedback can be used which increases the temperature faster than the normal feedback. Instead of adjusting the temperature
 according to 
 
@@ -68,14 +68,14 @@ the energy is adjusted depending on the number of times a minimum has already be
 .. math::
    T = T * \beta_{increase} * (1 + ln(n_{visits})).
 
-This is particularly useful for finding the global minimum of systems with a multi funnel potential energiy surface e.g LJ75. 
+This is particularly useful for finding the global minimum of systems with a multi funnel potential energy surface e.g LJ75. 
 However, while the global minimum is found faster it can happen that one funnel is explored less because the algorithm is pushing 
 the system faster towards other funnels.
 
 Ediff
 ~~~~~
-If a minimum is rejected Ediff is increased by a factor alphar. Also here the enhanced feedback is applied if it is for the temperature.
-Instead of adjusting Ediff according to 
+If a minimum is rejected :math:`E_{diff}` is increased by a factor :math:`\alpha_{rejected}`. Also here the enhanced feedback is applied if it is for the temperature.
+Instead of adjusting :math:`E_{diff}` according to 
 
 .. math::
    E_{diff} = \alpha_{rejected} * E_{diff}, 
