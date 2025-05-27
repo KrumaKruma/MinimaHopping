@@ -25,7 +25,7 @@ and a description of them.
     alpha_reject, 1.05, factor for increasing Ediff
     fixed_cell_simulation, False, If True the simulation cell is fixed; no variable cell shape features are activated.
     n_soft, 20, number of softening steps
-    soften_positions, 1e-2, step size for softening the positions
+    soften_positions, 1e-3, step size for softening the positions
     soften_lattice, 1e-3, step size for softening the lattice (only relevant for periodic boundary conditions)
     n_S_orbitals, 1, number of s orbitals for constructing the OMFP
     n_P_orbitals, 0, number of p orbitals for constructing the OMFP
@@ -37,18 +37,20 @@ and a description of them.
     mdmin, 2, Number of minima visited before stopping the MD
     md_max_steps, 1000, Maximum number of MD steps. If reached MH continous.
     collect_md_data, False, flag to collect MD data which later could be used e.g. in machine learning
+    margin, 0.3, margin for fixing of fragmentation consider bond broken if particle further than (2*max_rcov + 2*margin*max_rcov)
     symprec, 1e-5, Distance tolerance in Cartesian coordinates to find crystal symmetry for reshape cell operation (see spglib documentation for more info)
-    fmax, 0.007, Maximal force component. Used as a stopping criterion for the geometry optimization.
+    fmax, 0.005, Maximal force component. Used as a stopping criterion for the geometry optimization.
     fmax_pre_optimization, 0.1, Maximal force component. Used as stopping criterion for the pre-optimization.
     initial_step_size, None, Inital step size of the geometry optimizer. If None the initial step size is estimated
     nhist_max, 10, Maximal length of history list in sqnm geometry optimizer
+    opt_max_steps, 10000, Maximum number of optimization steps
     lattice_weight, 2.0, Weight / size of the supercell that is used to transform lattice derivatives. Use a value between 1 and 2. Default is 2.
     alpha_min,  1e-3, Lower limit on the step size.
     eps_subsp, 1e-3, Lower limit on linear dependencies of basis vectors in history list.
     enhanced_feedback, False, enhanced_feedback (bool):Enhanced feedback (rise temperature according to T = T * beta_increase * (1. + 1. * ln(n_visits))).
     energy_threshold, 0.001, if the energy difference of two structures is below the fingerprint is compared
     output_n_lowest_minima, 20, Outputs the n lowest minima
-    fingerprint_threshold, 1e-3, OMFP distance threshold for distinguishing minima
+    fingerprint_threshold, 5e-2, OMFP distance threshold for distinguishing minima
     verbose_output, False, If True MD and OPT logs are written
     new_start, False, Start from scratch even if restart files are present (deporecated)
     run_time, 'infinity', Runtime in the format (d-hh:mm:ss) or inifinite for infinite runtime.

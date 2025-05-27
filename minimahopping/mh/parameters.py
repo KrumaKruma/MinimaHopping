@@ -55,7 +55,7 @@ class minimaHoppingParameters:
     """symprec (float): Distance tolerance in Cartesian coordinates to find crystal symmetry for reshape cell operation (see spglib documentation for more info)"""
     fmax_pre_optimization : float = 0.1
     """fmax_pre_optimization: Maximal force component. Used as stopping criterion for pre geometry optimization (only used if second calculator is aviable)"""
-    fmax: float = 0.01
+    fmax: float = 0.005
     """fmax (float): Maximal force component. Used as a stopping criterion for the geometry optimization."""
     initial_step_size: float = None
     """inital step size of the geometry optimizer. If None the initial step size is estimated"""
