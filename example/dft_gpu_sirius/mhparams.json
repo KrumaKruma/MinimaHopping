@@ -1,0 +1,9 @@
+{
+    "verbose_output": true,
+    "mdmin": 2,
+    "T0": 2000,
+    "dt0": 0.1,
+    "fmax": 1e-2,
+    "run_time": "0-01:00:00",
+    "logLevel": 10
+}

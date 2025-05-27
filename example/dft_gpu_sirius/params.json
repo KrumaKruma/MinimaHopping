@@ -1,0 +1,27 @@
+{
+    "mixer": {
+        "beta": 0.5,
+        "max_history": 8,
+        "use_hartree": true
+    },
+    "control" : {
+        "verbosity" : 0,
+	"processing_unit": "gpu"
+    },
+    "parameters": {
+        "use_symmetry":false,
+        "use_scf_correction": false,
+        "energy_tol" : 1e-8, 
+        "density_tol" : 1e-8,
+        "pw_cutoff" : 600,
+        "gk_cutoff" : 80,
+        "xc_functionals" : ["XC_GGA_X_PBE", "XC_GGA_C_PBE"],
+        "ngridk" : [4, 4, 4],
+        "shiftk" : [1, 1, 1]
+    },
+    "unit_cell": {
+        "atom_files":{
+            "Si": "Si.json"
+        }
+    }
+}
