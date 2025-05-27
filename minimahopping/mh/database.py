@@ -7,18 +7,25 @@ import time
 import numpy
 
 class Database():
-    def __init__(self, energy_threshold: float, minima_threshold: float
-                 , output_n_lowest_minima: int, is_restart: bool = False
-                 , outpath: str ='./', minima_path: str = "lowest_minima/"
-                 , write_graph_output: bool = True, maxNumberOfMinima: int = 0):
+    def __init__(self, 
+                 energy_threshold: float, 
+                 fingerprint_threshold: float, 
+                 output_n_lowest_minima: int, 
+                 is_restart: bool = False, 
+                 restart_path: str ='output/restart/', 
+                 minima_path: str = "minima/", 
+                 write_graph_output: bool = True, 
+                 maxNumberOfMinima: int = 0
+                 ):
+
         self.unique_minima_sorted = []
         self.nstructs = 0
 
         self.energy_threshold = energy_threshold
-        self.minima_threshold = minima_threshold
+        self.fingerprint_threshold = fingerprint_threshold
         self.output_n_lowest_minima = output_n_lowest_minima
         self.is_restart = is_restart
-        self.outpath = outpath
+        self.restart_path = restart_path
         self.minima_path = minima_path
         self.write_graph_output = write_graph_output
 
@@ -32,8 +39,8 @@ class Database():
         else: self.maxNumberOfMinima = maxNumberOfMinima
 
         if self.write_graph_output:
-            self.graphFilename = self.outpath + "graph.dat"
-            self.graphTrajectoryFilename = self.outpath + 'trajectory.dat'
+            self.graphFilename = self.restart_path + "graph.dat"
+            self.graphTrajectoryFilename = self.restart_path + 'trajectory.dat'
             self.graph = minimahopping.graph.graph.MinimaHoppingGraph(self.graphFilename, self.graphTrajectoryFilename, self.is_restart)
 
 
@@ -55,7 +62,7 @@ class Database():
 
 
     def read_restart_files(self):   
-        filename = self.outpath + "minima.pickle.shelve.dat"
+        filename = self.restart_path + "minima.pickle.shelve.dat"
         self.minima_shelve = shelve.open(filename)
         if self.is_restart:
             # print('asdf', list(dict(self.minima_shelve).values()).sort())
@@ -132,7 +139,7 @@ class Database():
         for i_compare in indices:
             s = self.unique_minima_sorted[i_compare]
             fp_dist = struct.fingerprint_distance(s)
-            if fp_dist < self.minima_threshold:
+            if fp_dist < self.fingerprint_threshold:
                 index = i_compare
                 break
 
