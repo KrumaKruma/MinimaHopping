@@ -46,7 +46,7 @@ Citing MinimaHopping
 --------------------
 This implementation
 
-   M. Krummenacher, M. Gubler, J. A. Finkler, H. Huber, M. Sommer-Jörgensen, S.Goedecker, `Performing highly efficient Minima Hopping strucutre predictions using the Atomic Simulation Environment <https://arxiv.org/abs/2309.08418>`
+   M. Krummenacher, M. Gubler, J. A. Finkler, H. Huber, M. Sommer-Jörgensen, S.Goedecker, `Performing highly efficient Minima Hopping strucutre predictions using the Atomic Simulation Environment <https://doi.org/10.1016/j.softx.2024.101632>`_, SoftwareX Volume 25, February 2024, 101632
 
 Original Paper
 
@@ -54,7 +54,7 @@ Original Paper
 
 Geometry Optimizer:
 
-   M. Gubler, M. Krummenacher, H. Huber, S. Goedecker, `Efficient variable cell shape geometry optimization <https://arxiv.org/abs/2206.07339>`_, arXiv preprint arXiv:2206.07339 (2022)
+   M. Gubler, M. Krummenacher, H. Huber, S. Goedecker, `Efficient variable cell shape geometry optimization <https://doi.org/10.1016/j.jcpx.2023.100131>`_, Journal of Computational Physics: X Volume 17, November 2023, 100131
 
 Fingerprint:
 
