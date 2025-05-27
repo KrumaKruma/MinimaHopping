@@ -17,7 +17,8 @@ def optimization(atoms: ase.atom.Atom,
                  nhist_max: int = 10, 
                  lattice_weight:float = 2, 
                  alpha_min: float = 1e-3, 
-                 eps_subsp: float = 1e-3, 
+                 eps_subsp: float = 1e-3,
+                 opt_max_steps: float = 10000, 
                  verbose: bool = True):
     # copy the atoms object and attach calculator to it
     atoms = atoms.copy()
@@ -43,7 +44,8 @@ def optimization(atoms: ase.atom.Atom,
                                                                     nhist_max = nhist_max, 
                                                                     lattice_weight = lattice_weight, 
                                                                     alpha_min = alpha_min, 
-                                                                    eps_subsp = eps_subsp, 
+                                                                    eps_subsp = eps_subsp,
+                                                                    opt_max_steps = opt_max_steps, 
                                                                     verbose = verbose, 
                                                                     optimization_trajectory_file = optimization_trajectory_file,
                                                                     optimization_log_file = optimization_log_file)
@@ -67,6 +69,7 @@ def geometry_optimization(atoms: ase.atom.Atom,
                           lattice_weight: float, 
                           alpha_min: float, 
                           eps_subsp: float, 
+                          opt_max_steps: float,
                           verbose: bool, 
                           optimization_trajectory_file: typing.IO, 
                           optimization_log_file: typing.IO):
@@ -139,7 +142,7 @@ def geometry_optimization(atoms: ase.atom.Atom,
             trajectory[-1].info['energy'] = energy
             trajectory[-1].info.pop('label', None)
 
-        is_aboard = check(i_step = i_step)
+        is_aboard = check(i_step=i_step, opt_max_steps=opt_max_steps)
         if is_aboard:
             break
 
@@ -176,11 +179,11 @@ def write_log(atoms: ase.atom.Atom,
     write(filename = optimization_trajectory_file, images = atoms, parallel=False)
     optimization_trajectory_file.flush()
 
-def check(i_step: int):
+def check(i_step: int, opt_max_steps: int):
     '''
-    Check if the geometry optimization has reached the limit of 10000 optimization steps.
+    Check if the geometry optimization has reached the limit of opt_max_steps optimization steps.
     '''
-    if i_step > 10000:
+    if i_step > opt_max_steps:
         warning_msg = "Geometry did not converge in {:d} optimizations steps".format(i_step)
         warnings.warn(warning_msg, UserWarning)
         is_aboard = True

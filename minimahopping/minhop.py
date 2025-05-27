@@ -449,6 +449,7 @@ class Minimahopping:
                                                                         lattice_weight=self.parameters.lattice_weight,
                                                                         alpha_min=self.parameters.alpha_min,
                                                                         eps_subsp=self.parameters.eps_subsp, 
+                                                                        opt_max_steps=self.parameters.opt_max_steps,
                                                                         verbose=self.parameters.verbose_output)
         return positions, lattice
 
@@ -571,6 +572,7 @@ class Minimahopping:
                                                                         lattice_weight=self.parameters.lattice_weight,
                                                                         alpha_min=self.parameters.alpha_min,
                                                                         eps_subsp=self.parameters.eps_subsp, 
+                                                                        opt_max_steps=self.parameters.opt_max_steps,
                                                                         verbose=self.parameters.verbose_output)
                 
                 # Set pre-optimized positions
@@ -602,6 +604,7 @@ class Minimahopping:
                                                                     lattice_weight=self.parameters.lattice_weight,
                                                                     alpha_min=self.parameters.alpha_min,
                                                                     eps_subsp=self.parameters.eps_subsp, 
+                                                                    opt_max_steps=self.parameters.opt_max_steps,
                                                                     verbose=self.parameters.verbose_output)
 
             if epot_max_geopt > epot_max_md:
