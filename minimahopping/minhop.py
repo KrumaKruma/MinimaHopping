@@ -778,7 +778,7 @@ class Minimahopping:
         if label is None:
             label = 'None'
 
-        if periodicity_type != 0:
+        if periodicity_type != 0 and not self.parameters.fixed_cell_simulation:
             symmetry_group = struct.get_symmetry_group(self.parameters.symprec)
 
             history_msg = "%15.8f %s %s %.2f %8.4f %.2f %.2f %.2f %s %s\n"%(
