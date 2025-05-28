@@ -411,10 +411,10 @@ class Minimahopping:
     def set_constraints(self, atoms):
         # fix atomic postions of atoms if they are to be fixed
         if len(self.constraints) != 0:
-            logging.logger.warn("  Constraints are applied to your system. In the periodic case this might not work with variable cell shape features.")
+            logging.logger.warning("  Constraints are applied to your system. In the periodic case this might not work with variable cell shape features.")
             atoms.set_constraint(self.constraints)
             if not self.parameters.fixed_cell_simulation:
-                logging.logger.warn("  you are fixing atoms and variable cell shape features. This can lead to problems with the variable cell shape optimization.")
+                logging.logger.warning("  you are fixing atoms and variable cell shape features. This can lead to problems with the variable cell shape optimization.")
 
 
     def initialize_mixed_boundaries(self, atoms):
@@ -425,7 +425,7 @@ class Minimahopping:
                 sum_offset_zcell = np.sum(atoms.cell[2,:2] + atoms.cell[:2,2])
                 if index == 2 and sum_offset_zcell < 1e-10:
                     logging.logger.info("Lattice is adjusted so that variable cell shape slab can be used.")
-                    logging.logger.warn("Plase make sure that the stress is returned for slab boundary conditions.")
+                    logging.logger.warning("Plase make sure that the stress is returned for slab boundary conditions.")
                     atoms.cell[2,2] = 1. 
                 elif index != 2:
                     logging.logger.info("Abort simulation: For slab simulations z-dimension has to be non-periodic")
