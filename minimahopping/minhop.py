@@ -23,8 +23,23 @@ import minimahopping.mh.database
 import minimahopping.MPI_database.mpi_database_worker
 import signal
 import sys
+from ase.calculators.mixing import LinearCombinationCalculator
 
 import minimahopping.logging.logger as logging
+
+def recalculate_basis(calculator, atoms):
+    if isinstance(calculator, LinearCombinationCalculator):
+        for calc in calculator.mixer.calcs:
+            try:
+                calc.recalculate_basis()
+            except:
+                pass
+    else:
+        try:
+            calculator.recalculate_basis()
+        except:
+            pass
+
 
 
 """
@@ -341,10 +356,11 @@ class Minimahopping:
             logging.logger.info('  New MH run is started')
             struct_cur = None
             for atom in atoms:
-                try:
-                    self.calculator.recalculateBasis(atom)
-                except:
-                    pass
+                # try:
+                #     self.calculator.recalculateBasis(atom)
+                # except:
+                #     pass
+                recalculate_basis(self.calculator, atom)
                 atom.calc = self.calculator
                 self.set_constraints(atom)
                 _positions, _lattice = self._restart_opt(atom,)
@@ -370,10 +386,11 @@ class Minimahopping:
                     quit()
             # add input structure to database after optimization
             self._write_restart(struct_cur, struct_cur, True)
-            try:
-                self.calculator.recalculateBasis(struct_cur.atoms)
-            except:
-                pass
+            # try:
+            #     self.calculator.recalculateBasis(struct_cur.atoms)
+            # except:
+            #     pass
+            recalculate_basis(self.calculator, struct_cur.atoms)
         else:
             logging.logger.info('  Restart MH run')
 
@@ -481,10 +498,11 @@ class Minimahopping:
             if self.preoptimizationNeeded:
                 logging.logger.info("    Switched Calculator for MD and Pre-Optimization")
             
-            try:
-                self.md_calculator.recalculateBasis(atoms)
-            except:
-                pass
+            # try:
+            #     self.md_calculator.recalculateBasis(atoms)
+            # except:
+            #     pass
+            recalculate_basis(self.md_calculator, atoms)
             # if the loop not escaped (no new minimum found) rise temperature
             if _i_steps > 0:
                 self._n_same += 1
@@ -558,10 +576,11 @@ class Minimahopping:
             # If second calculator is present do a pre-optimization
             if self.preoptimizationNeeded:
                 logging.logger.info("    PRE-OPT start")
-                try:
-                    self.md_calculator.recalculateBasis(atoms)
-                except:
-                    pass
+                # try:
+                #     self.md_calculator.recalculateBasis(atoms)
+                # except:
+                #     pass
+                recalculate_basis(self.md_calculator, atoms)
                 positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps, epot_max_geopt = opt.optimization(atoms=atoms, 
                                                                         calculator=self.md_calculator, 
                                                                         max_force_threshold=self.parameters.fmax_pre_optimization, 
@@ -586,12 +605,13 @@ class Minimahopping:
 
             if True in atoms.pbc and not self.parameters.fixed_cell_simulation:
                 atoms.set_cell(lattice)
-            try:
-                logging.logger.debug("Recalculating basis")
-                self.calculator.recalculateBasis(atoms)
-                logging.logger.debug("Recalculated basis before optimization")
-            except:
-                pass
+            # try:
+            #     logging.logger.debug("Recalculating basis")
+            #     self.calculator.recalculateBasis(atoms)
+            #     logging.logger.debug("Recalculated basis before optimization")
+            # except:
+            #     pass
+            recalculate_basis(self.calculator, atoms)
 
             logging.logger.info("    OPT start")
             positions, lattice, self._noise, _opt_trajectory, number_of_opt_steps, epot_max_geopt = opt.optimization(atoms=atoms, 
@@ -629,10 +649,11 @@ class Minimahopping:
                 atoms.set_cell(lattice)
                 if periodicity_type == 3:
                     lattice_operations.reshape_cell(atoms, self.parameters.symprec)
-            try:
-                self.calculator.recalculateBasis(atoms)
-            except:
-                pass
+            # try:
+            #     self.calculator.recalculateBasis(atoms)
+            # except:
+            #     pass
+            recalculate_basis(self.calculator, atoms)
             atoms.calc = self.calculator
             proposed_structure = Minimum(atoms,
                         s = self.parameters.n_S_orbitals,
