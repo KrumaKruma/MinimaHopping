@@ -20,6 +20,7 @@ def main():
                         """, action="store_true")
     parser.add_argument("--totalSteps", help="total number of steps", type=int, default=-1, required=False)
     parser.add_argument("--pressureGPa", help="pressure in GPa", type=float, default=0.0, required=False)
+    parser.add_argument("--dispersion", help="json file containing the information about dispersion correction. Allowed are D3 and D4 dispersion corrections", type=str, default=None, required=False)
     args = parser.parse_args()
 
     numberOfSlaves = args.numberOfSlaves
@@ -93,11 +94,48 @@ def main():
     mhJson["use_MPI"] = useSlave
     f.close()
 
+    if args.dispersion is not None:
+        if rank == 0:
+            print("Using dispersion correction: ", args.dispersion)
+
+        with open(args.dispersion) as f:
+            allowed_dispersion = ["d3", "d4"]
+            disp_dict = json.load(f)
+            dispersion_functional = disp_dict["functional"]
+            dispersion_method = disp_dict["method"]
+            # convert dispersion_method string to lower case:
+            if dispersion_method.lower() not in allowed_dispersion:
+                raise ValueError("dispersion_method must be one of: ", allowed_dispersion)
+            # check if dampening key exists:
+            dispersion_damp = ""
+            if "dampening" in disp_dict:
+                dispersion_damp = disp_dict["dampening"]
+
+        if dispersion_method.lower() == 'd3':
+            from dftd3.ase import DFTD3
+            if dispersion_damp != "":
+                disp_calc = DFTD3(method=dispersion_functional, damping=dispersion_damp)
+            else:
+                disp_calc = DFTD3(method=dispersion_functional)
+        elif dispersion_method.lower() == 'd4':
+            from dftd4.ase import DFTD4
+            if dispersion_damp != "":
+                disp_calc = DFTD4(method=dispersion_functional, damping=dispersion_damp)
+            else:
+                disp_calc = DFTD4(method=dispersion_functional)
+
+
     try:
         if not isMaster: # If not master rank give group comunicator to sirius calculator
             print("Creating calculator on rank", rank, flush=True)
-            atoms.calc = sirius_ase.siriusCalculator.SIRIUS(atoms, pp_files, functionals, kpoints, kshift, pw_cutoff, gk_cutoff, jsonparams, communicator=group_communicator, pressure_giga_pascale=args.pressureGPa)
+            sirius_calc = sirius_ase.siriusCalculator.SIRIUS(atoms, pp_files, functionals, kpoints, kshift, pw_cutoff, gk_cutoff, jsonparams, communicator=group_communicator, pressure_giga_pascale=args.pressureGPa)
             print("Calculator created on rank", rank, flush=True)
+
+            if args.dispersion:
+                from ase.calculators.mixing import SumCalculator
+                atoms.calc = SumCalculator([disp_calc, sirius_calc])
+            else:
+                atoms.calc = sirius_calc
 
         with Minimahopping(atoms, **mhJson) as mh:
             if args.totalSteps > 0:
