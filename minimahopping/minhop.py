@@ -29,16 +29,22 @@ import minimahopping.logging.logger as logging
 
 def recalculate_basis(calculator, atoms):
     if isinstance(calculator, LinearCombinationCalculator):
+        i = 0
         for calc in calculator.mixer.calcs:
             try:
-                calc.recalculate_basis()
+                logging.logger.info("Recalculating basis for calculator %i"%i)
+                calc.recalculateBasis(atoms)
+                logging.logger.info("Recalculated basis for calculator %i"%i)
             except:
-                pass
+                logging.debug("Could not recalculate basis of calculator %i (when using a sirius calculator, this is severe, else this does not matter)"%i)
+            i += 1
     else:
         try:
-            calculator.recalculate_basis()
+            logging.logger.info("Recalculating basis for calculator")
+            calculator.recalculateBasis(atoms)
+            logging.logger.info("Recalculated basis for calculator")
         except:
-            pass
+            logging.debug("Could not recalculate basis (when using a sirius calculator, this is severe, else this does not matter)")
 
 
 
@@ -856,6 +862,7 @@ class Minimahopping:
             print("Detected multiple MPI Processes but use_MPI parameter was set to false. Is this on purpose?")
         if self.mpiSize == 1 or not use_MPI: # no mpi should be used
             logging.setupLogger(logLevel=logLevel)
+            logging.logger.info('No MPI parallelization will be used')
             self.isMaster = False
             self.isWorker = False
             self._outpath = 'output/'
