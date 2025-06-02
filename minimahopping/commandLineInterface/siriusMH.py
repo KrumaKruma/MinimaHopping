@@ -94,7 +94,9 @@ def main():
     mhJson["use_MPI"] = useSlave
     f.close()
 
-    if args.dispersion:
+    if args.dispersion is not None:
+        if rank == 0:
+            print("Using dispersion correction: ", args.dispersion)
 
         with open(args.dispersion) as f:
             allowed_dispersion = ["d3", "d4"]
