@@ -10,7 +10,7 @@ pip install 'git@https://github.com/moritzgubler/sirius-python-interface'
 
 This repository contains and installs a `siriusMH` command line utility for starting Minima Hopping simulations with SIRIUS. Start a minima hopping simulation with two minima hopping workers, each using two processes for DFT calculations and one database process for communication (2 * 2 + 1 = 5 processes in total).
 ``` bash
-mpirun -np 5 python3 siriusMH mhparams.json params.json initial.extxyz --slaveRankSize=2 --numberOfSlaves=2
+mpirun -np 5 siriusMH mhparams.json params.json initial.extxyz --slaveRankSize=2 --numberOfSlaves=2
 ```
 `params.json` contains the DFT options for SIRIUS. All keywords can be found here: [https://github.com/electronic-structure/SIRIUS/blob/develop/src/context/input_schema.json](https://github.com/electronic-structure/SIRIUS/blob/develop/src/context/input_schema.json).
 `mhparamns.json` contains all Minima Hopping parameters.
