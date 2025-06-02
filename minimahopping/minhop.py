@@ -43,7 +43,7 @@ def recalculate_basis(calculator, atoms):
                 calc.recalculateBasis(atoms)
                 logging.logger.info("Recalculated basis for calculator %i"%i)
             except:
-                logging.debug("Could not recalculate basis of calculator %i (when using a sirius calculator, this is severe, else this does not matter)"%i)
+                logging.logger.debug("Could not recalculate basis of calculator %i (when using a sirius calculator, this is severe, else this does not matter)"%i)
             i += 1
     else:
         try:
@@ -51,7 +51,7 @@ def recalculate_basis(calculator, atoms):
             calculator.recalculateBasis(atoms)
             logging.logger.info("Recalculated basis for calculator")
         except:
-            logging.debug("Could not recalculate basis (when using a sirius calculator, this is severe, else this does not matter)")
+            logging.logger.debug("Could not recalculate basis (when using a sirius calculator, this is severe, else this does not matter)")
 
 
 
