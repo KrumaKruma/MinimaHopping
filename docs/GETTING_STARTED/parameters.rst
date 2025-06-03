@@ -35,7 +35,7 @@ and a description of them.
     dt_min, 0.0001, minimal time step of the MD
     mdmin, 2, Number of minima visited before stopping the MD
     md_max_steps, 1000, Maximum number of MD steps. If reached MH continous.
-    collect_md_data, False, flag to collect MD data which later could be used e.g. in machine learning
+    collect_md_data, True, flag to collect MD data which later could be used e.g. in machine learning
     margin, 0.3, margin for fixing of fragmentation consider bond broken if particle further than (2*max_rcov + 2*margin*max_rcov)
     symprec, 1e-5, Distance tolerance in Cartesian coordinates to find crystal symmetry for reshape cell operation (see spglib documentation for more info)
     fmax, 0.005, Maximal force component. Used as a stopping criterion for the geometry optimization.
