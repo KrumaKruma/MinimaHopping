@@ -336,7 +336,7 @@ class Minimahopping:
 
     def _write_parameters(self):
         f = open(self.restart_path+"params.json", "w")
-        json.dump(self.parameters.to_dict(),f)
+        json.dump(self.parameters.to_dict(), f, indent=4)
         f.close()
 
 
