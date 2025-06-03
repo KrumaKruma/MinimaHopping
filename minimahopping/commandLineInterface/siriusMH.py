@@ -65,7 +65,6 @@ def main():
     import sirius_ase.siriusCalculator
 
     if useSlave and args.distributedStartingStructure:
-        print("Warning: I did not test this. It might not work.")
         atoms = ase.io.read(filename=structufileName, parallel=False, index = color - 1)
     else:
         atoms = ase.io.read(filename=structufileName, parallel=False, index = 0)
