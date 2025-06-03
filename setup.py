@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
         
 setup(
     name='minimahopping',
-    version='1.1.1',
+    version='1.1.2',
     author='Marco Krummenacher, Moritz Gubler, Jonas Finkler, Stefan Goedecker',
     description='ASE Minimahopping',
     long_description='Minimahopping compatible to ASE',
@@ -13,7 +13,7 @@ setup(
     packages=find_packages(include=['minimahopping', 'minimahopping.*']),
     install_requires=[
         'numpy',
-#        'ase<3.23',
+        'ase',
         'scipy',
         'scikit-learn',
         'networkx',
