@@ -39,19 +39,19 @@ def recalculate_basis(calculator, atoms):
         i = 0
         for calc in calculator.mixer.calcs:
             try:
-                logging.logger.info("Recalculating basis for calculator %i"%i)
+                logging.logger.debug("Recalculating basis for calculator %i"%i)
                 calc.recalculateBasis(atoms)
-                logging.logger.info("Recalculated basis for calculator %i"%i)
+                logging.logger.debug("Recalculated basis for calculator %i"%i)
             except:
-                logging.logger.debug("Could not recalculate basis of calculator %i (when using a sirius calculator, this is severe, else this does not matter)"%i)
+                logging.logger.debug("Could not recalculate basis of calculator %i (when using a sirius calculator, this is severe, else this does not matter). Calculator type: %s"%(i, str(type(calc))))
             i += 1
     else:
         try:
-            logging.logger.info("Recalculating basis for calculator")
+            logging.logger.debug("Recalculating basis for calculator")
             calculator.recalculateBasis(atoms)
-            logging.logger.info("Recalculated basis for calculator")
+            logging.logger.debug("Recalculated basis for calculator")
         except:
-            logging.logger.debug("Could not recalculate basis (when using a sirius calculator, this is severe, else this does not matter)")
+            logging.logger.debug("Could not recalculate basis (when using a sirius calculator, this is severe, else this does not matter). Calculator used: %s"%str(type(calculator)))
 
 
 
