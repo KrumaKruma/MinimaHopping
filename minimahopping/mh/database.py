@@ -95,7 +95,6 @@ class Database():
             struct.n_visit = 1
             struct1 = struct.__copy__()
             struct1.atoms.set_momenta(None)
-            struct1.atoms.info['energy'] = struct.e_pot
             struct1.atoms.info['label'] = label
             index = bisect.bisect_left(self.unique_minima_sorted, struct1)
             self.unique_minima_sorted.insert(index, struct1)

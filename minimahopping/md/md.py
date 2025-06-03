@@ -8,6 +8,7 @@ from minimahopping.mh.cell_atom import Cell_atom
 import typing
 import ase.atom
 import minimahopping.md.fix_fragmentation as fragmentation
+from ase.calculators.singlepoint import SinglePointCalculator
 
 
 
@@ -82,7 +83,7 @@ def md(atoms: ase.atom.Atom,
         new_dt = adjust_dt(etot_max, etot_min, e_pot_max, e_pot_min, dt, dt_min)
         # attach the last structure to the MD trajectory
         trajectory.append(atoms.copy())
-        trajectory[-1].info['energy'] = atoms.get_potential_energy()
+        trajectory[-1].calc = SinglePointCalculator(trajectory[-1], energy=atoms.get_potential_energy())
         trajectory[-1].info.pop('label', None)
     finally:
         if verbose:
@@ -249,7 +250,7 @@ def run(atoms: ase.atom.Atom,
     i_max = 0
     e_pot_old = atoms.get_potential_energy()
     trajectory = [atoms.copy()]
-    trajectory[0].info['energy'] = e_pot_old
+    trajectory[0].calc = SinglePointCalculator(trajectory[0], energy = e_pot_old)
     trajectory[0].info.pop('label', None)
     is_one_cluster = True
     epot_max = - np.inf
@@ -413,13 +414,15 @@ def update_trajectory(atoms: ase.atom.Atom, positions_old: np.ndarray, lattice_o
     if is_add_to_trajectory:
         temp = atoms.copy()
         trajectory.append(temp.copy())
-        trajectory[-1].info['energy'] = atoms.get_potential_energy()
+        trajectory[-1].calc = SinglePointCalculator(trajectory[-1], energy = atoms.get_potential_energy())
         trajectory[-1].info.pop('label', None)
         if collect_md_file is not None:
-            atoms.info['energy'] = atoms.get_potential_energy()
             if True in atoms.pbc:
-                atoms.info['stress'] = atoms.get_stress()
-            write(filename = collect_md_file, images = atoms, parallel=False)
+                temp.calc = SinglePointCalculator(temp, energy = atoms.get_potential_energy(), forces = atoms.get_forces(), stress = atoms.get_stress())
+            else:
+                temp.calc = SinglePointCalculator(temp, energy = atoms.get_potential_energy(), forces = atoms.get_forces())
+
+            write(filename = collect_md_file, images = temp, parallel=False)
             collect_md_file.flush()
 
     return positions_current, lattice_current, trajectory

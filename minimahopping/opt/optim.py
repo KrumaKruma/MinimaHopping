@@ -6,6 +6,7 @@ from sqnm.vcsqnm_for_ase import aseOptimizer
 import minimahopping.md.md
 import ase.atom
 import typing
+from ase.calculators.singlepoint import SinglePointCalculator
 
 
 def optimization(atoms: ase.atom.Atom, 
@@ -79,7 +80,7 @@ def geometry_optimization(atoms: ase.atom.Atom,
     '''
     # Initializations
     trajectory = [atoms.copy()]
-    trajectory[0].info['energy'] = atoms.get_potential_energy()
+    trajectory[0].calc = SinglePointCalculator(atoms, energy=atoms.get_potential_energy())
     trajectory[0].info.pop('label', None)
     i_step = 0
     max_disp = 0
@@ -139,7 +140,7 @@ def geometry_optimization(atoms: ase.atom.Atom,
                                                                                                       lattice_old = lattice_old)
         if is_append_trajectory:
             trajectory.append(atoms.copy())
-            trajectory[-1].info['energy'] = energy
+            trajectory[-1].calc = SinglePointCalculator(atoms, energy=energy)
             trajectory[-1].info.pop('label', None)
 
         is_aboard = check(i_step=i_step, opt_max_steps=opt_max_steps)

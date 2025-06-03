@@ -14,7 +14,7 @@ def main():
     args = parser.parse_args()
 
     atomList = read(args.inputFilename, index = args.index)
-    atomList.sort(key= lambda x: x.info['energy'])
+    atomList.sort(key= lambda x: x.get_potential_energy())
 
     write(args.outputFilename, atomList)
 

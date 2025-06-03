@@ -8,6 +8,8 @@ from scipy.spatial import distance_matrix
 import ase.atom
 import spglib
 import minimahopping.mh.lattice_operations as lattice_operations
+from ase.calculators.singlepoint import SinglePointCalculator
+
 try:
     from numba import njit
 except ImportError:
@@ -105,7 +107,7 @@ class Minimum():
         temp_atoms = self.atoms.copy()
         temp_atoms.info = {}
         temp_atoms.set_momenta(None)
-        temp_atoms.info['energy'] = self.e_pot
+        temp_atoms.calc = SinglePointCalculator(temp_atoms, energy=self.e_pot)
         temp_atoms.info['label'] = self.label
         temp_atoms.info['n_visit'] = self.n_visit
         temp_atoms.info.update(info_dict)
