@@ -11,7 +11,7 @@ from sqnm.vcsqnm_for_ase import aseOptimizer
 COMPOSITION = f'(CaTiO3)4'
 
 # If MPI is enabled, use N+1 SLURM processes but only N GPUS. 
-USE_MPI = True
+USE_MPI = False
 
 
 def main():
