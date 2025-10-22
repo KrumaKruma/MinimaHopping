@@ -36,7 +36,8 @@ def main():
 
     with Minimahopping(init_structure, 
                        symprec=1e-5,
-                       verbose_output=False, 
+                       verbose_output=False,
+                       run_time = "0-00:10:00", # run for 10 minutes.
                        T0=500, 
                        dt0=0.1, 
                        use_MPI=USE_MPI, 
@@ -53,7 +54,7 @@ def main():
                        enhanced_feedback=True,
                        collect_md_data=False,
                        ) as mh:
-        mh(totalsteps=100000)
+        mh()
 
 # Add your favouorite universal potential here
 def get_calc():
