@@ -38,6 +38,7 @@ Current list of contributors:
    GETTING_STARTED/output
    EXAMPLES/clusters
    EXAMPLES/bulk
+   EXAMPLES/foundation_models
    EXAMPLES/dft_gpu
    EXAMPLES/md_calculator
    EXAMPLES/slab
