@@ -4,7 +4,6 @@ from tensorpotential.calculator import grace_fm
 from mpi4py import MPI
 import os
 from ase.io import write
-from sqnm.vcsqnm_for_ase import aseOptimizer
 
 
 # Choose the composition to search.
@@ -30,11 +29,6 @@ def main():
 
     if (not USE_MPI) or (rank > 0):
         init_structure.calc = get_calc()
-        opt = aseOptimizer(init_structure,
-                           vc_relax=True, 
-                           force_tol=1.e-4,
-                           )
-        opt.optimize()
         init_structure.wrap()
 
     write('initial_structure.extxyz', init_structure)
