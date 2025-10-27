@@ -33,7 +33,7 @@ class minimaHoppingParameters:
     """n_S_orbitals (int): number of s orbitals for constructing the OMFP"""
     n_P_orbitals: int = 0
     """n_P_orbitals (int): number of p orbitals for constructing the OMFP"""
-    width_cutoff: int = 4
+    width_cutoff: float = 4.0
     """width_cutoff (float): cutoff for the OMFP"""
     exclude: list = field(default_factory=list)
     """exclude (list): List of elements to exclude in the OMFP"""
