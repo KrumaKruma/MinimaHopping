@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 setup(
     name='minimahopping',
     version='1.1.2',
-    author='Marco Krummenacher, Moritz Gubler, Jonas Finkler, Stefan Goedecker',
+    author='Marco Krummenacher, Moritz Gubler, Jonas Finkler, Hannes Huber, Martin Sommer-Jörgensen, Stefan Goedecker',
     description='ASE Minimahopping',
     long_description='Minimahopping compatible to ASE',
     url='https://github.com/',
