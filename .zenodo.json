@@ -1,0 +1,32 @@
+{
+  "upload_type": "software",
+  "title": "Python Minima Hopping (ASE Minima Hopping)",
+  "description": "<p>Python Minima Hopping code for global structure optimization. It can simulate both clusters and bulk systems, and any ASE calculator can be coupled to it. For periodic systems, variable cell shape MD, softening and optimization are implemented.</p><p>Source code: <a href=\"https://gitlab.com/goedeckergroup/ase_mh\">https://gitlab.com/goedeckergroup/ase_mh</a>. Documentation: <a href=\"https://python-minima-hopping.readthedocs.io/\">https://python-minima-hopping.readthedocs.io/</a></p>",
+  "access_right": "open",
+  "license": "gpl-3.0-only",
+  "creators": [
+    {"name": "Krummenacher, Marco", "affiliation": "University of Basel"},
+    {"name": "Gubler, Moritz", "affiliation": "University of Basel"},
+    {"name": "Finkler, Jonas A.", "affiliation": "University of Basel"},
+    {"name": "Goedecker, Stefan", "affiliation": "University of Basel"}
+  ],
+  "keywords": [
+    "minima hopping",
+    "global optimization",
+    "structure prediction",
+    "atomic simulation environment",
+    "ASE"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "10.1016/j.softx.2024.101632",
+      "relation": "isDescribedBy",
+      "resource_type": "publication-article"
+    },
+    {
+      "identifier": "https://gitlab.com/goedeckergroup/ase_mh",
+      "relation": "isSupplementTo",
+      "resource_type": "software"
+    }
+  ]
+}

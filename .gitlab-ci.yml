@@ -1,0 +1,19 @@
+# Archive every tagged release on Zenodo (gives each release a DOI).
+# Required CI/CD variables (Settings > CI/CD > Variables):
+#   ZENODO_TOKEN          masked + protected, Zenodo token with deposit:write and deposit:actions
+#   ZENODO_DEPOSITION_ID  record ID of an earlier version (empty for the very first upload)
+#   ZENODO_URL            optional, e.g. https://sandbox.zenodo.org for a test run
+# Protected variables are only available to protected tags: protect tags under
+# Settings > Repository > Protected tags (e.g. pattern "*").
+
+stages:
+  - release
+
+zenodo:
+  stage: release
+  image: python:3.12
+  rules:
+    - if: $CI_COMMIT_TAG
+  script:
+    - git archive --format=zip --prefix="ase_mh-${CI_COMMIT_TAG}/" -o "ase_mh-${CI_COMMIT_TAG}.zip" HEAD
+    - python ci/zenodo_release.py "ase_mh-${CI_COMMIT_TAG}.zip" "${CI_COMMIT_TAG}"

@@ -1,0 +1,46 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the article below."
+title: "Python Minima Hopping (ASE Minima Hopping)"
+type: software
+authors:
+  - family-names: Krummenacher
+    given-names: Marco
+    affiliation: University of Basel
+  - family-names: Gubler
+    given-names: Moritz
+    affiliation: University of Basel
+  - family-names: Finkler
+    given-names: Jonas A.
+    affiliation: University of Basel
+  - family-names: Goedecker
+    given-names: Stefan
+    affiliation: University of Basel
+license: GPL-3.0-only
+repository-code: "https://gitlab.com/goedeckergroup/ase_mh"
+url: "https://python-minima-hopping.readthedocs.io/"
+keywords:
+  - minima hopping
+  - global optimization
+  - structure prediction
+  - ASE
+preferred-citation:
+  type: article
+  title: "Performing highly efficient Minima Hopping structure predictions using the Atomic Simulation Environment (ASE)"
+  authors:
+    - family-names: Krummenacher
+      given-names: Marco
+    - family-names: Gubler
+      given-names: Moritz
+    - family-names: Finkler
+      given-names: Jonas A.
+    - family-names: Huber
+      given-names: Hannes
+    - family-names: Sommer-Jörgensen
+      given-names: Martin
+    - family-names: Goedecker
+      given-names: Stefan
+  journal: SoftwareX
+  volume: 25
+  start: 101632
+  year: 2024
+  doi: 10.1016/j.softx.2024.101632
