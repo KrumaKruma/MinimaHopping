@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
         
 setup(
     name='minimahopping',
-    version='1.1.2',
+    version='1.1.3',
     author='Marco Krummenacher, Moritz Gubler, Jonas Finkler, Hannes Huber, Martin Sommer-Jörgensen, Stefan Goedecker',
     description='ASE Minimahopping',
     long_description='Minimahopping compatible to ASE',
