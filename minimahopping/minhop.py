@@ -36,22 +36,20 @@ def recalculate_basis(calculator, atoms):
     Currently, this is done before every geometry optimization and MD step.
     """
     if isinstance(calculator, LinearCombinationCalculator):
-        i = 0
-        for calc in calculator.mixer.calcs:
-            try:
+        for i, calc in enumerate(calculator.mixer.calcs):
+            if hasattr(calc, "recalculateBasis"):
                 logging.logger.debug("Recalculating basis for calculator %i"%i)
                 calc.recalculateBasis(atoms)
                 logging.logger.debug("Recalculated basis for calculator %i"%i)
-            except:
-                logging.logger.debug("Could not recalculate basis of calculator %i (when using a sirius calculator, this is severe, else this does not matter). Calculator type: %s"%(i, str(type(calc))))
-            i += 1
+            else:
+                logging.logger.debug("Calculator %i has no recalculateBasis method, skipping. Calculator type: %s"%(i, str(type(calc))))
     else:
-        try:
+        if hasattr(calculator, "recalculateBasis"):
             logging.logger.debug("Recalculating basis for calculator")
             calculator.recalculateBasis(atoms)
             logging.logger.debug("Recalculated basis for calculator")
-        except:
-            logging.logger.debug("Could not recalculate basis (when using a sirius calculator, this is severe, else this does not matter). Calculator used: %s"%str(type(calculator)))
+        else:
+            logging.logger.debug("Calculator has no recalculateBasis method, skipping. Calculator used: %s"%str(type(calculator)))
 
 
 
@@ -683,7 +681,7 @@ class Minimahopping:
 
     def isEqualTo(self, structure1: Minimum, structure2: Minimum):
         '''
-        Checking if two strucutres are different.
+        Checking if two structures are different.
         '''
         energy_difference = structure1.__compareto__(structure2)
         if energy_difference < self.parameters.energy_threshold:

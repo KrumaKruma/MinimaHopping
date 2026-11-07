@@ -7,8 +7,8 @@ setup(
     author='Marco Krummenacher, Moritz Gubler, Jonas Finkler, Hannes Huber, Martin Sommer-Jörgensen, Stefan Goedecker',
     description='ASE Minimahopping',
     long_description='Minimahopping compatible to ASE',
-    url='https://github.com/',
-    keywords='development, setup, setuptools',
+    url='https://gitlab.com/goedeckergroup/ase_mh',
+    keywords='minima hopping, global optimization, structure prediction, ASE',
     python_requires='>=3.7, <4',
     packages=find_packages(include=['minimahopping', 'minimahopping.*']),
     install_requires=[

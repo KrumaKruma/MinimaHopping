@@ -48,7 +48,7 @@ Citing MinimaHopping
 --------------------
 This implementation
 
-   M. Krummenacher, M. Gubler, J. A. Finkler, H. Huber, M. Sommer-Jörgensen, S.Goedecker, `Performing highly efficient Minima Hopping strucutre predictions using the Atomic Simulation Environment <https://doi.org/10.1016/j.softx.2024.101632>`_, SoftwareX Volume 25, February 2024, 101632
+   M. Krummenacher, M. Gubler, J. A. Finkler, H. Huber, M. Sommer-Jörgensen, S.Goedecker, `Performing highly efficient Minima Hopping structure predictions using the Atomic Simulation Environment <https://doi.org/10.1016/j.softx.2024.101632>`_, SoftwareX Volume 25, February 2024, 101632
 
 
 Geometry Optimizer:

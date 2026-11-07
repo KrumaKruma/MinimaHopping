@@ -1,5 +1,7 @@
 # Python Minima Hopping
-Python Minima Hopping code for global strucutre optimization. This code can simulate both, cluster and bulk systems. Moreover can any ASE calculator be coupled to the code. For periodic systems variable cell shape MD, softening and optimization are implemented. 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24035624.svg)](https://doi.org/10.5281/zenodo.24035624)
+
+Python Minima Hopping code for global structure optimization. This code can simulate both, cluster and bulk systems. Moreover can any ASE calculator be coupled to the code. For periodic systems variable cell shape MD, softening and optimization are implemented. 
 
 ## Installation
 Python Minima Hopping requires:
@@ -48,6 +50,8 @@ In the example folder are also examples including periodic boundary calculations
 
 
 ## References & Citing
+If you use this code, please cite the SoftwareX article (1.). To refer to the exact version of the software you used, cite its Zenodo archive in addition: https://doi.org/10.5281/zenodo.24035624 (this DOI always resolves to the latest version; each release also has its own DOI listed on that page).
+
 1. Reference for this code: https://doi.org/10.1016/j.softx.2024.101632
 2. Reference to the original implementation: https://doi.org/10.1063/1.1724816
 3. Reference for the local geometry optimizer: https://doi.org/10.1016/j.jcpx.2023.100131

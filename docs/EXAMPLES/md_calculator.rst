@@ -31,7 +31,7 @@ Next we read the structures and set up the two calculators.
 
 .. code-block:: python
 
-    # read the initial strucutre
+    # read the initial structure
     initial_configuration = read("input.extxyz")
 
     # give the pseudo potential for silicon

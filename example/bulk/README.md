@@ -15,7 +15,7 @@ python mh_si4_preprocess.py
 ```
 
 ## Minima Hopping
-In this example the Minima Hopping for Na13 is performed. First an initial structure is constructed where the atoms are construcuted as a sting. The global minimum which is to be found is an icosahedral strucutre. This example can be run:
+In this example the Minima Hopping for Na13 is performed. First an initial structure is constructed where the atoms are constructed as a sting. The global minimum which is to be found is an icosahedral structure. This example can be run:
 ```bash
 python mh_si4.py
 ```
